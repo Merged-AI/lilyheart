@@ -1,0 +1,585 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Google Fonts fallback for reliable loading */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+/* Font variables are now handled by Next.js font optimization in layout.tsx */
+/* Fallback font definitions to ensure smooth loading */
+:root {
+  --font-inter-fallback: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-poppins-fallback: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Ensure font variables have fallbacks if Next.js fonts aren't loaded yet */
+body {
+  font-family: var(--font-inter, var(--font-inter-fallback));
+}
+
+/* Heart Harbor Brand Colors */
+:root {
+  --mb-purple: #8B5CF6;
+  --mb-purple-light: #A78BFA;
+  --mb-purple-dark: #7C3AED;
+  --mb-blue: #3B82F6;
+  --mb-blue-light: #60A5FA;
+  --mb-blue-dark: #2563EB;
+  --mb-gray-50: #f8fafc;
+  --mb-gray-100: #e2e8f0;
+  --mb-gray-600: #64748b;
+  --mb-gray-900: #1e293b;
+  /* Mental health specific colors */
+  --mb-red: #ef4444;
+  --mb-orange: #f59e0b;
+  --mb-green: #10b981;
+  --mb-yellow: #eab308;
+}
+
+/* Custom Animations */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg); 
+  }
+  50% { 
+    transform: translateY(-20px) rotate(180deg); 
+  }
+}
+
+@keyframes phoneFloat {
+  0%, 100% { 
+    transform: translateY(0px); 
+  }
+  50% { 
+    transform: translateY(-10px); 
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes mental-health-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+  }
+}
+
+/* Animation Classes */
+.animate-float {
+  animation: float 20s ease-in-out infinite;
+}
+
+.animate-phone-float {
+  animation: phoneFloat 6s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 2s ease-out;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 3s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+}
+
+.animate-mental-health-pulse {
+  animation: mental-health-pulse 2s infinite;
+}
+
+/* Improved Backdrop Blur */
+.backdrop-blur-strong {
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Custom Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--mb-purple), var(--mb-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Enhanced Button Styles */
+.btn-enhanced {
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn-enhanced:hover::before {
+  left: 100%;
+}
+
+/* Card Hover Effects */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--mb-purple), var(--mb-blue));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--mb-purple-light), var(--mb-blue-light));
+}
+
+/* Enhanced Focus States */
+.focus-enhanced:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+}
+
+/* Responsive Improvements */
+@media (max-width: 768px) {
+  .hero-responsive {
+    padding: 2rem 1rem;
+  }
+  
+  .text-responsive {
+    font-size: clamp(1.5rem, 4vw, 3rem);
+  }
+}
+
+/* Loading States */
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Enhanced Typography */
+.text-shadow-sm {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.text-shadow-md {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Interactive Elements */
+.interactive-scale {
+  transition: transform 0.2s ease;
+}
+
+.interactive-scale:hover {
+  transform: scale(1.05);
+}
+
+.interactive-scale:active {
+  transform: scale(0.95);
+}
+
+/* Brand Specific Styles */
+.mb-gradient-primary {
+  background: linear-gradient(135deg, var(--mb-purple), var(--mb-blue));
+}
+
+.mb-gradient-light {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
+}
+
+.mb-shadow-brand {
+  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.15);
+}
+
+.mb-shadow-brand-lg {
+  box-shadow: 0 20px 40px rgba(139, 92, 246, 0.2);
+}
+
+/* Glass Effect */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Mental Health Specific Styles */
+.mood-indicator {
+  transition: all 0.3s ease;
+}
+
+.mood-happy {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.mood-sad {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.mood-anxious {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.mood-stressed {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.mood-neutral {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+}
+
+/* Alert Styles */
+.alert-high {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.1));
+  border-left: 4px solid #ef4444;
+}
+
+.alert-medium {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.1));
+  border-left: 4px solid #f59e0b;
+}
+
+.alert-low {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.1));
+  border-left: 4px solid #10b981;
+}
+
+/* Chart customizations for Heart Harbor */
+.recharts-tooltip-wrapper {
+  background: white !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1) !important;
+}
+
+.recharts-legend-wrapper {
+  padding-top: 20px !important;
+}
+
+/* Custom Utilities */
+.overflow-hidden-x {
+  overflow-x: hidden;
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-3d {
+  transform-style: preserve-3d;
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Dark Mode Support (if needed later) */
+@media (prefers-color-scheme: dark) {
+  .dark-mode-ready {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .contrast-aware {
+    border: 2px solid;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-phone-float,
+  .animate-fade-in-up,
+  .animate-pulse-slow,
+  .animate-bounce-slow,
+  .animate-gradient,
+  .animate-mental-health-pulse {
+    animation: none;
+  }
+  
+  .card-hover,
+  .btn-enhanced,
+  .interactive-scale {
+    transition: none;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 262.1 83.3% 57.8%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 262.1 83.3% 57.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* FamilyConnect Brand Extensions */
+@layer utilities {
+  .text-bridge-blue {
+    color: #4A90E2;
+  }
+  .bg-bridge-blue {
+    background-color: #4A90E2;
+  }
+  .border-bridge-blue {
+    border-color: #4A90E2;
+  }
+  
+  .text-warm-green {
+    color: #7CB342;
+  }
+  .bg-warm-green {
+    background-color: #7CB342;
+  }
+  .border-warm-green {
+    border-color: #7CB342;
+  }
+  
+  .text-soft-purple {
+    color: #9B59B6;
+  }
+  .bg-soft-purple {
+    background-color: #9B59B6;
+  }
+  .border-soft-purple {
+    border-color: #9B59B6;
+  }
+  
+  .text-gentle-orange {
+    color: #F39C12;
+  }
+  .bg-gentle-orange {
+    background-color: #F39C12;
+  }
+  .border-gentle-orange {
+    border-color: #F39C12;
+  }
+  
+  .text-calm-teal {
+    color: #1ABC9C;
+  }
+  .bg-calm-teal {
+    background-color: #1ABC9C;
+  }
+  .border-calm-teal {
+    border-color: #1ABC9C;
+  }
+}
+
+/* Custom animations for the family platform */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Chart customizations for FamilyConnect */
+.recharts-surface {
+  border-radius: 8px;
+}
+
+.recharts-cartesian-grid line {
+  stroke: #e5e7eb;
+  stroke-dasharray: 3 3;
+}
+
+/* Custom animations for the child health platform */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Chart customizations */
+.recharts-tooltip-content {
+  @apply bg-white border border-gray-200 rounded-lg shadow-lg p-3;
+}
+
+.recharts-tooltip-label {
+  @apply font-semibold text-gray-700;
+}
+
+/* Alert animations */
+@keyframes slide-in {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+/* Gradient backgrounds */
+.gradient-wellness {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.gradient-mood {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.gradient-social {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+} 
