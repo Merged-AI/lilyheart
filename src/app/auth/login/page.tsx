@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import { Brain } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -25,7 +27,7 @@ export default function LoginPage() {
       })
 
       if (response.ok) {
-        window.location.href = '/dashboard'
+        router.push('/dashboard')
       } else {
         const data = await response.json()
         setError(data.error || 'Login failed')

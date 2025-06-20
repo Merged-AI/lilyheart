@@ -4,8 +4,10 @@ import { useState } from 'react'
 import { Brain, ArrowRight, Check, Users, MessageCircle, Clock, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import PaymentForm from '@/components/payment/payment-form'
+import { useRouter } from 'next/navigation'
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState({
     parentName: '',
@@ -78,7 +80,7 @@ export default function RegisterPage() {
     // Payment setup successful, show success page then redirect
     setStep(3)
     setTimeout(() => {
-      window.location.href = '/dashboard'
+      router.push('/dashboard')
     }, 3000) // 3 second delay to show success message
   }
 

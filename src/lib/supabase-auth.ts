@@ -35,7 +35,44 @@ export const createServerSupabaseClient = (request: NextRequest, response: NextR
   )
 }
 
-// Get authenticated user from cookies (for API routes)
+// Custom authentication function that works with auth_token cookie
+export async function getAuthenticatedFamilyFromToken() {
+  const cookieStore = cookies()
+  const authToken = cookieStore.get('auth_token')?.value
+
+  if (!authToken) {
+    return null
+  }
+
+  try {
+    // Decode the token to get family ID
+    const decoded = Buffer.from(authToken, 'base64').toString('utf-8')
+    const [familyId] = decoded.split(':')
+    
+    if (!familyId) {
+      return null
+    }
+
+    // Fetch family data from database
+    const supabase = createServerSupabase()
+    const { data: family, error } = await supabase
+      .from('families')
+      .select('*')
+      .eq('id', familyId)
+      .single()
+
+    if (error || !family) {
+      return null
+    }
+
+    return family
+  } catch (error) {
+    console.error('Error decoding auth token:', error)
+    return null
+  }
+}
+
+// Get authenticated user from cookies (for API routes) - Supabase auth
 export async function getAuthenticatedUser() {
   const cookieStore = cookies()
   const supabase = createServerClient(
@@ -64,7 +101,7 @@ export async function getAuthenticatedUser() {
   return user
 }
 
-// Get family data for authenticated user
+// Get family data for authenticated user - Supabase auth
 export async function getAuthenticatedFamily() {
   const user = await getAuthenticatedUser()
   if (!user) {

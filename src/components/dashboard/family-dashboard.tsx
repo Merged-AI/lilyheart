@@ -186,7 +186,7 @@ export function FamilyDashboard({ familyId }: FamilyDashboardProps) {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
       {/* Navigation */}
       <nav className="bg-white border-b border-gray-200 py-4 px-6">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-[1400px] mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
               <ArrowLeft className="h-5 w-5" />
@@ -205,7 +205,7 @@ export function FamilyDashboard({ familyId }: FamilyDashboardProps) {
       </nav>
 
       <div className="p-6">
-        <div className="max-w-7xl mx-auto space-y-8">
+        <div className="max-w-[1400px] mx-auto space-y-8">
           {/* Header */}
           <div className="text-center space-y-4">
             <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-poppins)' }}>

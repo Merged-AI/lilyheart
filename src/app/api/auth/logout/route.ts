@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerSupabaseClient } from '@/lib/supabase-auth'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const response = NextResponse.json({ success: true })
   
-  // Clear the auth token cookie
+  // Clear the custom auth token cookie
   response.cookies.set('auth_token', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -11,6 +12,10 @@ export async function POST() {
     maxAge: 0, // Expire immediately
     path: '/'
   })
+
+  // Clear Supabase session cookies
+  const supabase = createServerSupabaseClient(request, response)
+  await supabase.auth.signOut()
 
   return response
 } 

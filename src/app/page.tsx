@@ -6,7 +6,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-white overflow-hidden">
       {/* Header */}
       <header className="bg-gradient-to-r from-purple-600 to-blue-600 sticky top-0 z-50 backdrop-blur-lg">
-        <nav className="max-w-7xl mx-auto flex justify-between items-center py-4 px-6">
+        <nav className="max-w-[1400px] mx-auto flex justify-between items-center py-4 px-6">
           <Link href="/" className="flex items-center space-x-3 text-white text-xl font-semibold">
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
               <Brain className="h-6 w-6 text-purple-600" />
@@ -50,7 +50,7 @@ export default function HomePage() {
           <div className="absolute -top-1/2 -right-1/4 w-full h-[200%] bg-gradient-to-br from-purple-100/30 to-blue-100/30 rounded-full animate-pulse-slow transform rotate-12"></div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
+        <div className="max-w-[1400px] mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
           {/* Hero Content */}
           <div className="space-y-8">
             <h1 className="text-5xl lg:text-6xl font-bold leading-tight" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -172,7 +172,7 @@ export default function HomePage() {
 
       {/* Trust Indicators */}
       <section className="bg-white py-16 border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="max-w-[1400px] mx-auto px-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
             <div className="space-y-4">
               <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto">
@@ -219,7 +219,7 @@ export default function HomePage() {
 
       {/* How It Works */}
       <section id="how-it-works" className="py-20 bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="max-w-[1400px] mx-auto px-6">
           <h2 className="text-4xl font-bold text-center text-gray-900 mb-16" style={{ fontFamily: 'var(--font-poppins)' }}>
             How Heart Harbor Works
           </h2>
@@ -268,7 +268,7 @@ export default function HomePage() {
 
       {/* Pricing Section */}
       <section id="pricing" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="max-w-[1400px] mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-poppins)' }}>
               Simple, Transparent Pricing
@@ -406,7 +406,7 @@ export default function HomePage() {
 
       {/* Testimonial */}
       <section className="py-20 bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="max-w-4xl mx-auto px-6 text-center">
+        <div className="max-w-[1400px] mx-auto px-6 text-center">
           <p className="text-2xl italic text-gray-600 mb-8 leading-relaxed" style={{ fontFamily: 'var(--font-inter)' }}>
             "Heart Harbor transformed how our family communicates. My kids actually open up more, and the insights help me understand their emotional needs better."
           </p>
@@ -424,7 +424,7 @@ export default function HomePage() {
 
       {/* Call to Action */}
       <section className="bg-gradient-to-r from-purple-600 to-blue-600 py-20 text-white text-center">
-        <div className="max-w-4xl mx-auto px-6">
+        <div className="max-w-[1400px] mx-auto px-6">
           <h2 className="text-4xl font-bold mb-6" style={{ fontFamily: 'var(--font-poppins)' }}>
             Ready to Transform Your Family Communication?
           </h2>
@@ -457,7 +457,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-6 text-center">
+        <div className="max-w-[1400px] mx-auto px-6 text-center">
           <div className="flex items-center justify-center space-x-3 mb-6">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
               <Brain className="h-6 w-6 text-white" />

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { getAuthenticatedUser, getAuthenticatedFamily, createServerSupabase } from '@/lib/supabase-auth'
+import { getAuthenticatedFamilyFromToken, createServerSupabase } from '@/lib/supabase-auth'
 import { therapeuticMemory } from '@/lib/pinecone'
 import { embeddedTherapeuticKnowledge } from '@/lib/embedded-therapeutic-knowledge'
 
@@ -136,6 +136,30 @@ If you're having thoughts of hurting yourself, please reach out to:
 You matter, and your life has value. Please don't give up. 💜`
 }
 
+// Verify that child belongs to the authenticated family
+async function verifyChildBelongsToFamily(childId: string, familyId: string): Promise<boolean> {
+  try {
+    const supabase = createServerSupabase()
+    const { data: child, error } = await supabase
+      .from('children')
+      .select('id, family_id')
+      .eq('id', childId)
+      .eq('family_id', familyId)
+      .eq('is_active', true)
+      .single()
+
+    if (error || !child) {
+      console.error('Error verifying child belongs to family:', error)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error in verifyChildBelongsToFamily:', error)
+    return false
+  }
+}
+
 // Get the most recent active child from the authenticated family
 async function getMostRecentChild(familyId: string): Promise<string | null> {
   try {
@@ -232,7 +256,7 @@ function analyzeMoodFromMessage(userMessage: string, aiResponse: string): any {
     confidence -= 2
   }
 
-  // Frustration/anger indicators (important for Lily's impulse control issues)
+  // Frustration/anger indicators (important for children with impulse control issues)
   if (lowerMessage.includes('annoying') || lowerMessage.includes('don\'t want to help') || lowerMessage.includes('not fair')) {
     stress += 2
     confidence -= 1
@@ -250,7 +274,7 @@ function analyzeMoodFromMessage(userMessage: string, aiResponse: string): any {
   if (lowerMessage.includes('brother') || lowerMessage.includes('sister')) {
     if (lowerMessage.includes('annoying') || lowerMessage.includes('don\'t') || lowerMessage.includes('won\'t')) {
       stress += 2
-      // Pattern consistent with Lily's family tension issues
+      // Pattern consistent with family tension issues
     }
   }
 
@@ -329,7 +353,7 @@ function generateAdvancedInsights(message: string, mood: any, conversationHistor
     interventionNeeds.push('Schedule family meeting to address underlying issues')
   }
   
-  // Impulse control patterns (specific to Lily's case)
+  // Impulse control patterns (specific to children with emotional regulation difficulties)
   if (message.includes('angry') || message.includes('mad') || mood.anger >= 6) {
     insights.push('IMPULSE CONTROL: Signs of anger regulation difficulties - monitor for escalation patterns')
     behavioralPatterns.push('Emotional dysregulation episodes')
@@ -390,7 +414,7 @@ async function getChildContext(childId: string): Promise<string> {
     const supabase = createServerSupabase()
     const { data: child, error } = await supabase
       .from('children')
-      .select('ai_context, name, age, current_concerns, triggers, parent_goals')
+      .select('name, age, gender, current_concerns, triggers, parent_goals, reason_for_adding')
       .eq('id', childId)
       .single()
 
@@ -405,24 +429,110 @@ CHILD PROFILE FOR DR. EMMA AI:
 `
     }
 
-    return child.ai_context || `
-CHILD PROFILE FOR DR. EMMA AI:
-- Name: ${child.name}
-- Age: ${child.age}
-- Current Concerns: ${child.current_concerns || 'General emotional support needed'}
-- Parent Goals: ${child.parent_goals || 'Emotional support and coping strategies'}
-- Known Triggers: ${child.triggers || 'None specified'}
-
-INSTRUCTIONS FOR DR. EMMA:
-- Provide personalized, age-appropriate therapy for ${child.name}
-- Be especially mindful of their unique situation and concerns
-- Focus on building trust and providing emotional support
-- Work toward the goals identified by their parents
-`
+    // Use the comprehensive child context generation
+    return generateChildContext({
+      name: child.name,
+      age: child.age,
+      gender: child.gender,
+      currentConcerns: child.current_concerns,
+      triggers: child.triggers,
+      parentGoals: child.parent_goals,
+      reasonForAdding: child.reason_for_adding
+    })
   } catch (error) {
     console.error('Error in getChildContext:', error)
     return ''
   }
+}
+
+// Comprehensive child context generation function
+function generateChildContext(child: any): string {
+  const age = Number(child.age);
+  const name = child.name;
+  const currentConcerns = child.currentConcerns || "";
+  const triggers = child.triggers || "";
+  const parentGoals = child.parentGoals || "";
+  const reasonForAdding = child.reasonForAdding || "";
+  const gender = child.gender || "";
+
+  return `
+COMPREHENSIVE CHILD PROFILE FOR DR. EMMA AI:
+
+BASIC INFORMATION:
+- Name: ${name}
+- Age: ${age} years old
+- Gender: ${gender || "Not specified"}
+- Reason for therapy: ${reasonForAdding}
+
+CURRENT MENTAL HEALTH CONCERNS:
+${currentConcerns}
+
+KNOWN TRIGGERS & STRESSORS:
+${triggers || "No specific triggers identified yet"}
+
+PARENT/GUARDIAN THERAPEUTIC GOALS:
+${parentGoals}
+
+THERAPEUTIC APPROACH FOR ${name}:
+${
+  age <= 8
+    ? `- Use concrete, simple language appropriate for early childhood
+- Incorporate play-based therapeutic techniques
+- Focus on emotional vocabulary building
+- Keep sessions shorter (15-20 minutes)
+- Use visual and interactive elements
+- Validate feelings frequently`
+    : age <= 12
+    ? `- Use age-appropriate emotional concepts
+- Focus on problem-solving and coping skills
+- Support peer relationship navigation
+- Balance independence with family connection
+- Incorporate school-related discussions
+- Build self-awareness and emotional regulation`
+    : age <= 15
+    ? `- Respect growing independence and identity development
+- Address social complexities and peer pressure
+- Support identity formation and self-expression
+- Discuss future planning and goal-setting
+- Navigate family relationship changes
+- Build critical thinking about emotions and relationships`
+    : `- Treat as emerging adult with respect for autonomy
+- Support transition to adulthood planning
+- Address complex emotional and relationship topics
+- Encourage independent decision-making
+- Discuss future goals and aspirations
+- Support family relationship evolution`
+}
+
+KEY THERAPEUTIC FOCUS AREAS FOR ${name}:
+- Primary concerns: ${currentConcerns}
+- Trigger awareness: ${
+    triggers
+      ? `Be mindful of: ${triggers}`
+      : "Monitor for emotional triggers during conversations"
+  }
+- Parent goals: ${parentGoals}
+- Age-appropriate emotional development support
+- Building healthy coping mechanisms
+- Strengthening family communication
+
+CONVERSATION GUIDELINES FOR ${name}:
+- Always use their name to create personal connection
+- Reference their specific concerns and background
+- Avoid or carefully approach known triggers
+- Work toward parent-identified goals
+- Adapt all interventions for ${age}-year-old developmental stage
+- Create trauma-informed, safe therapeutic space
+- Focus on strengths-based approach while addressing concerns
+- Monitor for crisis indicators and escalate appropriately
+
+THERAPEUTIC RELATIONSHIP BUILDING:
+- Establish trust through consistency and understanding
+- Show genuine interest in ${name}'s unique perspective
+- Validate their experiences while providing gentle guidance
+- Help them feel heard and understood
+- Build therapeutic alliance before deeper therapeutic work
+`;
 }
 
 // Get child data for knowledge base enhancement
@@ -452,7 +562,7 @@ async function getChildDataForKnowledge(childId: string): Promise<{age?: number,
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, history } = await request.json()
+    const { message, history, childId } = await request.json()
 
     if (!message) {
       return NextResponse.json(
@@ -461,20 +571,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get authenticated user and family
-    const user = await getAuthenticatedUser()
-    if (!user) {
+    if (!childId) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+        { error: 'Child ID is required' },
+        { status: 400 }
       )
     }
 
-    const family = await getAuthenticatedFamily()
+    // Get authenticated family
+    const family = await getAuthenticatedFamilyFromToken()
     if (!family) {
       return NextResponse.json(
-        { error: 'No family found. Please complete your profile first.' },
-        { status: 404 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
@@ -491,13 +600,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Get most recent child ID and verify therapeutic profile is complete
-    const childId = await getMostRecentChild(family.id)
-    
-    if (!childId) {
+    // Verify that the child belongs to the authenticated family
+    const childBelongsToFamily = await verifyChildBelongsToFamily(childId, family.id)
+    if (!childBelongsToFamily) {
       return NextResponse.json(
-        { error: 'No active children found. Please register a child first.' },
-        { status: 404 }
+        { error: 'Child not found or access denied' },
+        { status: 403 }
       )
     }
 
@@ -560,6 +668,8 @@ ${therapeuticContext}
 
 ${knowledgeGuidance}
 
+IMPORTANT: Use the child's actual name from the CHILD-SPECIFIC CONTEXT above in your responses when appropriate. Do not use any other names.
+
 THERAPEUTIC FOCUS FOR THIS CHILD:
 - PROACTIVELY check in about family dynamics and sibling relationships
 - Ask gentle questions about school situations and friendships
@@ -571,7 +681,7 @@ THERAPEUTIC FOCUS FOR THIS CHILD:
 - Build self-esteem and confidence around their strengths
 
 SESSION LEADERSHIP FOR THIS CHILD:
-- Start with: "Hi Lily! I'm so glad you're here. How are you feeling today?"
+- Start with a warm, personalized greeting using the child's name from the context
 - Check in about recent experiences: "What's been happening with your family lately?"
 - Notice emotional cues: "I can tell you might be feeling frustrated about that..."
 - Guide toward insight: "What do you think was going on inside when that happened?"
@@ -579,8 +689,8 @@ SESSION LEADERSHIP FOR THIS CHILD:
 
 PARENT GOALS TO WORK TOWARD:
 - Document behavioral patterns and emotional triggers for professional consultation
-- Help Lily develop emotional vocabulary and self-awareness
-- Build practical coping skills she can use independently
+- Help the child develop emotional vocabulary and self-awareness
+- Build practical coping skills they can use independently
 - Strengthen family communication and understanding
 
 Use this information to provide personalized, contextual therapy responses that address this specific child's needs, concerns, and background.`

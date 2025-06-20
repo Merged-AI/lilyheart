@@ -118,7 +118,7 @@ interface ProgressMetric {
   trackingMethod: string
 }
 
-export function AdvancedInsightsDashboard() {
+export function AdvancedInsightsDashboard({ selectedChildId }: { selectedChildId?: string }) {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedTimeframe, setSelectedTimeframe] = useState('30')
@@ -130,11 +130,18 @@ export function AdvancedInsightsDashboard() {
     // Refresh analysis every 5 minutes
     const interval = setInterval(fetchAnalysisData, 300000)
     return () => clearInterval(interval)
-  }, [selectedTimeframe])
+  }, [selectedTimeframe, selectedChildId])
 
   const fetchAnalysisData = async () => {
     try {
-      const response = await fetch(`/api/analysis?type=comprehensive&days=${selectedTimeframe}`)
+      const url = new URL('/api/analysis', window.location.origin)
+      url.searchParams.set('type', 'comprehensive')
+      url.searchParams.set('days', selectedTimeframe)
+      if (selectedChildId) {
+        url.searchParams.set('childId', selectedChildId)
+      }
+      
+      const response = await fetch(url.toString())
       if (response.ok) {
         const data = await response.json()
         setAnalysisData(data)

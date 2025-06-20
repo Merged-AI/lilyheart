@@ -1,23 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser, getAuthenticatedFamily, createServerSupabase } from '@/lib/supabase-auth'
+import { getAuthenticatedFamilyFromToken, createServerSupabase } from '@/lib/supabase-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser()
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
-    const family = await getAuthenticatedFamily()
+    const family = await getAuthenticatedFamilyFromToken()
     
     if (!family) {
       return NextResponse.json(
-        { error: 'Family not found' },
-        { status: 404 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
