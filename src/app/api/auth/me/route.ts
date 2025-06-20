@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedFamilyFromToken, createServerSupabase } from '@/lib/supabase-auth'
 
+// Force dynamic rendering since this route uses cookies
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const family = await getAuthenticatedFamilyFromToken()

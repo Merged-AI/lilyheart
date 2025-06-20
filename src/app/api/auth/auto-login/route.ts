@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-auth'
 
+// Force dynamic rendering since this route uses cookies
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   const response = NextResponse.json({ status: 'processing' })
   const supabase = createServerSupabaseClient(request, response)

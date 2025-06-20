@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Send,
@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   UserPlus,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import MessageContent from "@/components/chat/MessageContent";
@@ -49,7 +50,20 @@ const anxietyHelpers = [
   "It's okay to feel anxious sometimes. Even adults feel this way. What usually helps you feel a little better?",
 ];
 
-export default function ChildChatPage() {
+// Loading component for Suspense fallback
+function ChatLoading() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+        <p className="text-purple-700">Loading chat...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main component that uses useSearchParams
+function ChatContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialChildId = searchParams.get("childId");
@@ -737,5 +751,13 @@ export default function ChildChatPage() {
         </Modal>
       )}
     </div>
+  );
+}
+
+export default function ChildChatPage() {
+  return (
+    <Suspense fallback={<ChatLoading />}>
+      <ChatContent />
+    </Suspense>
   );
 }

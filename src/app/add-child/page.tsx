@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,7 +29,20 @@ interface ChildData {
   emergencyContacts: string;
 }
 
-export default function AddChildPage() {
+// Loading component for Suspense fallback
+function AddChildLoading() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+        <p className="text-purple-700">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main component that uses useSearchParams
+function AddChildContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const childId = searchParams.get("childId");
@@ -642,5 +655,13 @@ export default function AddChildPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AddChildPage() {
+  return (
+    <Suspense fallback={<AddChildLoading />}>
+      <AddChildContent />
+    </Suspense>
   );
 }
