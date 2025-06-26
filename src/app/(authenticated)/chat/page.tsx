@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback, Suspense } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+  Suspense,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Send,
@@ -19,7 +26,6 @@ import {
 import Link from "next/link";
 import MessageContent from "@/components/chat/MessageContent";
 import Modal from "@/components/common/Modal";
-import { ChildSelector } from "@/components/dashboard/child-selector";
 
 interface Message {
   id: string;
@@ -143,28 +149,14 @@ function ChatContent() {
   const handleProfileCompletion = useCallback(
     (childId: string) => {
       handleModalClose();
-      router.push(`/add-child?childId=${childId}`);
+      router.push(`/children/add?childId=${childId}`);
     },
     [handleModalClose, router]
   );
 
-  const handleChildSelect = useCallback((childId: string) => {
-    setSelectedChildId(childId);
-    // Clear messages when switching children to start fresh
-    setMessages([
-      {
-        id: "1",
-        content:
-          "Hi there! I'm Dr. Emma, your AI friend. I'm here to listen and help you with any feelings or thoughts you want to share. What would you like to talk about today? 😊",
-        sender: "ai",
-        timestamp: new Date(),
-      },
-    ]);
-  }, []);
-
-  const handleAddChild = useCallback(() => {
-    router.push("/add-child");
-  }, [router]);
+  const handleAddChild = () => {
+    router.push("/children/add");
+  };
 
   const handleLogin = useCallback(() => {
     handleModalClose();
@@ -369,7 +361,7 @@ function ChatContent() {
         // Profile completion required
         const data = await response.json();
         if (data.requiresProfileCompletion) {
-          router.push(`/add-child?childId=${selectedChildId}`);
+          router.push(`/children/add?childId=${selectedChildId}`);
           return "Redirecting you to complete the therapeutic profile...";
         }
       }
@@ -379,12 +371,12 @@ function ChatContent() {
       }
 
       const data = await response.json();
-      
+
       // Check if the response indicates crisis content
-      if (data.hasAlert && data.alert_level === 'high') {
+      if (data.hasAlert && data.alert_level === "high") {
         setShowCrisisHelp(true);
       }
-      
+
       return data.response;
     } catch (error) {
       console.error("Error getting AI response:", error);
@@ -505,8 +497,12 @@ function ChatContent() {
     return loadingState;
   }
 
+  const handleEditChildFromContext = (childId: string) => {
+    router.push(`/children/add?childId=${selectedChildId}`);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-50 to-indigo-100">
+    <>
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-lg shadow-sm border-b border-purple-200">
         <div className="max-w-4xl mx-auto px-6 py-4">
@@ -750,7 +746,7 @@ function ChatContent() {
           {modalConfig.message}
         </Modal>
       )}
-    </div>
+    </>
   );
 }
 

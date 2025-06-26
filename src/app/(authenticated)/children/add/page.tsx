@@ -163,11 +163,7 @@ function AddChildContent() {
 
       if (response.ok) {
         const result = await response.json();
-        if (childId) {
-          router.push(`/chat?childId=${childId}`);
-        } else {
-          router.push(`/dashboard?childAdded=${result.child.id}`);
-        }
+        router.push("/children");
       } else {
         throw new Error("Failed to add child");
       }
@@ -558,7 +554,7 @@ function AddChildContent() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link
-                href="/dashboard"
+                href="/children"
                 className="text-purple-600 hover:text-purple-700"
               >
                 <ArrowLeft className="h-6 w-6" />

@@ -16,9 +16,14 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServerSupabase();
+  
+  // Fetch children with session count using a subquery
   const { data: children, error } = await supabase
     .from("children")
-    .select("*")
+    .select(`
+      *,
+      sessions_count:therapy_sessions(count)
+    `)
     .eq("family_id", family.id)
     .eq("is_active", true)
     .order("created_at", { ascending: true });
@@ -31,7 +36,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ children: children || [] });
+  // Transform the data to include the session count as a simple number
+  const childrenWithSessionCount = (children || []).map(child => ({
+    ...child,
+    sessions_count: child.sessions_count?.[0]?.count || 0
+  }));
+
+  return NextResponse.json({ children: childrenWithSessionCount });
 }
 
 // POST: Add a new child to the family or update existing child

@@ -1,33 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Brain,
-  MessageCircle,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  Clock,
-  Heart,
-  AlertTriangle,
-  FileText,
-  Phone,
-} from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import { Brain, TrendingUp } from "lucide-react";
+import { formatSessionDuration } from "@/lib/utils";
 
 // Mock data for mental health analytics
 const moodData = [
@@ -402,11 +377,20 @@ export function ChildMentalHealthDashboard({
     // Use AI insights if available
     if (moodAnalysis.insights) {
       const insights = moodAnalysis.insights.toLowerCase();
-      if (insights.includes("anxious") || insights.includes("anxiety")) return "Anxious";
-      if (insights.includes("sad") || insights.includes("sadness") || insights.includes("depressive")) return "Sad";
-      if (insights.includes("stress") || insights.includes("overwhelmed")) return "Stressed";
-      if (insights.includes("happy") || insights.includes("positive")) return "Happy";
-      if (insights.includes("crisis") || insights.includes("concerning")) return "Concerning";
+      if (insights.includes("anxious") || insights.includes("anxiety"))
+        return "Anxious";
+      if (
+        insights.includes("sad") ||
+        insights.includes("sadness") ||
+        insights.includes("depressive")
+      )
+        return "Sad";
+      if (insights.includes("stress") || insights.includes("overwhelmed"))
+        return "Stressed";
+      if (insights.includes("happy") || insights.includes("positive"))
+        return "Happy";
+      if (insights.includes("crisis") || insights.includes("concerning"))
+        return "Concerning";
     }
 
     // Fallback to score-based analysis
@@ -415,7 +399,7 @@ export function ChildMentalHealthDashboard({
     if (stress >= 7) return "Stressed";
     if (happiness >= 7) return "Happy";
     if (anxiety >= 6 || sadness >= 6 || stress >= 6) return "Mixed";
-    
+
     return "Neutral";
   };
 
@@ -434,27 +418,27 @@ export function ChildMentalHealthDashboard({
     // Use AI insights if available
     if (moodAnalysis.insights) {
       const insights = moodAnalysis.insights.toLowerCase();
-      
+
       if (insights.includes("anxiety") || insights.includes("worried")) {
         recommendations.push("Practice breathing exercises together");
         recommendations.push("Consider anxiety management techniques");
       }
-      
+
       if (insights.includes("sad") || insights.includes("depressive")) {
         recommendations.push("Schedule quality time together");
         recommendations.push("Encourage expression of feelings");
       }
-      
+
       if (insights.includes("stress") || insights.includes("overwhelmed")) {
         recommendations.push("Review daily schedule and reduce pressure");
         recommendations.push("Introduce stress-relief activities");
       }
-      
+
       if (insights.includes("confidence") || insights.includes("self-esteem")) {
         recommendations.push("Focus on building self-esteem");
         recommendations.push("Celebrate small achievements");
       }
-      
+
       if (insights.includes("crisis") || insights.includes("professional")) {
         recommendations.push("Consider professional mental health support");
         recommendations.push("Contact mental health professional");
@@ -735,7 +719,7 @@ export function ChildMentalHealthDashboard({
                       {session.date} at {session.time}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {session.duration} min
+                      {formatSessionDuration(session.duration)}
                     </div>
                   </div>
                   <span

@@ -10,7 +10,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!
 })
 
-const INDEX_NAME = 'dremma'
+const INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'dremma'
 
 interface ConversationContext {
   id: string

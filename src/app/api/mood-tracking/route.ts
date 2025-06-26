@@ -157,6 +157,13 @@ function analyzeMoodStatus(moodEntries: any[]) {
         "Start tracking daily mood",
         "Encourage regular check-ins",
       ],
+      currentAverages: {
+        happiness: 5,
+        anxiety: 5,
+        sadness: 5,
+        stress: 5,
+        confidence: 5,
+      },
     };
   }
 
@@ -165,28 +172,28 @@ function analyzeMoodStatus(moodEntries: any[]) {
   // Calculate current averages
   const currentAverages = {
     happiness: Math.round(
-      recentEntries.reduce((sum, entry) => sum + (entry.happiness || 5), 0) /
+      recentEntries.reduce((sum, entry) => sum + entry.happiness, 0) /
         recentEntries.length
     ),
     anxiety: Math.round(
-      recentEntries.reduce((sum, entry) => sum + (entry.anxiety || 5), 0) /
+      recentEntries.reduce((sum, entry) => sum + entry.anxiety, 0) /
         recentEntries.length
     ),
     sadness: Math.round(
-      recentEntries.reduce((sum, entry) => sum + (entry.sadness || 5), 0) /
+      recentEntries.reduce((sum, entry) => sum + entry.sadness, 0) /
         recentEntries.length
     ),
     stress: Math.round(
-      recentEntries.reduce((sum, entry) => sum + (entry.stress || 5), 0) /
+      recentEntries.reduce((sum, entry) => sum + entry.stress, 0) /
         recentEntries.length
     ),
     confidence: Math.round(
-      recentEntries.reduce((sum, entry) => sum + (entry.confidence || 5), 0) /
+      recentEntries.reduce((sum, entry) => sum + entry.confidence, 0) /
         recentEntries.length
     ),
   };
 
-  // Determine overall mood status
+  // Determine overall mood status with more sensitive thresholds
   let status = "Stable";
   let level = "neutral";
   let insights = "Mood appears to be within normal range";
@@ -195,15 +202,29 @@ function analyzeMoodStatus(moodEntries: any[]) {
     "Maintain supportive environment",
   ];
 
-  // Check for concerning patterns
+  // Check for concerning patterns with more sensitive detection
   const highStress =
-    currentAverages.anxiety >= 7 ||
-    currentAverages.sadness >= 7 ||
-    currentAverages.stress >= 7;
-  const lowConfidence = currentAverages.confidence <= 3;
+    currentAverages.anxiety >= 6 ||
+    currentAverages.sadness >= 6 ||
+    currentAverages.stress >= 6;
+  const lowConfidence = currentAverages.confidence <= 4;
   const highHappiness = currentAverages.happiness >= 8;
+  const veryHighStress =
+    currentAverages.anxiety >= 8 ||
+    currentAverages.sadness >= 8 ||
+    currentAverages.stress >= 8;
 
-  if (highStress) {
+  if (veryHighStress) {
+    status = "Needs Immediate Attention";
+    level = "critical";
+    insights = "Significantly elevated levels of anxiety, sadness, or stress detected - immediate support recommended";
+    recommendations = [
+      "Schedule immediate quality time together",
+      "Practice relaxation techniques",
+      "Consider professional support",
+      "Monitor for concerning behaviors",
+    ];
+  } else if (highStress) {
     status = "Needs Attention";
     level = "concerning";
     insights = "Elevated levels of anxiety, sadness, or stress detected";
@@ -211,15 +232,17 @@ function analyzeMoodStatus(moodEntries: any[]) {
       "Schedule quality time together",
       "Practice relaxation techniques",
       "Consider professional support if needed",
+      "Monitor emotional patterns",
     ];
   } else if (lowConfidence) {
     status = "Confidence Building Needed";
     level = "moderate";
-    insights = "Low confidence levels may need support";
+    insights = "Low confidence levels may need support and encouragement";
     recommendations = [
       "Focus on building self-esteem",
       "Celebrate small achievements",
       "Encourage positive self-talk",
+      "Provide reassurance and support",
     ];
   } else if (highHappiness) {
     status = "Positive";
@@ -228,50 +251,46 @@ function analyzeMoodStatus(moodEntries: any[]) {
     recommendations = [
       "Maintain supportive environment",
       "Continue positive reinforcement",
+      "Encourage continued engagement",
     ];
   }
 
-  // Calculate trend
+  // Calculate trend with more sensitive detection
   let trend = "stable";
   if (moodEntries.length >= 2) {
-    const previousAverages = {
-      happiness: Math.round(
-        moodEntries
-          .slice(-4, -1)
-          .reduce((sum, entry) => sum + (entry.happiness || 5), 0) / 3
-      ),
-      anxiety: Math.round(
-        moodEntries
-          .slice(-4, -1)
-          .reduce((sum, entry) => sum + (entry.anxiety || 5), 0) / 3
-      ),
-      sadness: Math.round(
-        moodEntries
-          .slice(-4, -1)
-          .reduce((sum, entry) => sum + (entry.sadness || 5), 0) / 3
-      ),
-      stress: Math.round(
-        moodEntries
-          .slice(-4, -1)
-          .reduce((sum, entry) => sum + (entry.stress || 5), 0) / 3
-      ),
-    };
+    const previousEntries = moodEntries.slice(-4, -1);
+    if (previousEntries.length > 0) {
+      const previousAverages = {
+        happiness: Math.round(
+          previousEntries.reduce((sum, entry) => sum + entry.happiness, 0) / previousEntries.length
+        ),
+        anxiety: Math.round(
+          previousEntries.reduce((sum, entry) => sum + entry.anxiety, 0) / previousEntries.length
+        ),
+        sadness: Math.round(
+          previousEntries.reduce((sum, entry) => sum + entry.sadness, 0) / previousEntries.length
+        ),
+        stress: Math.round(
+          previousEntries.reduce((sum, entry) => sum + entry.stress, 0) / previousEntries.length
+        ),
+      };
 
-    const currentStress =
-      (currentAverages.anxiety +
-        currentAverages.sadness +
-        currentAverages.stress) /
-      3;
-    const previousStress =
-      (previousAverages.anxiety +
-        previousAverages.sadness +
-        previousAverages.stress) /
-      3;
+      const currentStress =
+        (currentAverages.anxiety +
+          currentAverages.sadness +
+          currentAverages.stress) /
+        3;
+      const previousStress =
+        (previousAverages.anxiety +
+          previousAverages.sadness +
+          previousAverages.stress) /
+        3;
 
-    if (currentStress < previousStress - 1) {
-      trend = "improving";
-    } else if (currentStress > previousStress + 1) {
-      trend = "declining";
+      if (currentStress < previousStress - 0.5) {
+        trend = "improving";
+      } else if (currentStress > previousStress + 0.5) {
+        trend = "declining";
+      }
     }
   }
 
@@ -291,7 +310,7 @@ export async function GET(request: NextRequest) {
     const days = parseInt(searchParams.get("days") || "7");
     const requestedChildId = searchParams.get("childId");
     const forceRefresh = searchParams.get("forceRefresh") === "true";
-    const forceAll = searchParams.get("forceAll") === "true"; // New parameter to force re-analysis of ALL entries
+    const forceAll = searchParams.get("forceAll") === "true";
 
     // Get authenticated family
     const family = await getAuthenticatedFamilyFromToken();
@@ -340,155 +359,133 @@ export async function GET(request: NextRequest) {
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - days);
 
-    // Fetch mood tracking data
-    const { data: moodEntries, error } = await supabase
-      .from("mood_tracking")
-      .select("*")
+    // Fetch therapy sessions with mood analysis for the specified date range
+    const { data: sessions, error: sessionsError } = await supabase
+      .from("therapy_sessions")
+      .select("id, created_at, mood_analysis, user_message, ai_response")
       .eq("child_id", childId)
-      .gte("recorded_at", startDate.toISOString())
-      .lte("recorded_at", endDate.toISOString())
-      .order("recorded_at", { ascending: true });
+      .gte("created_at", startDate.toISOString())
+      .lte("created_at", endDate.toISOString())
+      .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error("Error fetching mood data:", error);
+    if (sessionsError) {
+      console.error("Error fetching therapy sessions:", sessionsError);
       return NextResponse.json(
         {
-          error: "Failed to fetch mood data",
+          error: "Failed to fetch therapy sessions",
         },
         { status: 500 }
       );
     }
 
-    // Re-analyze mood entries that need updating
-    const updatedMoodEntries = [];
-    let reanalyzedCount = 0;
+    // Transform therapy sessions into mood tracking entries
+    const moodEntries = [];
+    const processedDates = new Set();
 
-    for (const entry of moodEntries) {
-      let updatedEntry = { ...entry };
-
-      // Check if entry has neutral scores (5) or notes that can be analyzed
-      const hasNeutralScores =
-        (entry.happiness === 5 || entry.happiness === null) &&
-        (entry.anxiety === 5 || entry.anxiety === null) &&
-        (entry.sadness === 5 || entry.sadness === null) &&
-        (entry.stress === 5 || entry.stress === null) &&
-        (entry.confidence === 5 || entry.confidence === null);
-
-      const hasAnalyzableNotes = entry.notes && entry.notes.trim().length > 10;
-      const hasEmptyNotes = !entry.notes || entry.notes.trim().length === 0;
-      const isOldEntry =
-        new Date(entry.recorded_at) <
-        new Date(Date.now() - 24 * 60 * 60 * 1000); // Older than 1 day
-
-      // Re-analyze if: forceAll OR forceRefresh OR (neutral scores AND (has notes OR is an old entry with empty notes))
-      const shouldReanalyze =
-        forceAll ||
-        forceRefresh ||
-        (hasNeutralScores && (hasAnalyzableNotes || hasEmptyNotes)) ||
-        (hasNeutralScores && isOldEntry);
-
-      if (shouldReanalyze) {
-        try {
-          let analysisInput = entry.notes || "";
-
-          // If no notes, use a more sophisticated default analysis
-          if (hasEmptyNotes) {
-            const entryDate = new Date(entry.recorded_at);
-            const isWeekend =
-              entryDate.getDay() === 0 || entryDate.getDay() === 6;
-            const isRecent =
-              Date.now() - entryDate.getTime() < 7 * 24 * 60 * 60 * 1000; // Within 7 days
-
-            analysisInput = `Child mood entry from ${entryDate.toLocaleDateString()}${
-              isWeekend ? " (weekend)" : " (weekday)"
-            }${
-              isRecent ? " - recent entry" : " - older entry"
-            }. No specific notes provided, analyzing for baseline emotional state and potential patterns.`;
-          }
-
-          // Re-analyze using the notes or default input
-          const aiMoodAnalysis = await analyzeMoodFromInput(
-            analysisInput,
-            child.age
-          );
-
-          // For entries with empty notes, provide more varied analysis
-          if (hasEmptyNotes) {
-            // Add some randomization to avoid all entries getting the same scores
-            const randomVariation = Math.random() * 0.4 - 0.2; // ±0.2 variation
-            aiMoodAnalysis.happiness = Math.max(
-              1,
-              Math.min(10, aiMoodAnalysis.happiness + randomVariation)
-            );
-            aiMoodAnalysis.anxiety = Math.max(
-              1,
-              Math.min(10, aiMoodAnalysis.anxiety + randomVariation)
-            );
-            aiMoodAnalysis.sadness = Math.max(
-              1,
-              Math.min(10, aiMoodAnalysis.sadness + randomVariation)
-            );
-            aiMoodAnalysis.stress = Math.max(
-              1,
-              Math.min(10, aiMoodAnalysis.stress + randomVariation)
-            );
-            aiMoodAnalysis.confidence = Math.max(
-              1,
-              Math.min(10, aiMoodAnalysis.confidence + randomVariation)
-            );
-          }
-
-          // Update the entry with AI analysis
-          const { data: updatedMoodEntry, error: updateError } = await supabase
-            .from("mood_tracking")
-            .update({
-              happiness: Math.round(aiMoodAnalysis.happiness),
-              anxiety: Math.round(aiMoodAnalysis.anxiety),
-              sadness: Math.round(aiMoodAnalysis.sadness),
-              stress: Math.round(aiMoodAnalysis.stress),
-              confidence: Math.round(aiMoodAnalysis.confidence),
-              notes: hasEmptyNotes
-                ? `[AI Re-analyzed: ${aiMoodAnalysis.insights}]`
-                : `${entry.notes}\n\n[AI Re-analyzed: ${aiMoodAnalysis.insights}]`,
-            })
-            .eq("id", entry.id)
-            .select()
-            .single();
-
-          if (!updateError && updatedMoodEntry) {
-            updatedEntry = updatedMoodEntry;
-            reanalyzedCount++;
-          } else {
-            console.error(`Failed to update entry ${entry.id}:`, updateError);
-          }
-        } catch (aiError) {
-          console.error(`Error re-analyzing mood entry ${entry.id}:`, aiError);
-        }
-      } else {
-        console.log(
-          `Skipping entry ${entry.id} - doesn't meet re-analysis criteria`
-        );
+    for (const session of sessions || []) {
+      const sessionDate = session.created_at.split("T")[0];
+      
+      // Skip if we already have an entry for this date (take the latest session of the day)
+      if (processedDates.has(sessionDate)) {
+        continue;
       }
+      processedDates.add(sessionDate);
 
-      updatedMoodEntries.push(updatedEntry);
+      if (session.mood_analysis) {
+        // Create mood entry from session mood analysis
+        const moodEntry = {
+          id: session.id,
+          child_id: childId,
+          happiness: session.mood_analysis.happiness || 5,
+          anxiety: session.mood_analysis.anxiety || 5,
+          sadness: session.mood_analysis.sadness || 5,
+          stress: session.mood_analysis.stress || 5,
+          confidence: session.mood_analysis.confidence || 5,
+          notes: session.mood_analysis.insights || 
+                 `Session: ${session.user_message?.substring(0, 100)}...`,
+          recorded_at: session.created_at,
+          session_id: session.id,
+        };
+
+        moodEntries.push(moodEntry);
+      }
+    }
+
+    // If no sessions with mood analysis, try to analyze existing sessions
+    if (moodEntries.length === 0 && sessions && sessions.length > 0) {
+      console.log("No mood analysis found in sessions, analyzing existing sessions...");
+      
+      for (const session of sessions.slice(0, 7)) { // Limit to 7 sessions
+        const sessionDate = session.created_at.split("T")[0];
+        
+        if (processedDates.has(sessionDate)) {
+          continue;
+        }
+        processedDates.add(sessionDate);
+
+        if (session.user_message) {
+          try {
+            // Analyze mood from session content
+            const aiMoodAnalysis = await analyzeMoodFromInput(
+              session.user_message,
+              child.age
+            );
+
+            const moodEntry = {
+              id: session.id,
+              child_id: childId,
+              happiness: aiMoodAnalysis.happiness,
+              anxiety: aiMoodAnalysis.anxiety,
+              sadness: aiMoodAnalysis.sadness,
+              stress: aiMoodAnalysis.stress,
+              confidence: aiMoodAnalysis.confidence,
+              notes: `[Session Analysis: ${aiMoodAnalysis.insights}] ${session.user_message.substring(0, 100)}...`,
+              recorded_at: session.created_at,
+              session_id: session.id,
+            };
+
+            moodEntries.push(moodEntry);
+          } catch (error) {
+            console.error(`Error analyzing session ${session.id}:`, error);
+          }
+        }
+      }
     }
 
     // Transform data for chart display
-    const moodData = updatedMoodEntries.map((entry) => ({
-      date: entry.recorded_at.split("T")[0], // Get just the date part
-      happiness: entry.happiness || 5,
-      anxiety: entry.anxiety || 5,
-      sadness: entry.sadness || 5,
-      stress: entry.stress || 5,
-      confidence: entry.confidence || 5,
+    const moodData = moodEntries.map((entry) => ({
+      date: entry.recorded_at.split("T")[0],
+      happiness: entry.happiness,
+      anxiety: entry.anxiety,
+      sadness: entry.sadness,
+      stress: entry.stress,
+      confidence: entry.confidence,
       notes: entry.notes || "",
+      session_id: entry.session_id,
     }));
 
-    // Analyze mood status with updated entries
-    const moodAnalysis = analyzeMoodStatus(updatedMoodEntries);
+    // Analyze mood status with the entries
+    const moodAnalysis = analyzeMoodStatus(moodEntries);
+    
+    // Check if we have any real mood data
+    const hasRealMoodData = moodEntries.some(entry => {
+      const hasNonNeutralScores = 
+        (entry.happiness !== 5 && entry.happiness !== null) ||
+        (entry.anxiety !== 5 && entry.anxiety !== null) ||
+        (entry.sadness !== 5 && entry.sadness !== null) ||
+        (entry.stress !== 5 && entry.stress !== null) ||
+        (entry.confidence !== 5 && entry.confidence !== null);
+      
+      const hasMeaningfulNotes = entry.notes && 
+        entry.notes.trim().length > 0 && 
+        !entry.notes.includes('[AI Re-analyzed: Unable to analyze mood') &&
+        !entry.notes.includes('[AI Re-analyzed: No mood data available yet]');
+      
+      return hasNonNeutralScores || hasMeaningfulNotes;
+    });
 
-    // If no data, generate baseline data for the chart
-    if (moodData.length === 0) {
+    // If no real mood data, generate baseline data for the chart
+    if (!hasRealMoodData) {
       const baselineData = [];
       for (let i = days - 1; i >= 0; i--) {
         const date = new Date();
@@ -545,13 +542,14 @@ export async function GET(request: NextRequest) {
       },
       moodData,
       moodAnalysis,
-      totalEntries: updatedMoodEntries.length,
+      totalEntries: moodEntries.length,
       dateRange: {
         start: startDate.toISOString().split("T")[0],
         end: endDate.toISOString().split("T")[0],
       },
       lastUpdated:
-        updatedMoodEntries[updatedMoodEntries.length - 1]?.recorded_at,
+        moodEntries[moodEntries.length - 1]?.recorded_at,
+      source: "therapy_sessions",
     });
   } catch (error) {
     console.error("Error in mood tracking API:", error);
@@ -1344,109 +1342,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to force re-analyze mood entries",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// Test endpoint to create sample mood entries for testing
-export async function HEAD(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const requestedChildId = searchParams.get("childId");
-
-    if (!requestedChildId) {
-      return NextResponse.json(
-        { error: "Child ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // Get authenticated family
-    const family = await getAuthenticatedFamilyFromToken();
-    if (!family) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
-
-    // Validate child access
-    const hasAccess = await validateChildAccess(family.id, requestedChildId);
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Access denied to this child" },
-        { status: 403 }
-      );
-    }
-
-    // Get child information
-    const { data: child, error: childError } = await supabase
-      .from("children")
-      .select("id, name, age")
-      .eq("id", requestedChildId)
-      .single();
-
-    if (childError || !child) {
-      return NextResponse.json({ error: "Child not found" }, { status: 404 });
-    }
-
-    // Create sample mood entries for the past 7 days
-    const sampleEntries = [];
-    const today = new Date();
-
-    for (let i = 6; i >= 0; i--) {
-      const entryDate = new Date(today);
-      entryDate.setDate(today.getDate() - i);
-
-      // Create entries with neutral scores (5) and empty notes for testing
-      const sampleEntry = {
-        child_id: requestedChildId,
-        happiness: 5,
-        anxiety: 5,
-        sadness: 5,
-        stress: 5,
-        confidence: 5,
-        notes: "", // Empty notes to test re-analysis
-        recorded_at: entryDate.toISOString(),
-      };
-
-      sampleEntries.push(sampleEntry);
-    }
-
-    // Insert sample entries
-    const { data: insertedEntries, error } = await supabase
-      .from("mood_tracking")
-      .insert(sampleEntries)
-      .select();
-
-    if (error) {
-      console.error("Error creating sample entries:", error);
-      return NextResponse.json(
-        {
-          error: "Failed to create sample mood entries",
-        },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `Created ${insertedEntries.length} sample mood entries for testing`,
-      entries: insertedEntries,
-      child: {
-        id: child.id,
-        name: child.name,
-        age: child.age,
-      },
-    });
-  } catch (error) {
-    console.error("Error creating sample entries:", error);
-
-    return NextResponse.json(
-      {
-        error: "Failed to create sample mood entries",
       },
       { status: 500 }
     );

@@ -23,8 +23,10 @@
     "dotenv": "^16.5.0",
     "framer-motion": "^10.16.16",
     "lucide-react": "^0.294.0",
+    "mammoth": "^1.9.1",
     "next": "^14.0.4",
     "openai": "^4.104.0",
+    "pdf-parse": "^1.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.48.2",
@@ -35,6 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.9.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "autoprefixer": "^10.4.16",

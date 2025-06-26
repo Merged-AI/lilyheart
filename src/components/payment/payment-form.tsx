@@ -120,7 +120,15 @@ function PaymentFormContent({ familyData, onSuccess, onError }: PaymentFormProps
         const response = await fetch('/api/auth/check-user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
+          body: JSON.stringify({ 
+            email,
+            password: familyData.password,
+            familyData: {
+              parentName: familyData.parentName,
+              familyName: familyData.familyName,
+              children: familyData.children
+            }
+          })
         })
 
         if (response.ok) {

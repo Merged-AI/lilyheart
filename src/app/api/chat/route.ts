@@ -3,10 +3,18 @@ import OpenAI from 'openai'
 import { getAuthenticatedFamilyFromToken, createServerSupabase } from '@/lib/supabase-auth'
 import { therapeuticMemory } from '@/lib/pinecone'
 import { embeddedTherapeuticKnowledge } from '@/lib/embedded-therapeutic-knowledge'
+import { Pinecone } from '@pinecone-database/pinecone'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+
+// Initialize Pinecone for knowledge base queries
+const pinecone = new Pinecone({
+  apiKey: process.env.PINECONE_API_KEY!
+})
+
+const INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'dremma'
 
 // Advanced GPT-4.1 Therapeutic AI System for Child Psychology
 const SYSTEM_PROMPT = `You are Dr. Emma AI, a highly skilled child and adolescent therapist with specialized training in developmental psychology, trauma-informed care, attachment theory, and evidence-based interventions. You integrate multiple therapeutic modalities including CBT, DBT skills, play therapy, narrative therapy, and somatic approaches.
@@ -560,6 +568,67 @@ async function getChildDataForKnowledge(childId: string): Promise<{age?: number,
   }
 }
 
+// Get child-specific knowledge base documents from Pinecone
+async function getChildKnowledgeBaseContext(childId: string, currentMessage: string): Promise<string> {
+  try {
+    const index = pinecone.index(INDEX_NAME)
+    
+    // Create embedding for the current message to find relevant knowledge base documents
+    const queryEmbedding = await createEmbedding(currentMessage)
+    
+    // Search for knowledge base documents specific to this child
+    const results = await index.query({
+      vector: queryEmbedding,
+      topK: 3, // Get top 3 most relevant documents
+      filter: {
+        child_id: { $eq: childId },
+        type: { $eq: 'knowledge_base_document' }
+      },
+      includeMetadata: true
+    })
+
+    if (!results.matches || results.matches.length === 0) {
+      console.log('📚 No child-specific knowledge base documents found')
+      return ''
+    }
+
+    let knowledgeContext = 'CHILD-SPECIFIC KNOWLEDGE BASE CONTEXT:\n\n'
+    
+    results.matches.forEach((match, index) => {
+      const metadata = match.metadata
+      const filename = metadata?.filename || 'Unknown document'
+      const contentPreview = metadata?.content_preview || ''
+      const similarity = match.score || 0
+      
+      knowledgeContext += `${index + 1}. Document: ${filename} (Relevance: ${(similarity * 100).toFixed(1)}%)\n`
+      knowledgeContext += `   Content: ${contentPreview}\n\n`
+    })
+
+    console.log(`📚 Found ${results.matches.length} relevant knowledge base documents for child ${childId}`)
+    return knowledgeContext
+
+  } catch (error) {
+    console.error('Error querying child knowledge base:', error)
+    return ''
+  }
+}
+
+// Create embedding for text content (reused from upload route)
+async function createEmbedding(text: string): Promise<number[]> {
+  try {
+    const response = await openai.embeddings.create({
+      model: 'text-embedding-3-large',
+      input: text.substring(0, 8000), // Limit input length
+      dimensions: 2048 // Explicitly set to match Pinecone index
+    })
+
+    return response.data[0].embedding
+  } catch (error) {
+    console.error('Error creating embedding:', error)
+    throw new Error('Failed to create embedding')
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { message, history, childId } = await request.json()
@@ -636,6 +705,18 @@ export async function POST(request: NextRequest) {
       therapeuticContext = "THERAPEUTIC MODE: Using child-specific background without historical memory context."
     }
 
+    // Get child-specific knowledge base documents from Pinecone
+    let childKnowledgeContext = ""
+    try {
+      childKnowledgeContext = await getChildKnowledgeBaseContext(childId, message)
+      if (childKnowledgeContext && childKnowledgeContext.length > 50) {
+        console.log('📚 Using child-specific knowledge base documents')
+      }
+    } catch (error) {
+      console.error('Error accessing child knowledge base:', error)
+      childKnowledgeContext = ""
+    }
+
     // Get child data for enhanced knowledge base context
     const childData = await getChildDataForKnowledge(childId)
     
@@ -666,7 +747,11 @@ ${childContext}
 
 ${therapeuticContext}
 
+${childKnowledgeContext}
+
 ${knowledgeGuidance}
+
+CRITICAL INSTRUCTION: If knowledge base documents are provided above, you MUST reference and use the specific techniques, exercises, and strategies from those documents in your response. Do not make up new techniques - use the ones provided in the knowledge base context.
 
 IMPORTANT: Use the child's actual name from the CHILD-SPECIFIC CONTEXT above in your responses when appropriate. Do not use any other names.
 

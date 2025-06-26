@@ -51,4 +51,18 @@ export function getAlertColor(alertType: 'mild' | 'moderate' | 'severe' | 'crisi
     default:
       return 'bg-gray-100 text-gray-800 border-gray-200'
   }
+}
+
+export function formatSessionDuration(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds} seconds`;
+  } else {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    if (remainingSeconds === 0) {
+      return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    } else {
+      return `${minutes} minute${minutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''}`;
+    }
+  }
 } 

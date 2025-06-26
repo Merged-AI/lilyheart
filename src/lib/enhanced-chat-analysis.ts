@@ -1,4 +1,5 @@
 import { createServerSupabase } from '@/lib/supabase-auth'
+import { formatSessionDuration } from './utils'
 
 interface ConversationMetrics {
   avgSessionDuration: number
@@ -163,7 +164,7 @@ export class EnhancedChatAnalyzer {
     const observations = [
       `Growing emotional vocabulary - child using ${this.countUniqueEmotionWords(sessions)} different emotion words`,
       `${Math.round(metrics.conversationInitiation)}% of conversations initiated by child`,
-      `Average session length increased by ${Math.round(metrics.sessionDurationTrend)} minutes`,
+      `Average session length increased by ${formatSessionDuration(Math.round(metrics.sessionDurationTrend))}`,
       metrics.engagementLevel > 7 ? 'High engagement with emotional topics' : 'Building comfort with emotional expression'
     ]
 
@@ -317,7 +318,7 @@ export class EnhancedChatAnalyzer {
       {
         area: 'Communication Strengths',
         currentProgress: 'Growing Confidence',
-        benefit: 'Child initiating conversations more frequently. Average conversation length increasing from 10 to 25 minutes.',
+        benefit: `Child initiating conversations more frequently. Average conversation length increasing from ${formatSessionDuration(600)} to ${formatSessionDuration(1500)}.`,
         suggestedActions: ['Continue consistent conversation opportunities without pressure']
       },
       {

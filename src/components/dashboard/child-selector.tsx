@@ -196,7 +196,7 @@ export function ChildSelector({
               </div>
             ))}
 
-            {onAddChild && children.length < 4 && (
+            {/* {onAddChild && children.length < 4 && (
               <div className="border-t border-gray-100 mt-1 pt-1">
                 <button
                   onClick={() => {
@@ -220,7 +220,7 @@ export function ChildSelector({
                   </div>
                 </button>
               </div>
-            )}
+            )} */}
           </div>
         </div>
       )}

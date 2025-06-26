@@ -2,23 +2,16 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
 import {
-  Brain,
-  Heart,
-  MessageCircle,
-  TrendingDown,
   TrendingUp,
+  TrendingDown,
+  Heart,
   AlertTriangle,
-  Users,
-  Calendar,
-  BarChart3,
-  LogOut,
-  Settings,
+  MessageCircle,
 } from "lucide-react";
-import Link from "next/link";
 import { ChildMentalHealthDashboard } from "@/components/dashboard/child-mental-health-dashboard";
 import { ChildSelector } from "@/components/dashboard/child-selector";
-import Header from "@/components/common/Header";
 
 interface DashboardStats {
   todaysMood: {
@@ -51,64 +44,36 @@ interface DashboardStats {
 
 export default function ParentDashboard() {
   const router = useRouter();
-  const [selectedChildId, setSelectedChildId] = useState<string>("");
-  const [family, setFamily] = useState<any>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { family, selectedChildId, setSelectedChildId } = useAuth();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     todaysMood: {
       status: "Loading...",
-      trend: "",
-      color: "text-gray-600",
-      bgColor: "bg-gray-100",
+      trend: "Analyzing data",
+      color: "text-blue-600",
+      bgColor: "bg-blue-100",
     },
     sessionsThisWeek: {
       count: 0,
-      change: "",
+      change: "Loading...",
     },
     emotionalTrend: {
-      status: "Loading...",
-      attention: "",
-      color: "text-gray-600",
-      bgColor: "bg-gray-100",
+      status: "Processing",
+      attention: "Gathering insights",
+      color: "text-blue-600",
+      bgColor: "bg-blue-100",
     },
     activeConcerns: {
       count: 0,
-      level: "",
+      level: "Analyzing",
     },
     hasAlert: false,
   });
 
   useEffect(() => {
-    checkAuthentication();
-  }, []);
-
-  useEffect(() => {
-    if (isAuthenticated && selectedChildId) {
+    if (family && selectedChildId) {
       fetchDashboardStats();
     }
-  }, [isAuthenticated, selectedChildId]);
-
-  const checkAuthentication = async () => {
-    try {
-      const response = await fetch("/api/auth/me");
-      if (response.ok) {
-        const data = await response.json();
-        setFamily(data.family);
-        setIsAuthenticated(true);
-
-        // Auto-select first child if available
-        if (data.children && data.children.length > 0 && !selectedChildId) {
-          setSelectedChildId(data.children[0].id);
-        }
-      } else {
-        // Redirect to registration if not authenticated
-        router.push("/auth/register");
-      }
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      router.push("/auth/register");
-    }
-  };
+  }, [family, selectedChildId]);
 
   const fetchDashboardStats = async () => {
     if (!selectedChildId) return;
@@ -278,89 +243,48 @@ export default function ParentDashboard() {
         .map((session) => {
           const mood = session.mood_analysis;
           if (!mood) return null;
-          return (mood.anxiety || 0) + (mood.sadness || 0) + (mood.stress || 0);
+          return (mood.anxiety + mood.sadness + mood.stress) / 3;
         })
         .filter((level) => level !== null);
 
-      if (stressLevels.length >= 3) {
-        // Calculate linear regression trend
-        const n = stressLevels.length;
-        const xValues = Array.from({ length: n }, (_, i) => i); // 0, 1, 2, 3, 4...
-        const yValues = stressLevels;
+      if (stressLevels.length >= 2) {
+        const recentAvg =
+          stressLevels.slice(0, 2).reduce((a, b) => a + b, 0) / 2;
+        const olderAvg =
+          stressLevels.slice(2).reduce((a, b) => a + b, 0) /
+          (stressLevels.length - 2);
 
-        // Calculate means
-        const xMean = xValues.reduce((a, b) => a + b, 0) / n;
-        const yMean = yValues.reduce((a, b) => a + b, 0) / n;
-
-        // Calculate slope (trend)
-        let numerator = 0;
-        let denominator = 0;
-        for (let i = 0; i < n; i++) {
-          numerator += (xValues[i] - xMean) * (yValues[i] - yMean);
-          denominator += (xValues[i] - xMean) ** 2;
-        }
-
-        const slope = denominator !== 0 ? numerator / denominator : 0;
-
-        // Determine trend direction and magnitude
-        if (Math.abs(slope) < 0.5) {
-          trend = "Stable trend";
-        } else if (slope > 0) {
-          const avgChange = Math.round(slope * 10) / 10;
-          trend = `↑ Increasing (${avgChange} per session)`;
+        if (recentAvg < olderAvg - 1) {
+          trend = "Improving";
+        } else if (recentAvg > olderAvg + 1) {
+          trend = "Declining";
         } else {
-          const avgChange = Math.round(Math.abs(slope) * 10) / 10;
-          trend = `↓ Improving (${avgChange} per session)`;
-        }
-      } else {
-        trend = "Insufficient data for trend";
-      }
-    } else if (recentSessions.length === 2) {
-      // Simple comparison for just 2 sessions
-      const currentMood = recentSessions[0].mood_analysis;
-      const previousMood = recentSessions[1].mood_analysis;
-
-      if (currentMood && previousMood) {
-        const currentStress =
-          (currentMood.anxiety || 0) +
-          (currentMood.sadness || 0) +
-          (currentMood.stress || 0);
-        const previousStress =
-          (previousMood.anxiety || 0) +
-          (previousMood.sadness || 0) +
-          (previousMood.stress || 0);
-
-        const difference = currentStress - previousStress;
-        if (Math.abs(difference) > 2) {
-          const percentage = Math.round(Math.abs(difference) * 5);
-          trend =
-            difference > 0
-              ? `↑ ${percentage}% from last session`
-              : `↓ ${percentage}% from last session`;
-        } else {
-          trend = "Similar to last session";
+          trend = "Stable";
         }
       }
-    } else {
-      trend = "Need more sessions for trend";
     }
 
-    // Determine emotional trend
-    let emotionTrendStatus = "Stable";
-    let emotionTrendAttention = "Normal range";
-    let emotionTrendColor = "text-green-600";
-    let emotionTrendBgColor = "bg-green-100";
+    // Determine emotional trend status
+    let emotionalStatus = "Stable";
+    let emotionalColor = "text-green-600";
+    let emotionalBgColor = "bg-green-100";
+    let attention = "Continue monitoring";
 
-    if (avgAnxiety >= 6 || avgSadness >= 6 || avgStress >= 6) {
-      emotionTrendStatus = "Declining";
-      emotionTrendAttention = "Attention needed";
-      emotionTrendColor = "text-red-600";
-      emotionTrendBgColor = "bg-red-100";
-    } else if (avgHappiness >= 7) {
-      emotionTrendStatus = "Improving";
-      emotionTrendAttention = "Positive trend";
-      emotionTrendColor = "text-green-600";
-      emotionTrendBgColor = "bg-green-100";
+    if (currentMoodStatus === "Needs attention") {
+      emotionalStatus = "High concern";
+      emotionalColor = "text-red-600";
+      emotionalBgColor = "bg-red-100";
+      attention = "Immediate attention recommended";
+    } else if (currentMoodStatus === "Concerned") {
+      emotionalStatus = "Moderate concern";
+      emotionalColor = "text-orange-600";
+      emotionalBgColor = "bg-orange-100";
+      attention = "Increased monitoring advised";
+    } else if (trend === "Improving") {
+      emotionalStatus = "Positive trend";
+      emotionalColor = "text-green-600";
+      emotionalBgColor = "bg-green-100";
+      attention = "Great progress!";
     }
 
     return {
@@ -371,58 +295,60 @@ export default function ParentDashboard() {
         bgColor: moodBgColor,
       },
       emotionalTrend: {
-        status: emotionTrendStatus,
-        attention: emotionTrendAttention,
-        color: emotionTrendColor,
-        bgColor: emotionTrendBgColor,
+        status: emotionalStatus,
+        attention,
+        color: emotionalColor,
+        bgColor: emotionalBgColor,
       },
     };
   };
 
   const identifyConcerns = (sessions: any[]) => {
-    let high = 0;
-    let medium = 0;
+    const concerns = { high: 0, medium: 0, low: 0 };
 
-    sessions.slice(0, 10).forEach((session: any) => {
+    sessions.forEach((session) => {
       const mood = session.mood_analysis;
       if (!mood) return;
 
-      // High concern indicators
-      if (mood.anxiety >= 8 || mood.sadness >= 8 || mood.stress >= 8) {
-        high++;
-      }
-      // Medium concern indicators
-      else if (
-        mood.anxiety >= 6 ||
-        mood.sadness >= 6 ||
-        mood.stress >= 6 ||
-        mood.confidence <= 3
-      ) {
-        medium++;
+      const avgAnxiety = mood.anxiety || 0;
+      const avgSadness = mood.sadness || 0;
+      const avgStress = mood.stress || 0;
+
+      if (avgAnxiety >= 7 || avgSadness >= 7 || avgStress >= 7) {
+        concerns.high++;
+      } else if (avgAnxiety >= 5 || avgSadness >= 5 || avgStress >= 5) {
+        concerns.medium++;
+      } else {
+        concerns.low++;
       }
     });
 
-    return { high, medium };
+    return concerns;
   };
 
   const generateSessionTrend = (sessions: any[], oneWeekAgo: Date) => {
-    const thisWeekSessions = sessions.filter(
-      (session: any) => new Date(session.created_at) >= oneWeekAgo
-    ).length;
-
     const twoWeeksAgo = new Date(
       oneWeekAgo.getTime() - 7 * 24 * 60 * 60 * 1000
     );
-    const lastWeekSessions = sessions.filter((session: any) => {
-      const sessionDate = new Date(session.created_at);
-      return sessionDate >= twoWeeksAgo && sessionDate < oneWeekAgo;
-    }).length;
 
-    const difference = thisWeekSessions - lastWeekSessions;
-    if (difference > 0) {
-      return `+${difference} from last week`;
-    } else if (difference < 0) {
-      return `${difference} from last week`;
+    const thisWeek = sessions.filter(
+      (session) => new Date(session.created_at) >= oneWeekAgo
+    );
+    const lastWeek = sessions.filter(
+      (session) =>
+        new Date(session.created_at) >= twoWeeksAgo &&
+        new Date(session.created_at) < oneWeekAgo
+    );
+
+    if (lastWeek.length === 0) {
+      return thisWeek.length > 0 ? "Started sessions" : "No sessions yet";
+    }
+
+    const change = thisWeek.length - lastWeek.length;
+    if (change > 0) {
+      return `+${change} more than last week`;
+    } else if (change < 0) {
+      return `${Math.abs(change)} fewer than last week`;
     } else {
       return "Same as last week";
     }
@@ -431,33 +357,24 @@ export default function ParentDashboard() {
   const generateAlert = (recentSessions: any[], concerns: any) => {
     if (concerns.high > 0) {
       return {
-        title: "High Priority: Emotional Distress Detected",
-        description: `AI has identified elevated anxiety, sadness, or stress levels in recent sessions. Professional consultation recommended.`,
+        title: "High Priority Alert",
+        description:
+          "Multiple concerning patterns detected. Consider professional consultation.",
         level: "high",
       };
     } else if (concerns.medium > 2) {
       return {
-        title: "Pattern Detected: Increased Emotional Concerns",
-        description: `Multiple sessions showing emotional challenges. Consider implementing additional support strategies.`,
+        title: "Moderate Concern",
+        description:
+          "Several sessions show elevated stress levels. Monitor closely.",
         level: "medium",
       };
     }
     return undefined;
   };
 
-  const handleEditChild = (childId: string) => {
-    router.push(`/add-child?childId=${childId}`);
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-      <Header
-        variant="dashboard"
-        selectedChildId={selectedChildId}
-        onChildSelect={setSelectedChildId}
-        onEditChild={handleEditChild}
-      />
-
+    <>
       {/* Quick Stats - Now Dynamic */}
       <section className="max-w-[1400px] mx-auto px-6 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -666,28 +583,6 @@ export default function ParentDashboard() {
           <ChildMentalHealthDashboard selectedChildId={selectedChildId} />
         </Suspense>
       </section>
-
-      {/* Bottom Navigation for Mobile */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3">
-        <div className="flex justify-around">
-          <button className="flex flex-col items-center space-y-1 text-purple-600">
-            <BarChart3 className="h-5 w-5" />
-            <span className="text-xs font-medium">Analytics</span>
-          </button>
-          <button className="flex flex-col items-center space-y-1 text-gray-400">
-            <MessageCircle className="h-5 w-5" />
-            <span className="text-xs font-medium">Sessions</span>
-          </button>
-          <button className="flex flex-col items-center space-y-1 text-gray-400">
-            <Calendar className="h-5 w-5" />
-            <span className="text-xs font-medium">Schedule</span>
-          </button>
-          <button className="flex flex-col items-center space-y-1 text-gray-400">
-            <Users className="h-5 w-5" />
-            <span className="text-xs font-medium">Support</span>
-          </button>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
