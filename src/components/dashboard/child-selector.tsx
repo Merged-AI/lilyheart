@@ -163,24 +163,9 @@ export function ChildSelector({
                       <p className="font-medium text-gray-900 text-sm">
                         {child.name}
                       </p>
-                      <div className="flex items-center space-x-1 text-xs text-gray-500">
-                        <span>{child.age} years</span>
-                        {child.last_session_at && (
-                          <>
-                            <span>•</span>
-                            <span>
-                              {new Date(
-                                child.last_session_at
-                              ).toLocaleDateString()}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      {child.current_concerns && (
-                        <p className="text-xs text-gray-600 mt-0.5">
-                          Focus: {child.current_concerns}
-                        </p>
-                      )}
+                      <p className="text-xs text-gray-500">
+                        {child.age} years
+                      </p>
                     </div>
                   </button>
                   {onEditChild && (

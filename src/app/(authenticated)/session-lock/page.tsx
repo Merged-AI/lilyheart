@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Lock, Eye, EyeOff, Home, Heart } from "lucide-react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { Lock, Eye, EyeOff, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-const PARENT_PASSCODE = "1234"; // In production, this would be encrypted and stored securely
+import { useSessionLock } from "@/lib/session-lock-context";
 
 export default function SessionLockPage() {
   const [passcode, setPasscode] = useState("");
@@ -13,24 +11,83 @@ export default function SessionLockPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { unlockSession, isSessionLocked } = useSessionLock();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
-    // Simulate checking passcode
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const response = await fetch("/api/auth/pin/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ pin: passcode }),
+      });
 
-    if (passcode === PARENT_PASSCODE) {
-      // Redirect to parent dashboard
-      router.push("/dashboard");
-    } else {
-      setError("Incorrect passcode. Please try again.");
+      if (response.ok) {
+        unlockSession();
+
+        setPasscode("");
+
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 200);
+      } else {
+        const errorData = await response.json();
+        setError("Incorrect passcode. Please try again.");
+        setPasscode("");
+      }
+    } catch (error) {
+      console.error("PIN validation error:", error);
+      setError("An error occurred. Please try again.");
       setPasscode("");
     }
 
     setIsLoading(false);
   };
+
+  // Prevent navigation when session is locked
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSessionLocked) {
+        e.preventDefault();
+        e.returnValue =
+          "Session is locked. Please enter the parent PIN to continue.";
+        return e.returnValue;
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent F5, Ctrl+R, Ctrl+Shift+R
+      if (
+        e.key === "F5" ||
+        (e.ctrlKey && e.key === "r") ||
+        (e.ctrlKey && e.shiftKey && e.key === "R")
+      ) {
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    if (isSessionLocked) {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("contextmenu", handleContextMenu);
+    }
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, [isSessionLocked]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -120,14 +177,6 @@ export default function SessionLockPage() {
               This protects your child's privacy by restricting access to
               detailed mood analysis and recommendations.
             </p>
-
-            <Link
-              href="/"
-              className="inline-flex items-center space-x-2 text-purple-600 hover:text-purple-700 text-sm font-medium"
-            >
-              <Home className="h-4 w-4" />
-              <span>Return Home</span>
-            </Link>
           </div>
         </div>
 

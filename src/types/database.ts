@@ -9,6 +9,7 @@ export interface Database {
           subscription_tier: 'free' | 'premium' | 'family' | 'crisis'
           subscription_status: 'active' | 'inactive' | 'trial'
           trial_ends_at?: string
+          parent_pin?: string
         }
         Insert: {
           id?: string
@@ -17,6 +18,7 @@ export interface Database {
           subscription_tier?: 'free' | 'premium' | 'family' | 'crisis'
           subscription_status?: 'active' | 'inactive' | 'trial'
           trial_ends_at?: string
+          parent_pin?: string
         }
         Update: {
           id?: string
@@ -25,6 +27,7 @@ export interface Database {
           subscription_tier?: 'free' | 'premium' | 'family' | 'crisis'
           subscription_status?: 'active' | 'inactive' | 'trial'
           trial_ends_at?: string
+          parent_pin?: string
         }
       }
       children: {

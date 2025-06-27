@@ -77,10 +77,10 @@ export default function RegisterPage() {
   }
 
   const handlePaymentSuccess = (result: any) => {
-    // Payment setup successful, show success page then redirect
+    // Payment setup successful, show success page then redirect to PIN setup
     setStep(3)
     setTimeout(() => {
-      router.push('/dashboard')
+      router.push('/pin-setup')
     }, 3000) // 3 second delay to show success message
   }
 
@@ -130,7 +130,14 @@ export default function RegisterPage() {
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}>
                 3
               </div>
-              <span className="font-medium text-sm md:text-base">Dashboard</span>
+              <span className="font-medium text-sm md:text-base">Success</span>
+            </div>
+            <ArrowRight className="h-4 w-4 text-gray-400" />
+            <div className={`flex items-center space-x-2 ${step >= 4 ? 'text-purple-600' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 4 ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}>
+                4
+              </div>
+              <span className="font-medium text-sm md:text-base">PIN Setup</span>
             </div>
           </div>
         </div>
@@ -330,7 +337,7 @@ export default function RegisterPage() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Heart Harbor!</h2>
                 <p className="text-gray-600 mb-6">
                   Your account has been created and your 7-day free trial has started. 
-                  You'll be redirected to your dashboard shortly.
+                  Next, let's set up your parent PIN for secure dashboard access.
                 </p>
                 
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
@@ -341,7 +348,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
-                <p className="text-sm text-gray-500 mt-3">Redirecting to dashboard...</p>
+                <p className="text-sm text-gray-500 mt-3">Setting up your account...</p>
               </div>
             )}
           </div>

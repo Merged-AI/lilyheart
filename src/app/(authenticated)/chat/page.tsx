@@ -26,6 +26,7 @@ import {
 import Link from "next/link";
 import MessageContent from "@/components/chat/MessageContent";
 import Modal from "@/components/common/Modal";
+import { useSessionLock } from "@/lib/session-lock-context";
 
 interface Message {
   id: string;
@@ -93,6 +94,7 @@ function ChatContent() {
   const [sessionDuration, setSessionDuration] = useState(0);
   const [isSessionActive, setIsSessionActive] = useState(true);
   const [profileCheckComplete, setProfileCheckComplete] = useState(false);
+  const { lockSession } = useSessionLock();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -455,6 +457,7 @@ function ChatContent() {
 
   const endSession = () => {
     setIsSessionActive(false);
+    lockSession();
     router.push("/session-lock");
   };
 

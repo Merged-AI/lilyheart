@@ -174,28 +174,24 @@ export default function Header({
 
   // Dashboard header (authenticated)
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
+    <header className="bg-white/80 backdrop-blur-lg shadow-sm border-b border-gray-200 sticky top-0 z-40">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
+          {/* Left side - Welcome message instead of logo */}
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-                <Brain className="h-6 w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1
-                  className="text-xl font-bold text-gray-900 truncate"
-                  style={{ fontFamily: "var(--font-poppins)" }}
-                >
-                  Heart Harbor
-                </h1>
-                <p
-                  className="text-xs text-gray-600 truncate"
-                  style={{ fontFamily: "var(--font-inter)" }}
-                >
-                  Family Communication Coach
-                </p>
-              </div>
+            <div className="min-w-0">
+              <h1
+                className="text-lg font-semibold text-gray-900 truncate"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                Welcome back, {family.parent_name}
+              </h1>
+              <p
+                className="text-sm text-gray-600 truncate"
+                style={{ fontFamily: "var(--font-inter)" }}
+              >
+                Let's check on your family's well-being
+              </p>
             </div>
           </div>
 
@@ -213,9 +209,9 @@ export default function Header({
               href={
                 selectedChildId ? `/chat?childId=${selectedChildId}` : "/chat"
               }
-              className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm whitespace-nowrap"
+              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2 text-sm whitespace-nowrap shadow-lg hover:shadow-xl transform"
             >
-              <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+              <MessageCircle className="h-4 w-4" />
               <span className="hidden sm:inline">Start Session</span>
               <span className="sm:hidden">Chat</span>
             </Link>

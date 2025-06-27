@@ -69,6 +69,23 @@ export default function ParentDashboard() {
     hasAlert: false,
   });
 
+  // Check if user has set up their PIN
+  useEffect(() => {
+    const checkPinSetup = async () => {
+      try {
+        const response = await fetch("/api/auth/pin");
+        if (response.status === 404) {
+          // PIN not set up, redirect to PIN setup
+          router.push("/pin-setup");
+        }
+      } catch (error) {
+        console.error("Error checking PIN setup:", error);
+      }
+    };
+
+    checkPinSetup();
+  }, [router]);
+
   useEffect(() => {
     if (family && selectedChildId) {
       fetchDashboardStats();
@@ -170,14 +187,14 @@ export default function ParentDashboard() {
     if (recentSessions.length === 0) {
       return {
         todaysMood: {
-          status: "No recent data",
-          trend: "",
+          status: "No data yet",
+          trend: "Start first session",
           color: "text-gray-600",
           bgColor: "bg-gray-100",
         },
         emotionalTrend: {
-          status: "Unknown",
-          attention: "",
+          status: "No sessions",
+          attention: "Begin tracking",
           color: "text-gray-600",
           bgColor: "bg-gray-100",
         },
@@ -205,7 +222,7 @@ export default function ParentDashboard() {
       };
     }
 
-    // Determine current mood status
+    // Determine current mood status with more nuanced logic
     const avgAnxiety = mood.anxiety || 0;
     const avgSadness = mood.sadness || 0;
     const avgStress = mood.stress || 0;
@@ -215,48 +232,59 @@ export default function ParentDashboard() {
     let moodColor = "text-green-600";
     let moodBgColor = "bg-green-100";
 
-    if (avgAnxiety >= 7 || avgSadness >= 7 || avgStress >= 7) {
+    // More nuanced mood assessment
+    if (avgAnxiety >= 8 || avgSadness >= 8 || avgStress >= 8) {
       currentMoodStatus = "Needs attention";
       moodColor = "text-red-600";
       moodBgColor = "bg-red-100";
-    } else if (avgAnxiety >= 5 || avgSadness >= 5 || avgStress >= 5) {
+    } else if (avgAnxiety >= 6 || avgSadness >= 6 || avgStress >= 6) {
       currentMoodStatus = "Concerned";
       moodColor = "text-orange-600";
       moodBgColor = "bg-orange-100";
-    } else if (avgHappiness >= 7) {
+    } else if (
+      avgHappiness >= 7 &&
+      avgAnxiety <= 4 &&
+      avgSadness <= 4 &&
+      avgStress <= 4
+    ) {
       currentMoodStatus = "Positive";
       moodColor = "text-green-600";
       moodBgColor = "bg-green-100";
+    } else if (avgHappiness >= 6) {
+      currentMoodStatus = "Good";
+      moodColor = "text-blue-600";
+      moodBgColor = "bg-blue-100";
     }
 
     // Calculate trend (compare to previous sessions)
     let trend = "";
-    if (recentSessions.length >= 3) {
-      // Calculate trend over the last 5 sessions (or all available if less than 5)
+    if (recentSessions.length >= 2) {
+      // Calculate trend over the last 3 sessions for more accuracy
       const sessionsToAnalyze = recentSessions.slice(
         0,
-        Math.min(5, recentSessions.length)
+        Math.min(3, recentSessions.length)
       );
 
-      // Calculate average stress levels for each session
-      const stressLevels = sessionsToAnalyze
+      // Calculate average emotional scores for each session
+      const emotionalScores = sessionsToAnalyze
         .map((session) => {
           const mood = session.mood_analysis;
           if (!mood) return null;
-          return (mood.anxiety + mood.sadness + mood.stress) / 3;
+          // Weighted average: happiness positive, others negative
+          return (
+            (mood.happiness || 0) -
+            ((mood.anxiety || 0) + (mood.sadness || 0) + (mood.stress || 0)) / 3
+          );
         })
-        .filter((level) => level !== null);
+        .filter((score) => score !== null);
 
-      if (stressLevels.length >= 2) {
-        const recentAvg =
-          stressLevels.slice(0, 2).reduce((a, b) => a + b, 0) / 2;
-        const olderAvg =
-          stressLevels.slice(2).reduce((a, b) => a + b, 0) /
-          (stressLevels.length - 2);
+      if (emotionalScores.length >= 2) {
+        const recentScore = emotionalScores[0];
+        const previousScore = emotionalScores[1];
 
-        if (recentAvg < olderAvg - 1) {
+        if (recentScore > previousScore + 1) {
           trend = "Improving";
-        } else if (recentAvg > olderAvg + 1) {
+        } else if (recentScore < previousScore - 1) {
           trend = "Declining";
         } else {
           trend = "Stable";
@@ -264,7 +292,7 @@ export default function ParentDashboard() {
       }
     }
 
-    // Determine emotional trend status
+    // Determine emotional trend status with better logic
     let emotionalStatus = "Stable";
     let emotionalColor = "text-green-600";
     let emotionalBgColor = "bg-green-100";
@@ -280,11 +308,16 @@ export default function ParentDashboard() {
       emotionalColor = "text-orange-600";
       emotionalBgColor = "bg-orange-100";
       attention = "Increased monitoring advised";
-    } else if (trend === "Improving") {
+    } else if (trend === "Improving" || currentMoodStatus === "Positive") {
       emotionalStatus = "Positive trend";
       emotionalColor = "text-green-600";
       emotionalBgColor = "bg-green-100";
       attention = "Great progress!";
+    } else if (currentMoodStatus === "Good") {
+      emotionalStatus = "Good";
+      emotionalColor = "text-blue-600";
+      emotionalBgColor = "bg-blue-100";
+      attention = "Maintain current approach";
     }
 
     return {
@@ -314,9 +347,10 @@ export default function ParentDashboard() {
       const avgSadness = mood.sadness || 0;
       const avgStress = mood.stress || 0;
 
-      if (avgAnxiety >= 7 || avgSadness >= 7 || avgStress >= 7) {
+      // More nuanced concern levels
+      if (avgAnxiety >= 8 || avgSadness >= 8 || avgStress >= 8) {
         concerns.high++;
-      } else if (avgAnxiety >= 5 || avgSadness >= 5 || avgStress >= 5) {
+      } else if (avgAnxiety >= 6 || avgSadness >= 6 || avgStress >= 6) {
         concerns.medium++;
       } else {
         concerns.low++;
@@ -341,7 +375,13 @@ export default function ParentDashboard() {
     );
 
     if (lastWeek.length === 0) {
-      return thisWeek.length > 0 ? "Started sessions" : "No sessions yet";
+      if (thisWeek.length === 0) {
+        return "No sessions yet";
+      } else if (thisWeek.length === 1) {
+        return "First session this week";
+      } else {
+        return `${thisWeek.length} sessions this week`;
+      }
     }
 
     const change = thisWeek.length - lastWeek.length;
@@ -379,12 +419,14 @@ export default function ParentDashboard() {
       <section className="max-w-[1400px] mx-auto px-6 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Today's Mood */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Latest Mood</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">
+                  Latest Mood
+                </p>
                 <p
-                  className={`text-2xl font-bold mt-1 ${dashboardStats.todaysMood.color}`}
+                  className={`text-xl font-semibold mt-1 ${dashboardStats.todaysMood.color}`}
                 >
                   {dashboardStats.todaysMood.status}
                 </p>
@@ -396,20 +438,20 @@ export default function ParentDashboard() {
                 className={`w-12 h-12 ${dashboardStats.todaysMood.bgColor} rounded-lg flex items-center justify-center`}
               >
                 <Heart
-                  className={`h-6 w-6 ${dashboardStats.todaysMood.color}`}
+                  className={`h-5 w-5 ${dashboardStats.todaysMood.color}`}
                 />
               </div>
             </div>
           </div>
 
           {/* Session Count */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-sm font-medium text-gray-600 mb-1">
                   Sessions This Week
                 </p>
-                <p className="text-2xl font-bold text-blue-600 mt-1">
+                <p className="text-xl font-semibold text-blue-600 mt-1">
                   {dashboardStats.sessionsThisWeek.count}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
@@ -417,20 +459,20 @@ export default function ParentDashboard() {
                 </p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <MessageCircle className="h-6 w-6 text-blue-600" />
+                <MessageCircle className="h-5 w-5 text-blue-600" />
               </div>
             </div>
           </div>
 
           {/* Emotional Trend */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-sm font-medium text-gray-600 mb-1">
                   Emotional Trend
                 </p>
                 <p
-                  className={`text-2xl font-bold mt-1 ${dashboardStats.emotionalTrend.color}`}
+                  className={`text-xl font-semibold mt-1 ${dashboardStats.emotionalTrend.color}`}
                 >
                   {dashboardStats.emotionalTrend.status}
                 </p>
@@ -441,13 +483,14 @@ export default function ParentDashboard() {
               <div
                 className={`w-12 h-12 ${dashboardStats.emotionalTrend.bgColor} rounded-lg flex items-center justify-center`}
               >
-                {dashboardStats.emotionalTrend.status === "Improving" ? (
+                {dashboardStats.emotionalTrend.status.includes("Positive") ||
+                dashboardStats.emotionalTrend.status.includes("Improving") ? (
                   <TrendingUp
-                    className={`h-6 w-6 ${dashboardStats.emotionalTrend.color}`}
+                    className={`h-5 w-5 ${dashboardStats.emotionalTrend.color}`}
                   />
                 ) : (
                   <TrendingDown
-                    className={`h-6 w-6 ${dashboardStats.emotionalTrend.color}`}
+                    className={`h-5 w-5 ${dashboardStats.emotionalTrend.color}`}
                   />
                 )}
               </div>
@@ -455,13 +498,13 @@ export default function ParentDashboard() {
           </div>
 
           {/* Active Concerns */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-sm font-medium text-gray-600 mb-1">
                   Active Concerns
                 </p>
-                <p className="text-2xl font-bold text-purple-600 mt-1">
+                <p className="text-xl font-semibold text-purple-600 mt-1">
                   {dashboardStats.activeConcerns.count}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
@@ -469,7 +512,7 @@ export default function ParentDashboard() {
                 </p>
               </div>
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-purple-600" />
+                <AlertTriangle className="h-5 w-5 text-purple-600" />
               </div>
             </div>
           </div>
@@ -478,7 +521,7 @@ export default function ParentDashboard() {
         {/* AI Alert Banner - Dynamic */}
         {dashboardStats.hasAlert && dashboardStats.alertInfo && (
           <div
-            className={`rounded-xl shadow-sm p-6 border mb-8 flex items-start space-x-4 ${
+            className={`rounded-xl shadow-sm p-4 border mb-6 flex items-start space-x-3 ${
               dashboardStats.alertInfo.level === "high"
                 ? "bg-red-50 border-red-200"
                 : "bg-orange-50 border-orange-200"
@@ -492,7 +535,7 @@ export default function ParentDashboard() {
               }`}
             >
               <AlertTriangle
-                className={`h-5 w-5 ${
+                className={`h-4 w-4 ${
                   dashboardStats.alertInfo.level === "high"
                     ? "text-red-600"
                     : "text-orange-600"
@@ -501,7 +544,7 @@ export default function ParentDashboard() {
             </div>
             <div className="flex-1">
               <h3
-                className={`text-lg font-semibold mb-2 ${
+                className={`text-base font-semibold mb-1 ${
                   dashboardStats.alertInfo.level === "high"
                     ? "text-red-800"
                     : "text-orange-800"
@@ -511,7 +554,7 @@ export default function ParentDashboard() {
                 {dashboardStats.alertInfo.title}
               </h3>
               <p
-                className={`mb-4 ${
+                className={`text-sm ${
                   dashboardStats.alertInfo.level === "high"
                     ? "text-red-700"
                     : "text-orange-700"
@@ -520,35 +563,6 @@ export default function ParentDashboard() {
               >
                 {dashboardStats.alertInfo.description}
               </p>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    dashboardStats.alertInfo.level === "high"
-                      ? "bg-red-600 text-white hover:bg-red-700"
-                      : "bg-orange-600 text-white hover:bg-orange-700"
-                  }`}
-                >
-                  Schedule Family Check-in
-                </button>
-                <button
-                  className={`px-4 py-2 rounded-lg font-medium border transition-colors ${
-                    dashboardStats.alertInfo.level === "high"
-                      ? "bg-white text-red-600 border-red-300 hover:bg-red-50"
-                      : "bg-white text-orange-600 border-orange-300 hover:bg-orange-50"
-                  }`}
-                >
-                  Find Local Therapists
-                </button>
-                <button
-                  className={`px-4 py-2 rounded-lg font-medium border transition-colors ${
-                    dashboardStats.alertInfo.level === "high"
-                      ? "bg-white text-red-600 border-red-300 hover:bg-red-50"
-                      : "bg-white text-orange-600 border-orange-300 hover:bg-orange-50"
-                  }`}
-                >
-                  Crisis Resources
-                </button>
-              </div>
             </div>
           </div>
         )}
@@ -559,7 +573,7 @@ export default function ParentDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-8">
                 {/* Loading skeletons */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
                   <div className="animate-pulse">
                     <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
                     <div className="h-64 bg-gray-200 rounded"></div>
@@ -567,7 +581,7 @@ export default function ParentDashboard() {
                 </div>
               </div>
               <div className="space-y-6">
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
                   <div className="animate-pulse">
                     <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
                     <div className="space-y-3">

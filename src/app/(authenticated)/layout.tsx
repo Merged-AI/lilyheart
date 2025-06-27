@@ -3,7 +3,9 @@
 import { usePathname } from "next/navigation";
 import Header from "@/components/common/Header";
 import Sidebar from "@/components/common/Sidebar";
+import SessionLockGuard from "@/components/common/SessionLockGuard";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { SessionLockProvider } from "@/lib/session-lock-context";
 
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;
@@ -13,8 +15,9 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
   const pathname = usePathname();
   const { isAuthenticated, isLoading, selectedChildId, setSelectedChildId } = useAuth();
 
-  // Check if current path is chat page
+  // Check if current path is chat page or session lock page
   const isChatPage = pathname === "/chat";
+  const isSessionLockPage = pathname === "/session-lock";
 
   const handleChildSelect = (childId: string) => {
     setSelectedChildId(childId);
@@ -43,19 +46,21 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
     return null;
   }
 
-  // For chat page, return children directly without header and sidebar
-  if (isChatPage) {
-    return <>{children}</>;
+  // For chat page or session lock page, return children directly without header and sidebar
+  if (isChatPage || isSessionLockPage) {
+    return (
+      <>
+        <SessionLockGuard />
+        {children}
+      </>
+    );
   }
 
   // For other pages, include header and sidebar
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-      <Sidebar
-        selectedChildId={selectedChildId}
-        onChildSelect={handleChildSelect}
-        onEditChild={handleEditChild}
-      />
+      <SessionLockGuard />
+      <Sidebar selectedChildId={selectedChildId} />
 
       {/* Main content with sidebar offset */}
       <div className="lg:pl-64">
@@ -78,7 +83,9 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
 export default function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
   return (
     <AuthProvider>
-      <AuthenticatedLayoutContent>{children}</AuthenticatedLayoutContent>
+      <SessionLockProvider>
+        <AuthenticatedLayoutContent>{children}</AuthenticatedLayoutContent>
+      </SessionLockProvider>
     </AuthProvider>
   );
 } 

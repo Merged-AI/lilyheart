@@ -2,57 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  Brain,
-  Home,
-  MessageCircle,
-  User,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { usePathname } from "next/navigation";
+import { Brain, Home, MessageCircle, User, Menu, X } from "lucide-react";
 
 interface SidebarProps {
   selectedChildId?: string;
-  onChildSelect?: (childId: string) => void;
-  onEditChild?: (childId: string) => void;
 }
 
-export default function Sidebar({
-  selectedChildId,
-  onChildSelect,
-  onEditChild,
-}: SidebarProps) {
+export default function Sidebar({ selectedChildId }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { family, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  const handleLogout = async () => {
-    setShowLogoutModal(false);
-    await logout();
-  };
-
-  const handleChildSelect = (childId: string) => {
-    if (onChildSelect) {
-      onChildSelect(childId);
-    }
-  };
-
-  const handleEditChild = (childId: string) => {
-    if (onEditChild) {
-      onEditChild(childId);
-    } else {
-      router.push(`/children/add?childId=${childId}`);
-    }
-  };
-
-  const handleAddChild = () => {
-    router.push("/children/add");
-  };
 
   const navigationItems = [
     {
@@ -175,52 +134,8 @@ export default function Sidebar({
               );
             })}
           </nav>
-
-          {/* Logout */}
-          <div className="px-4 py-4 border-t border-gray-200">
-            <button
-              onClick={() => setShowLogoutModal(true)}
-              className="w-full flex items-center justify-center px-3 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </button>
-          </div>
         </div>
       </div>
-
-      {/* Logout Modal */}
-      {showLogoutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="fixed inset-0 bg-gray-600 bg-opacity-75"
-            onClick={() => setShowLogoutModal(false)}
-          />
-          <div className="relative bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Confirm Logout
-            </h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to logout? You'll need to log in again to
-              access your account.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-red-600 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
