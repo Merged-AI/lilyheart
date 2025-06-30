@@ -104,42 +104,85 @@ Respond with a JSON object only:
   }
 }
 
-// Extract topics from a message for categorization
-function extractTopicsFromMessage(message: string): string[] {
+// Extract topics from a message using OpenAI for intelligent categorization
+async function extractTopicsFromMessage(message: string): Promise<string[]> {
   if (!message) return ['General conversation']
   
-  const topics = []
-  const lowerMessage = message.toLowerCase()
-  
-  if (lowerMessage.includes('school') || lowerMessage.includes('teacher') || lowerMessage.includes('homework')) {
-    topics.push('School stress')
+  try {
+    const prompt = `Analyze this child's message and identify the main topics/themes being discussed. 
+
+Child's message: "${message}"
+
+Please identify 1-3 most relevant topics from these categories:
+- School stress (academic pressure, homework, tests, teachers)
+- Social relationships (friends, peers, social interactions)
+- Anxiety (worries, fears, nervousness)
+- Family dynamics (parents, siblings, family relationships)
+- Sleep issues (sleep problems, tiredness, nightmares)
+- Stress management (feeling overwhelmed, pressure)
+- Anger management (frustration, anger, irritation)
+- Bullying concerns (being picked on, mean behavior)
+- Coping strategies (relaxation, calming techniques)
+- Positive emotions (happiness, joy, excitement)
+- Sadness (feeling down, depressed, lonely)
+- Self-esteem (confidence, achievements, self-worth)
+- Hobbies and interests (activities, games, creative pursuits)
+- Daily activities (routine, daily events, schedule)
+- Physical health (illness, pain, body concerns)
+
+Respond with a JSON array of topic names only, no explanations:
+["topic1", "topic2"]`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a child psychology expert who can quickly identify the main themes and topics in children\'s messages. Provide accurate topic categorization.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_tokens: 100,
+      temperature: 0.3,
+    })
+
+    const response = completion.choices[0]?.message?.content
+    if (!response) {
+      throw new Error('No response from OpenAI')
+    }
+
+    // Parse the JSON response
+    const topics = JSON.parse(response)
+    
+    // Ensure it's an array and has valid topics
+    if (Array.isArray(topics) && topics.length > 0) {
+      return topics
+    }
+    
+    return ['General conversation']
+
+  } catch (error) {
+    console.error('Error extracting topics with OpenAI:', error)
+    
+    // Fallback to basic keyword detection for critical cases
+    const lowerMessage = message.toLowerCase()
+    
+    // Simple fallback checks for concerning content
+    if (lowerMessage.includes('suicide') || lowerMessage.includes('kill') || lowerMessage.includes('die')) {
+      return ['Crisis intervention']
+    }
+    if (lowerMessage.includes('bully') || lowerMessage.includes('hurt me')) {
+      return ['Bullying concerns']
+    }
+    if (lowerMessage.includes('anxious') || lowerMessage.includes('worried')) {
+      return ['Anxiety']
+    }
+    
+    return ['General conversation']
   }
-  if (lowerMessage.includes('friend') || lowerMessage.includes('social') || lowerMessage.includes('peer')) {
-    topics.push('Social relationships')
-  }
-  if (lowerMessage.includes('anxious') || lowerMessage.includes('worried') || lowerMessage.includes('nervous')) {
-    topics.push('Anxiety')
-  }
-  if (lowerMessage.includes('family') || lowerMessage.includes('parent') || lowerMessage.includes('sibling') || lowerMessage.includes('brother') || lowerMessage.includes('sister')) {
-    topics.push('Family dynamics')
-  }
-  if (lowerMessage.includes('sleep') || lowerMessage.includes('tired') || lowerMessage.includes('insomnia')) {
-    topics.push('Sleep issues')
-  }
-  if (lowerMessage.includes('stressed') || lowerMessage.includes('pressure') || lowerMessage.includes('overwhelmed')) {
-    topics.push('Stress management')
-  }
-  if (lowerMessage.includes('angry') || lowerMessage.includes('mad') || lowerMessage.includes('annoying')) {
-    topics.push('Anger management')
-  }
-  if (lowerMessage.includes('bullying') || lowerMessage.includes('bully') || lowerMessage.includes('mean')) {
-    topics.push('Bullying concerns')
-  }
-  if (lowerMessage.includes('calm') || lowerMessage.includes('breathing') || lowerMessage.includes('relax')) {
-    topics.push('Coping strategies')
-  }
-  
-  return topics.length > 0 ? topics : ['General conversation']
 }
 
 function checkForAlert(mood: any, message: string): boolean {
@@ -242,12 +285,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Extract topics from the message
-    const topics = session.user_message ? extractTopicsFromMessage(session.user_message) : ['General conversation']
+    const topics = session.user_message ? await extractTopicsFromMessage(session.user_message) : ['General conversation']
 
     // Check for alerts
     const hasAlert = moodAnalysis ? checkForAlert(moodAnalysis, session.user_message || '') : false
     const alertLevel = hasAlert && moodAnalysis ? determineAlertLevel(moodAnalysis, session.user_message || '') : null
     const alertMessage = hasAlert && moodAnalysis ? generateAlertMessage(moodAnalysis, session.user_message || '', alertLevel as 'high' | 'medium') : null
+
+    // Add date information for better analysis
+    const sessionDate = new Date(session.created_at).toISOString().split('T')[0]
+    const sessionTime = new Date(session.created_at).toTimeString().split(' ')[0]
 
     return {
       ...session,
@@ -256,11 +303,38 @@ export async function GET(request: NextRequest) {
       has_alert: hasAlert,
       alert_level: alertLevel,
       alert_message: alertMessage,
-      session_duration: session.session_duration || calculateSessionDuration(session)
+      session_duration: session.session_duration || calculateSessionDuration(session),
+      session_date: sessionDate,
+      session_time: sessionTime,
+      // Enhanced analysis data
+      analysis_metadata: {
+        word_count: session.user_message ? session.user_message.split(' ').length : 0,
+        response_length: session.ai_response ? session.ai_response.length : 0,
+        emotional_intensity: moodAnalysis ? Math.max(moodAnalysis.anxiety, moodAnalysis.sadness, moodAnalysis.stress) : 0,
+        positive_indicators: moodAnalysis ? moodAnalysis.happiness + moodAnalysis.confidence : 0,
+        concern_indicators: moodAnalysis ? moodAnalysis.anxiety + moodAnalysis.sadness + moodAnalysis.stress : 0
+      }
     }
   }))
 
-  return NextResponse.json({ sessions: processedSessions })
+  // Group sessions by date for better analysis
+  const groupedSessions = groupSessionsByDate(processedSessions)
+
+  return NextResponse.json({ 
+    sessions: processedSessions,
+    groupedSessions,
+    summary: {
+      totalSessions: processedSessions.length,
+      totalDays: groupedSessions.length,
+      averageSessionsPerDay: groupedSessions.length > 0 ? (processedSessions.length / groupedSessions.length).toFixed(1) : 0,
+      dateRange: groupedSessions.length > 0 ? {
+        start: groupedSessions[0].date,
+        end: groupedSessions[groupedSessions.length - 1].date
+      } : null,
+      totalDuration: processedSessions.reduce((sum, s) => sum + (s.session_duration || 0), 0),
+      averageDuration: processedSessions.length > 0 ? Math.round(processedSessions.reduce((sum, s) => sum + (s.session_duration || 0), 0) / processedSessions.length) : 0
+    }
+  })
 }
 
 export async function POST(request: NextRequest) {
@@ -311,7 +385,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract topics
-    const topics = userMessage ? extractTopicsFromMessage(userMessage) : ['General conversation']
+    const topics = userMessage ? await extractTopicsFromMessage(userMessage) : ['General conversation']
 
     // Check for alerts
     const hasAlert = finalMoodAnalysis ? checkForAlert(finalMoodAnalysis, userMessage) : false
@@ -367,4 +441,80 @@ function calculateSessionDuration(messages: any[]): number {
   const lastMessage = new Date(messages[messages.length - 1].timestamp || messages[messages.length - 1].created_at || Date.now())
   
   return Math.floor((lastMessage.getTime() - firstMessage.getTime()) / 1000)
+}
+
+// Group sessions by date for better analysis
+function groupSessionsByDate(sessions: any[]): any[] {
+  const grouped: any[] = [];
+  const sessionMap = new Map<string, any[]>();
+
+  sessions.forEach((session) => {
+    const date = session.created_at.split('T')[0];
+    if (!sessionMap.has(date)) {
+      sessionMap.set(date, []);
+    }
+    sessionMap.get(date)?.push(session);
+  });
+
+  sessionMap.forEach((daySessions, date) => {
+    // Calculate daily metrics
+    const totalDuration = daySessions.reduce((sum, session) => sum + (session.session_duration || 0), 0);
+    const avgMood = calculateAverageMood(daySessions);
+    const allTopics = Array.from(new Set(daySessions.flatMap(session => session.topics || [])));
+    const hasAlert = daySessions.some(session => session.has_alert);
+    const alertLevel = daySessions.find(session => session.alert_level === 'high')?.alert_level || 
+                      daySessions.find(session => session.alert_level === 'medium')?.alert_level || null;
+
+    // Calculate daily engagement metrics
+    const totalWordCount = daySessions.reduce((sum, session) => sum + (session.analysis_metadata?.word_count || 0), 0);
+    const totalResponseLength = daySessions.reduce((sum, session) => sum + (session.analysis_metadata?.response_length || 0), 0);
+    const avgEmotionalIntensity = daySessions.reduce((sum, session) => sum + (session.analysis_metadata?.emotional_intensity || 0), 0) / daySessions.length;
+    const avgPositiveIndicators = daySessions.reduce((sum, session) => sum + (session.analysis_metadata?.positive_indicators || 0), 0) / daySessions.length;
+    const avgConcernIndicators = daySessions.reduce((sum, session) => sum + (session.analysis_metadata?.concern_indicators || 0), 0) / daySessions.length;
+
+    grouped.push({
+      date,
+      sessionCount: daySessions.length,
+      totalDuration,
+      averageMood: avgMood,
+      topics: allTopics,
+      hasAlert,
+      alertLevel,
+      engagementMetrics: {
+        totalWordCount,
+        totalResponseLength,
+        averageEmotionalIntensity: Math.round(avgEmotionalIntensity * 10) / 10,
+        averagePositiveIndicators: Math.round(avgPositiveIndicators * 10) / 10,
+        averageConcernIndicators: Math.round(avgConcernIndicators * 10) / 10
+      },
+      sessions: daySessions.map((session: any) => ({
+        ...session,
+        date: session.created_at.split('T')[0],
+      })),
+    });
+  });
+
+  return grouped.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+// Calculate average mood from multiple sessions
+function calculateAverageMood(sessions: any[]): any {
+  const validMoods = sessions.filter(session => session.mood_analysis && typeof session.mood_analysis.happiness === 'number');
+  
+  if (validMoods.length === 0) return null;
+
+  const totalHappiness = validMoods.reduce((sum, session) => sum + session.mood_analysis.happiness, 0);
+  const totalAnxiety = validMoods.reduce((sum, session) => sum + (session.mood_analysis.anxiety || 0), 0);
+  const totalSadness = validMoods.reduce((sum, session) => sum + (session.mood_analysis.sadness || 0), 0);
+  const totalStress = validMoods.reduce((sum, session) => sum + (session.mood_analysis.stress || 0), 0);
+  const totalConfidence = validMoods.reduce((sum, session) => sum + (session.mood_analysis.confidence || 0), 0);
+
+  return {
+    happiness: Math.round(totalHappiness / validMoods.length),
+    anxiety: Math.round(totalAnxiety / validMoods.length),
+    sadness: Math.round(totalSadness / validMoods.length),
+    stress: Math.round(totalStress / validMoods.length),
+    confidence: Math.round(totalConfidence / validMoods.length),
+    insights: `Average mood from ${validMoods.length} sessions`
+  };
 } 

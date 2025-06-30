@@ -12,28 +12,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Get the most recent active child from the authenticated family
-async function getMostRecentChild(familyId: string): Promise<string | null> {
-  try {
-    const { data: child, error } = await supabase
-      .from("children")
-      .select("id")
-      .eq("family_id", familyId)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error || !child) {
-      return null;
-    }
-
-    return child.id;
-  } catch (error) {
-    return null;
-  }
-}
-
 // Validate child belongs to authenticated family
 async function validateChildAccess(
   familyId: string,
@@ -59,9 +37,9 @@ async function analyzeMoodFromInput(
   childAge?: number
 ): Promise<any> {
   try {
-    const prompt = `Analyze the emotional state of a child based on their mood input or description. Provide a detailed mood analysis with scores from 1-10 for each dimension.
+    const prompt = `Analyze the emotional state of a child based on their message. Provide a detailed mood analysis with scores from 1-10 for each dimension.
 
-Child's mood input: "${input}"
+Child's message: "${input}"
 ${childAge ? `Child's age: ${childAge} years` : ""}
 
 Please analyze the emotional content and provide scores for:
@@ -77,7 +55,6 @@ IMPORTANT: Pay special attention to concerning content like:
 - Extreme emotional distress
 - Violent thoughts
 - Hopelessness
-- Severe anxiety or depression
 
 For concerning content, use appropriate high scores for anxiety, sadness, and stress.
 
@@ -97,7 +74,7 @@ Respond with a JSON object only:
         {
           role: "system",
           content:
-            "You are a child psychologist specializing in emotional assessment. Provide accurate, nuanced mood analysis based on the child's mood input or description.",
+            "You are a child psychologist specializing in emotional assessment. Provide accurate, nuanced mood analysis based on the child's message content.",
         },
         {
           role: "user",
@@ -142,6 +119,51 @@ Respond with a JSON object only:
       confidence: 5,
       insights: "Unable to analyze mood - using neutral baseline scores",
     };
+  }
+}
+
+// Check for concerning mood patterns (from sessions API)
+function checkForAlert(mood: any, message: string): boolean {
+  // Check for concerning mood scores
+  if (mood.anxiety >= 7 || mood.stress >= 7 || mood.sadness >= 7) {
+    return true;
+  }
+  
+  // Alert if very low happiness and confidence
+  if (mood.happiness <= 2 && mood.confidence <= 2) {
+    return true;
+  }
+
+  return false;
+}
+
+function determineAlertLevel(mood: any, message: string): 'high' | 'medium' {
+  // High alert for severe symptoms
+  if (mood.anxiety >= 8 || mood.sadness >= 8 || mood.stress >= 8) {
+    return 'high';
+  }
+  
+  if (mood.happiness <= 1 || mood.confidence <= 1) {
+    return 'high';
+  }
+
+  return 'medium';
+}
+
+function generateAlertMessage(mood: any, message: string, level: 'high' | 'medium'): string {
+  const concerns = [];
+  
+  if (mood.anxiety >= 7) concerns.push('elevated anxiety');
+  if (mood.sadness >= 7) concerns.push('significant sadness');
+  if (mood.stress >= 7) concerns.push('high stress levels');
+  if (mood.confidence <= 3) concerns.push('low self-confidence');
+
+  const concernsText = concerns.length > 0 ? concerns.join(', ') : 'emotional distress';
+
+  if (level === 'high') {
+    return `Your child is experiencing ${concernsText} and may need immediate support. Consider scheduling a check-in conversation or contacting a mental health professional. Recent message indicated significant emotional distress.`;
+  } else {
+    return `Your child is showing signs of ${concernsText}. This might be a good time to check in with them about how they're feeling and offer some extra support.`;
   }
 }
 
@@ -312,6 +334,14 @@ export async function GET(request: NextRequest) {
     const forceRefresh = searchParams.get("forceRefresh") === "true";
     const forceAll = searchParams.get("forceAll") === "true";
 
+    // Require childId parameter
+    if (!requestedChildId) {
+      return NextResponse.json(
+        { error: "Child ID is required" },
+        { status: 400 }
+      );
+    }
+
     // Get authenticated family
     const family = await getAuthenticatedFamilyFromToken();
     if (!family) {
@@ -321,21 +351,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Determine which child to track
-    let childId = requestedChildId;
-    if (!childId) {
-      childId = await getMostRecentChild(family.id);
-    }
-
-    if (!childId) {
-      return NextResponse.json(
-        { error: "No active children found. Please register a child first." },
-        { status: 404 }
-      );
-    }
-
     // Validate child access
-    const hasAccess = await validateChildAccess(family.id, childId);
+    const hasAccess = await validateChildAccess(family.id, requestedChildId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Access denied to this child" },
@@ -347,7 +364,7 @@ export async function GET(request: NextRequest) {
     const { data: child, error: childError } = await supabase
       .from("children")
       .select("id, name, age, current_mood")
-      .eq("id", childId)
+      .eq("id", requestedChildId)
       .single();
 
     if (childError || !child) {
@@ -363,7 +380,7 @@ export async function GET(request: NextRequest) {
     const { data: sessions, error: sessionsError } = await supabase
       .from("therapy_sessions")
       .select("id, created_at, mood_analysis, user_message, ai_response")
-      .eq("child_id", childId)
+      .eq("child_id", requestedChildId)
       .gte("created_at", startDate.toISOString())
       .lte("created_at", endDate.toISOString())
       .order("created_at", { ascending: true });
@@ -380,89 +397,133 @@ export async function GET(request: NextRequest) {
 
     // Transform therapy sessions into mood tracking entries
     const moodEntries = [];
-    const processedDates = new Set();
+    const dailySessions = new Map(); // Group sessions by date
 
+    // Group all sessions by date
     for (const session of sessions || []) {
       const sessionDate = session.created_at.split("T")[0];
       
-      // Skip if we already have an entry for this date (take the latest session of the day)
-      if (processedDates.has(sessionDate)) {
-        continue;
+      if (!dailySessions.has(sessionDate)) {
+        dailySessions.set(sessionDate, []);
       }
-      processedDates.add(sessionDate);
+      dailySessions.get(sessionDate).push(session);
+    }
 
-      if (session.mood_analysis) {
-        // Create mood entry from session mood analysis
+    // Process each day's sessions and create averaged mood entries
+    for (const [date, daySessions] of Array.from(dailySessions.entries())) {
+      const dayMoodScores = [];
+      const dayNotes = [];
+      let latestSessionId = null;
+      let latestSessionTime = null;
+
+      // Analyze each session for the day
+      for (const session of daySessions) {
+        latestSessionId = session.id;
+        latestSessionTime = session.created_at;
+
+        // Always re-analyze mood from the user message to ensure accuracy and consistency
+        if (session.user_message) {
+          try {
+            // Analyze mood from session content using the same approach as sessions API
+            const aiMoodAnalysis = await analyzeMoodFromInput(
+              session.user_message,
+              child.age
+            );
+
+            dayMoodScores.push({
+              happiness: aiMoodAnalysis.happiness,
+              anxiety: aiMoodAnalysis.anxiety,
+              sadness: aiMoodAnalysis.sadness,
+              stress: aiMoodAnalysis.stress,
+              confidence: aiMoodAnalysis.confidence,
+              insights: aiMoodAnalysis.insights,
+            });
+
+            dayNotes.push(`[Session ${session.id}: ${aiMoodAnalysis.insights}] ${session.user_message.substring(0, 50)}...`);
+          } catch (error) {
+            console.error(`Error analyzing session ${session.id}:`, error);
+            
+            // Fallback to existing mood analysis if available
+            if (session.mood_analysis) {
+              dayMoodScores.push({
+                happiness: session.mood_analysis.happiness || 5,
+                anxiety: session.mood_analysis.anxiety || 5,
+                sadness: session.mood_analysis.sadness || 5,
+                stress: session.mood_analysis.stress || 5,
+                confidence: session.mood_analysis.confidence || 5,
+                insights: session.mood_analysis.insights || "Fallback analysis",
+              });
+              dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Fallback'}] ${session.user_message?.substring(0, 50) || 'No message'}...`);
+            }
+          }
+        } else if (session.mood_analysis) {
+          // Fallback for sessions without user messages but with existing mood analysis
+          dayMoodScores.push({
+            happiness: session.mood_analysis.happiness || 5,
+            anxiety: session.mood_analysis.anxiety || 5,
+            sadness: session.mood_analysis.sadness || 5,
+            stress: session.mood_analysis.stress || 5,
+            confidence: session.mood_analysis.confidence || 5,
+            insights: session.mood_analysis.insights || "Existing analysis",
+          });
+          dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Existing'}] ${session.user_message?.substring(0, 50) || 'No message'}...`);
+        }
+      }
+
+      // Calculate averaged mood scores for the day
+      if (dayMoodScores.length > 0) {
+        const averagedMood = {
+          happiness: Math.round(dayMoodScores.reduce((sum, score) => sum + score.happiness, 0) / dayMoodScores.length),
+          anxiety: Math.round(dayMoodScores.reduce((sum, score) => sum + score.anxiety, 0) / dayMoodScores.length),
+          sadness: Math.round(dayMoodScores.reduce((sum, score) => sum + score.sadness, 0) / dayMoodScores.length),
+          stress: Math.round(dayMoodScores.reduce((sum, score) => sum + score.stress, 0) / dayMoodScores.length),
+          confidence: Math.round(dayMoodScores.reduce((sum, score) => sum + score.confidence, 0) / dayMoodScores.length),
+        };
+
+        // Combine insights from all sessions
+        const combinedInsights = dayMoodScores.map(score => score.insights).filter(Boolean).join("; ");
+        const sessionCount = daySessions.length;
+
         const moodEntry = {
-          id: session.id,
-          child_id: childId,
-          happiness: session.mood_analysis.happiness || 5,
-          anxiety: session.mood_analysis.anxiety || 5,
-          sadness: session.mood_analysis.sadness || 5,
-          stress: session.mood_analysis.stress || 5,
-          confidence: session.mood_analysis.confidence || 5,
-          notes: session.mood_analysis.insights || 
-                 `Session: ${session.user_message?.substring(0, 100)}...`,
-          recorded_at: session.created_at,
-          session_id: session.id,
+          id: latestSessionId,
+          child_id: requestedChildId,
+          happiness: averagedMood.happiness,
+          anxiety: averagedMood.anxiety,
+          sadness: averagedMood.sadness,
+          stress: averagedMood.stress,
+          confidence: averagedMood.confidence,
+          notes: `[${sessionCount} session${sessionCount > 1 ? 's' : ''} averaged] ${combinedInsights} | ${dayNotes.join(" | ")}`,
+          recorded_at: latestSessionTime,
+          session_id: latestSessionId,
+          session_count: sessionCount,
         };
 
         moodEntries.push(moodEntry);
       }
     }
 
-    // If no sessions with mood analysis, try to analyze existing sessions
-    if (moodEntries.length === 0 && sessions && sessions.length > 0) {
-      console.log("No mood analysis found in sessions, analyzing existing sessions...");
-      
-      for (const session of sessions.slice(0, 7)) { // Limit to 7 sessions
-        const sessionDate = session.created_at.split("T")[0];
-        
-        if (processedDates.has(sessionDate)) {
-          continue;
-        }
-        processedDates.add(sessionDate);
-
-        if (session.user_message) {
-          try {
-            // Analyze mood from session content
-            const aiMoodAnalysis = await analyzeMoodFromInput(
-              session.user_message,
-              child.age
-            );
-
-            const moodEntry = {
-              id: session.id,
-              child_id: childId,
-              happiness: aiMoodAnalysis.happiness,
-              anxiety: aiMoodAnalysis.anxiety,
-              sadness: aiMoodAnalysis.sadness,
-              stress: aiMoodAnalysis.stress,
-              confidence: aiMoodAnalysis.confidence,
-              notes: `[Session Analysis: ${aiMoodAnalysis.insights}] ${session.user_message.substring(0, 100)}...`,
-              recorded_at: session.created_at,
-              session_id: session.id,
-            };
-
-            moodEntries.push(moodEntry);
-          } catch (error) {
-            console.error(`Error analyzing session ${session.id}:`, error);
-          }
-        }
-      }
-    }
-
     // Transform data for chart display
-    const moodData = moodEntries.map((entry) => ({
-      date: entry.recorded_at.split("T")[0],
-      happiness: entry.happiness,
-      anxiety: entry.anxiety,
-      sadness: entry.sadness,
-      stress: entry.stress,
-      confidence: entry.confidence,
-      notes: entry.notes || "",
-      session_id: entry.session_id,
-    }));
+    const moodData = moodEntries.map((entry) => {
+      // Check for alerts for each entry
+      const hasAlert = checkForAlert(entry, entry.notes || "");
+      const alertLevel = hasAlert ? determineAlertLevel(entry, entry.notes || "") : null;
+      const alertMessage = hasAlert ? generateAlertMessage(entry, entry.notes || "", alertLevel as 'high' | 'medium') : null;
+
+      return {
+        date: entry.recorded_at.split("T")[0],
+        happiness: entry.happiness,
+        anxiety: entry.anxiety,
+        sadness: entry.sadness,
+        stress: entry.stress,
+        confidence: entry.confidence,
+        notes: entry.notes || "",
+        session_id: entry.session_id,
+        session_count: entry.session_count || 1,
+        has_alert: hasAlert,
+        alert_level: alertLevel,
+        alert_message: alertMessage,
+      };
+    });
 
     // Analyze mood status with the entries
     const moodAnalysis = analyzeMoodStatus(moodEntries);
@@ -702,11 +763,19 @@ export async function POST(request: NextRequest) {
         // Analyze the new mood entry
         const moodAnalysis = analyzeMoodStatus([moodEntry]);
 
+        // Check for alerts
+        const hasAlert = checkForAlert(finalMood, moodDescription || "");
+        const alertLevel = hasAlert ? determineAlertLevel(finalMood, moodDescription || "") : null;
+        const alertMessage = hasAlert ? generateAlertMessage(finalMood, moodDescription || "", alertLevel as 'high' | 'medium') : null;
+
         return NextResponse.json({
           success: true,
           moodEntry,
           moodAnalysis,
           aiAnalysis: aiMoodAnalysis,
+          has_alert: hasAlert,
+          alert_level: alertLevel,
+          alert_message: alertMessage,
           message: "Mood entry saved successfully with AI analysis",
         });
       } catch (aiError) {
@@ -791,10 +860,18 @@ export async function POST(request: NextRequest) {
     // Analyze the new mood entry
     const moodAnalysis = analyzeMoodStatus([moodEntry]);
 
+    // Check for alerts
+    const hasAlert = checkForAlert(validatedMood, notes || "");
+    const alertLevel = hasAlert ? determineAlertLevel(validatedMood, notes || "") : null;
+    const alertMessage = hasAlert ? generateAlertMessage(validatedMood, notes || "", alertLevel as 'high' | 'medium') : null;
+
     return NextResponse.json({
       success: true,
       moodEntry,
       moodAnalysis,
+      has_alert: hasAlert,
+      alert_level: alertLevel,
+      alert_message: alertMessage,
       message: "Mood entry saved successfully",
     });
   } catch (error) {
@@ -958,11 +1035,19 @@ export async function PUT(request: NextRequest) {
         // Analyze the updated mood entry
         const moodAnalysis = analyzeMoodStatus([moodEntry]);
 
+        // Check for alerts
+        const hasAlert = checkForAlert(finalMood, moodDescription || "");
+        const alertLevel = hasAlert ? determineAlertLevel(finalMood, moodDescription || "") : null;
+        const alertMessage = hasAlert ? generateAlertMessage(finalMood, moodDescription || "", alertLevel as 'high' | 'medium') : null;
+
         return NextResponse.json({
           success: true,
           moodEntry,
           moodAnalysis,
           aiAnalysis: aiMoodAnalysis,
+          has_alert: hasAlert,
+          alert_level: alertLevel,
+          alert_message: alertMessage,
           message: "Mood entry updated successfully with AI analysis",
         });
       } catch (aiError) {
@@ -1050,10 +1135,18 @@ export async function PUT(request: NextRequest) {
     // Analyze the updated mood entry
     const moodAnalysis = analyzeMoodStatus([moodEntry]);
 
+    // Check for alerts
+    const hasAlert = checkForAlert(validatedMood, notes || "");
+    const alertLevel = hasAlert ? determineAlertLevel(validatedMood, notes || "") : null;
+    const alertMessage = hasAlert ? generateAlertMessage(validatedMood, notes || "", alertLevel as 'high' | 'medium') : null;
+
     return NextResponse.json({
       success: true,
       moodEntry,
       moodAnalysis,
+      has_alert: hasAlert,
+      alert_level: alertLevel,
+      alert_message: alertMessage,
       message: "Mood entry updated successfully",
     });
   } catch (error) {
@@ -1124,6 +1217,11 @@ export async function PATCH(request: NextRequest) {
       child.age
     );
 
+    // Check for alerts
+    const hasAlert = checkForAlert(aiMoodAnalysis, moodDescription);
+    const alertLevel = hasAlert ? determineAlertLevel(aiMoodAnalysis, moodDescription) : null;
+    const alertMessage = hasAlert ? generateAlertMessage(aiMoodAnalysis, moodDescription, alertLevel as 'high' | 'medium') : null;
+
     return NextResponse.json({
       success: true,
       child: {
@@ -1132,6 +1230,9 @@ export async function PATCH(request: NextRequest) {
         age: child.age,
       },
       moodAnalysis: aiMoodAnalysis,
+      has_alert: hasAlert,
+      alert_level: alertLevel,
+      alert_message: alertMessage,
       message: "Mood analysis completed successfully",
     });
   } catch (error) {

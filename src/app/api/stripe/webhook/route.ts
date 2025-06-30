@@ -216,7 +216,9 @@ FAMILY COMMUNICATION GOALS:
 - Help family understand ${child.name}'s unique needs and perspectives
 
 AGE-APPROPRIATE APPROACH FOR ${age}-YEAR-OLD:
-${age <= 6 ? 
+${age <= 3 ? 
+  '- Use very simple language and concrete concepts\n- Include play-based conversation elements\n- Keep conversations shorter (5-10 minutes)\n- Use lots of validation and encouragement' :
+  age <= 6 ? 
   '- Use simple language and concrete concepts\n- Include play-based conversation elements\n- Keep conversations shorter (10-15 minutes)\n- Use lots of validation and encouragement' :
   age <= 10 ?
   '- Use age-appropriate emotional vocabulary\n- Help with problem-solving skills\n- Support peer relationship discussions\n- Balance independence with family connection' :

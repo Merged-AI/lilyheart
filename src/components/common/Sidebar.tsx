@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, Home, MessageCircle, User, Menu, X } from "lucide-react";
+import { Brain, Home, MessageCircle, User, Menu, X, Lock } from "lucide-react";
 
 interface SidebarProps {
   selectedChildId?: string;
@@ -32,12 +32,20 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
       icon: User,
       description: "View & manage all children",
     },
+    {
+      name: "Session Lock",
+      href: "/session-lock-management",
+      icon: Lock,
+      description: "Manage PIN",
+    },
   ];
 
   const isActiveRoute = (href: string) => {
     if (href === "/dashboard" && pathname === "/dashboard") return true;
     if (href.includes("/chat") && pathname.includes("/chat")) return true;
     if (href.includes("/children") && pathname.includes("/children"))
+      return true;
+    if (href === "/session-lock-management" && pathname === "/session-lock-management")
       return true;
     return false;
   };

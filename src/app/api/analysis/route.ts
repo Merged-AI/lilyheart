@@ -140,6 +140,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Group conversations by date for better analysis
+    const groupedConversations = groupConversationsByDate(conversations);
+
     let analysis: ChildAnalysis;
 
     switch (analysisType) {
@@ -159,6 +162,7 @@ export async function GET(request: NextRequest) {
           type: "progress",
           child: child,
           analysis: progressAnalysis,
+          dailyData: groupedConversations,
         });
 
       case "solutions":
@@ -171,6 +175,7 @@ export async function GET(request: NextRequest) {
           type: "solutions",
           child: child,
           solutions: solutions,
+          dailyData: groupedConversations,
         });
 
       default:
@@ -196,7 +201,9 @@ export async function GET(request: NextRequest) {
       analysis: analysis,
       parentInsights: parentInsights,
       conversationCount: conversations.length,
+      dailySessions: groupedConversations.length,
       analysisTimestamp: new Date().toISOString(),
+      dailyData: groupedConversations,
     });
   } catch (error) {
     console.error("Error in analysis API:", error);
@@ -414,31 +421,53 @@ function convertEnhancedToStandardAnalysis(
   enhancedAnalysis: any,
   child: any
 ): ChildAnalysis {
-  // Determine risk level based on communication patterns
+  // Determine risk level based on communication patterns and confidence scores
   const highConfidencePatterns = enhancedAnalysis.communicationPatterns.filter(
     (p: any) => p.confidence > 80
   );
   const lowConfidencePatterns = enhancedAnalysis.communicationPatterns.filter(
     (p: any) => p.confidence < 50
   );
+  const mediumConfidencePatterns =
+    enhancedAnalysis.communicationPatterns.filter(
+      (p: any) => p.confidence >= 50 && p.confidence <= 80
+    );
 
+  // More sophisticated risk level determination based on confidence patterns
   let riskLevel: "low" | "moderate" | "high" | "crisis" = "low";
-  if (lowConfidencePatterns.length > 2) riskLevel = "moderate";
-  if (highConfidencePatterns.length > 2) riskLevel = "high";
 
-  // Extract primary concerns from patterns
+  if (highConfidencePatterns.length >= 3) {
+    riskLevel = "high";
+  } else if (
+    highConfidencePatterns.length >= 2 ||
+    lowConfidencePatterns.length >= 2
+  ) {
+    riskLevel = "moderate";
+  } else if (lowConfidencePatterns.length >= 3) {
+    riskLevel = "crisis";
+  }
+
+  // Extract primary concerns from patterns with confidence weighting
   const primaryConcerns = enhancedAnalysis.communicationPatterns
     .filter((p: any) => p.confidence > 60)
-    .map((p: any) => p.title);
+    .sort((a: any, b: any) => b.confidence - a.confidence)
+    .map((p: any) => `${p.title} (${p.confidence}% confidence)`);
 
-  // Generate behavioral patterns from communication patterns
+  // Generate behavioral patterns from communication patterns with confidence context
   const behavioralPatterns = enhancedAnalysis.communicationPatterns.map(
     (pattern: any) => ({
       type: "trigger-based" as const,
-      description: pattern.observations.join(". "),
-      frequency: "regular",
-      triggers: pattern.observations.filter((obs: string) =>
-        obs.includes("trigger")
+      description: `${pattern.observations.join(". ")} [Confidence: ${
+        pattern.confidence
+      }%]`,
+      frequency:
+        pattern.confidence > 80
+          ? "frequent"
+          : pattern.confidence > 60
+          ? "regular"
+          : "occasional",
+      triggers: pattern.observations.filter(
+        (obs: string) => obs.includes("trigger") || obs.includes("frequency")
       ),
       impact:
         pattern.confidence > 80
@@ -446,55 +475,100 @@ function convertEnhancedToStandardAnalysis(
           : pattern.confidence > 60
           ? "moderate"
           : "mild",
-      trend: "stable" as const,
+      trend: pattern.confidence > 70 ? "increasing" : ("stable" as const),
     })
   );
 
-  // Generate symptom severity from conversation metrics
+  // Generate symptom severity from conversation metrics with confidence weighting
   const metrics = enhancedAnalysis.conversationMetrics;
+  const avgConfidence =
+    enhancedAnalysis.communicationPatterns.reduce(
+      (sum: number, p: any) => sum + p.confidence,
+      0
+    ) / enhancedAnalysis.communicationPatterns.length;
+
   const symptomSeverity = {
     anxiety: {
-      level: Math.min(10, Math.max(1, 10 - metrics.engagementLevel)),
-      symptoms: ["Communication difficulties", "Low engagement"],
+      level: Math.min(
+        10,
+        Math.max(1, 10 - metrics.engagementLevel + (avgConfidence < 60 ? 2 : 0))
+      ),
+      symptoms: [
+        "Communication difficulties",
+        "Low engagement",
+        `Analysis confidence: ${Math.round(avgConfidence)}%`,
+      ],
     },
     depression: {
-      level: Math.min(10, Math.max(1, 10 - metrics.emotionalVocabularyGrowth)),
-      symptoms: ["Limited emotional expression"],
+      level: Math.min(
+        10,
+        Math.max(
+          1,
+          10 - metrics.emotionalVocabularyGrowth + (avgConfidence < 60 ? 2 : 0)
+        )
+      ),
+      symptoms: [
+        "Limited emotional expression",
+        `Analysis confidence: ${Math.round(avgConfidence)}%`,
+      ],
     },
     adhd: {
-      level: Math.min(10, Math.max(1, 10 - metrics.responseComplexity)),
-      symptoms: ["Simple responses", "Short attention span"],
+      level: Math.min(
+        10,
+        Math.max(
+          1,
+          10 - metrics.responseComplexity + (avgConfidence < 60 ? 2 : 0)
+        )
+      ),
+      symptoms: [
+        "Simple responses",
+        "Short attention span",
+        `Analysis confidence: ${Math.round(avgConfidence)}%`,
+      ],
     },
     anger: {
       level: 5,
-      symptoms: ["Standard range"],
+      symptoms: [
+        "Standard range",
+        `Analysis confidence: ${Math.round(avgConfidence)}%`,
+      ],
     },
     trauma: {
       level: 3,
-      symptoms: ["No significant indicators"],
+      symptoms: [
+        "No significant indicators",
+        `Analysis confidence: ${Math.round(avgConfidence)}%`,
+      ],
     },
   };
 
-  // Generate immediate actions from family benefits
+  // Generate immediate actions from family benefits with confidence context
   const immediateActions = enhancedAnalysis.familyBenefits.map(
-    (benefit: any) => ({
-      priority: "important" as const,
+    (benefit: any, index: number) => ({
+      priority: index === 0 ? ("urgent" as const) : ("important" as const),
       category: "communication" as const,
-      title: benefit.area,
-      description: benefit.benefit,
+      title: `${benefit.area} (High Confidence Analysis)`,
+      description: `${benefit.benefit} [Based on ${
+        enhancedAnalysis.totalSessions
+      } sessions with ${Math.round(avgConfidence)}% average confidence]`,
       steps: benefit.suggestedActions,
       timeframe: "ongoing",
       expectedOutcome: benefit.currentProgress,
     })
   );
 
-  // Generate weekly goals from overall insights
+  // Generate weekly goals from overall insights with confidence weighting
   const weeklyGoals = enhancedAnalysis.overallInsights.recommendations.map(
-    (rec: string) => ({
+    (rec: string, index: number) => ({
       area: "Communication",
-      objective: rec,
-      activities: ["Practice daily", "Monitor progress"],
-      measurableOutcome: "Improved communication",
+      objective: `${rec} [Confidence: ${Math.round(avgConfidence)}%]`,
+      activities: [
+        "Practice daily",
+        "Monitor progress",
+        "Track confidence improvements",
+      ],
+      measurableOutcome:
+        "Improved communication with higher analysis confidence",
       parentRole: "Support and encourage",
       childRole: "Participate actively",
     })
@@ -509,32 +583,54 @@ function convertEnhancedToStandardAnalysis(
     immediateActions,
     weeklyGoals,
     longTermStrategy: {
-      focus: "Communication development",
-      approach: "Consistent therapeutic engagement",
+      focus: "Communication development with improved analysis confidence",
+      approach: "Consistent therapeutic engagement with pattern recognition",
       timeline: "6-12 months",
       milestones: [
         "Improved emotional expression",
         "Better family communication",
+        "Higher analysis confidence scores",
       ],
-      parentSupport: ["Regular check-ins", "Emotional validation"],
-      professionalSupport: ["Continued therapy sessions"],
+      parentSupport: [
+        "Regular check-ins",
+        "Emotional validation",
+        "Confidence tracking",
+      ],
+      professionalSupport: [
+        "Continued therapy sessions",
+        "Pattern analysis review",
+      ],
     },
     therapyRecommendations: [
       {
         type: "play-therapy",
         urgency: "within-month",
-        rationale: "Build communication skills through play",
+        rationale: `Build communication skills through play. Current analysis confidence: ${Math.round(
+          avgConfidence
+        )}%`,
         expectedBenefits: [
           "Improved emotional expression",
           "Better family relationships",
+          "Higher pattern recognition confidence",
         ],
       },
     ],
     interventionPlan: {
       phase: "treatment",
-      techniques: ["Communication exercises", "Emotional vocabulary building"],
-      parentInvolvement: ["Active listening", "Emotional validation"],
-      schoolCoordination: ["Monitor social interactions"],
+      techniques: [
+        "Communication exercises",
+        "Emotional vocabulary building",
+        "Confidence-based analysis",
+      ],
+      parentInvolvement: [
+        "Active listening",
+        "Emotional validation",
+        "Confidence monitoring",
+      ],
+      schoolCoordination: [
+        "Monitor social interactions",
+        "Track communication patterns",
+      ],
       duration: "Ongoing",
     },
     progressTracking: [
@@ -543,8 +639,105 @@ function convertEnhancedToStandardAnalysis(
         baseline: metrics.conversationInitiation,
         target: 80,
         timeframe: "3 months",
-        trackingMethod: "Session observations",
+        trackingMethod: "Session observations and confidence scoring",
+      },
+      {
+        metric: "Analysis confidence",
+        baseline: Math.round(avgConfidence),
+        target: 85,
+        timeframe: "6 months",
+        trackingMethod: "Pattern recognition accuracy",
       },
     ],
+  };
+}
+
+// Group conversations by date for better analysis
+function groupConversationsByDate(conversations: any[]): any[] {
+  const grouped: any[] = [];
+  const conversationMap = new Map<string, any[]>();
+
+  conversations.forEach((conv) => {
+    const date = conv.created_at.split("T")[0];
+    if (!conversationMap.has(date)) {
+      conversationMap.set(date, []);
+    }
+    conversationMap.get(date)?.push(conv);
+  });
+
+  conversationMap.forEach((conversations, date) => {
+    // Calculate daily metrics
+    const totalDuration = conversations.reduce(
+      (sum, conv) => sum + (conv.session_duration || 0),
+      0
+    );
+    const avgMood = calculateAverageMood(conversations);
+    const allTopics = Array.from(
+      new Set(conversations.flatMap((conv) => conv.topics || []))
+    );
+    const hasAlert = conversations.some((conv) => conv.has_alert);
+    const alertLevel =
+      conversations.find((conv) => conv.alert_level === "high")?.alert_level ||
+      conversations.find((conv) => conv.alert_level === "medium")
+        ?.alert_level ||
+      null;
+
+    grouped.push({
+      date,
+      sessionCount: conversations.length,
+      totalDuration,
+      averageMood: avgMood,
+      topics: allTopics,
+      hasAlert,
+      alertLevel,
+      conversations: conversations.map((conv: any) => ({
+        ...conv,
+        date: conv.created_at.split("T")[0],
+      })),
+    });
+  });
+
+  return grouped.sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+}
+
+// Calculate average mood from multiple sessions
+function calculateAverageMood(conversations: any[]): any {
+  const validMoods = conversations.filter(
+    (conv) =>
+      conv.mood_analysis && typeof conv.mood_analysis.happiness === "number"
+  );
+
+  if (validMoods.length === 0) return null;
+
+  const totalHappiness = validMoods.reduce(
+    (sum, conv) => sum + conv.mood_analysis.happiness,
+    0
+  );
+  const totalAnxiety = validMoods.reduce(
+    (sum, conv) => sum + (conv.mood_analysis.anxiety || 0),
+    0
+  );
+  const totalSadness = validMoods.reduce(
+    (sum, conv) => sum + (conv.mood_analysis.sadness || 0),
+    0
+  );
+  const totalStress = validMoods.reduce(
+    (sum, conv) => sum + (conv.mood_analysis.stress || 0),
+    0
+  );
+  const totalConfidence = validMoods.reduce(
+    (sum, conv) => sum + (conv.mood_analysis.confidence || 0),
+    0
+  );
+
+  return {
+    happiness: Math.round(totalHappiness / validMoods.length),
+    anxiety: Math.round(totalAnxiety / validMoods.length),
+    sadness: Math.round(totalSadness / validMoods.length),
+    stress: Math.round(totalStress / validMoods.length),
+    confidence: Math.round(totalConfidence / validMoods.length),
+    insights: `Average mood from ${validMoods.length} sessions`,
   };
 }

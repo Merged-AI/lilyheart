@@ -325,17 +325,16 @@ export function ChildMentalHealthDashboard({
       }
 
       // Update mood data based on recent sessions for selected child
-      const moodUrl = selectedChildId
-        ? `/api/mood-tracking?days=7&childId=${selectedChildId}`
-        : "/api/mood-tracking?days=7";
-
-      const moodResponse = await fetch(moodUrl);
-      if (moodResponse.ok) {
-        const moodDataResponse = await moodResponse.json();
-        setRealTimeData((prev) => ({
-          ...prev,
-          moodData: moodDataResponse.moodData || moodData,
-        }));
+      if (selectedChildId) {
+        const moodUrl = `/api/mood-tracking?days=7&childId=${selectedChildId}`;
+        const moodResponse = await fetch(moodUrl);
+        if (moodResponse.ok) {
+          const moodDataResponse = await moodResponse.json();
+          setRealTimeData((prev) => ({
+            ...prev,
+            moodData: moodDataResponse.moodData || moodData,
+          }));
+        }
       }
     } catch (error) {
       console.error("Error fetching real-time data:", error);

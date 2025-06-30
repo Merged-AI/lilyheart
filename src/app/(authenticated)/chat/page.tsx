@@ -543,28 +543,20 @@ function ChatContent() {
                     {formatTime(sessionDuration)}
                   </p>
                 </div>
-                <Link
-                  href="/dashboard"
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center space-x-2"
-                >
-                  <Home className="h-4 w-4" />
-                  <span>End Session</span>
-                </Link>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={endSession}
+                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>End Session</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </header>
-      {/* Session End Button */}
-      <div className="fixed top-4 right-4 z-10">
-        <button
-          onClick={endSession}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>End Session</span>
-        </button>
-      </div>
       {/* Chat Area */}
       <div className="max-w-4xl mx-auto px-6 py-6">
         <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-xl border border-purple-200 overflow-hidden">

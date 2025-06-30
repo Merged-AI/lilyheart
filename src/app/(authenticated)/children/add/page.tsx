@@ -126,20 +126,20 @@ function AddChildContent() {
     // Show age error immediately if age becomes invalid
     if (field === "age") {
       const ageValue = typeof value === "string" ? parseInt(value) : value;
-      if (ageValue < 6 || ageValue > 18) {
+      if (ageValue < 3 || ageValue > 18) {
         setErrors((prev) => ({
           ...prev,
-          age: "Age must be between 6 and 18 years",
+          age: "Age must be between 3 and 18 years",
         }));
       }
     }
   };
 
   const validateAge = () => {
-    if (childData.age < 6 || childData.age > 18) {
+    if (childData.age < 3 || childData.age > 18) {
       setErrors((prev) => ({
         ...prev,
-        age: "Age must be between 6 and 18 years",
+        age: "Age must be between 3 and 18 years",
       }));
       return false;
     }
@@ -177,7 +177,7 @@ function AddChildContent() {
 
   const nextStep = () => {
     // Validate age before proceeding to next step
-    if (currentStep === 1 && (childData.age < 6 || childData.age > 18)) {
+    if (currentStep === 1 && (childData.age < 3 || childData.age > 18)) {
       validateAge();
       return;
     }
@@ -226,7 +226,7 @@ function AddChildContent() {
                 </label>
                 <input
                   type="number"
-                  min="6"
+                  min="3"
                   max="18"
                   value={childData.age || ""}
                   onChange={(e) =>
@@ -507,7 +507,7 @@ function AddChildContent() {
     switch (currentStep) {
       case 1:
         // Check age validation without calling validateAge to avoid infinite re-renders
-        const isAgeValid = childData.age >= 6 && childData.age <= 18;
+        const isAgeValid = childData.age >= 3 && childData.age <= 18;
         return (
           childData.name.trim() &&
           isAgeValid &&

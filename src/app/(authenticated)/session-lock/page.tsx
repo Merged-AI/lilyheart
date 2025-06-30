@@ -113,8 +113,8 @@ export default function SessionLockPage() {
             <h3 className="font-medium text-green-800">Great Session!</h3>
           </div>
           <p className="text-green-700 text-sm">
-            Dr. Emma enjoyed talking with you today. Remember to use the
-            breathing techniques we practiced when you feel stressed! 💜
+            Dr. Emma enjoyed talking with you today. Remember the helpful tools
+            we discussed when you need support! 💜
           </p>
         </div>
 

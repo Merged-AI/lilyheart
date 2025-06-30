@@ -18,6 +18,7 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
   // Check if current path is chat page or session lock page
   const isChatPage = pathname === "/chat";
   const isSessionLockPage = pathname === "/session-lock";
+  const isPinSetupPage = pathname === "/pin-setup";
 
   const handleChildSelect = (childId: string) => {
     setSelectedChildId(childId);
@@ -46,8 +47,8 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
     return null;
   }
 
-  // For chat page or session lock page, return children directly without header and sidebar
-  if (isChatPage || isSessionLockPage) {
+  // For chat page, session lock page, or pin setup page, return children directly without header and sidebar
+  if (isChatPage || isSessionLockPage || isPinSetupPage) {
     return (
       <>
         <SessionLockGuard />

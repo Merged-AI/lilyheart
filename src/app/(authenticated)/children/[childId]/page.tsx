@@ -739,122 +739,97 @@ export default function ViewChildPage() {
                 </button>
               </div>
             ) : (
-              <div className="divide-y divide-gray-200">
-                {sessions.map((session) => (
-                  <div key={session.id} className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h4 className="text-lg font-medium text-gray-900">
-                          Session on{" "}
-                          {new Date(session.created_at).toLocaleDateString(
-                            "en-US",
-                            {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            }
-                          )}
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          Duration:{" "}
-                          {formatSessionDuration(session.session_duration)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500">Mood:</span>
-                          <span className="text-sm font-medium text-gray-900">
-                            {session.mood_analysis.happiness}/10
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {session.topics.length > 0 && (
-                      <div className="mb-4">
-                        <h5 className="text-sm font-medium text-gray-700 mb-2">
-                          Topics Discussed:
-                        </h5>
-                        <div className="flex flex-wrap gap-2">
-                          {session.topics.map((topic, index) => (
-                            <span
-                              key={index}
-                              className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"
-                            >
-                              {topic}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {session.session_summary && (
-                      <div>
-                        <h5 className="text-sm font-medium text-gray-700 mb-2">
-                          Session Summary:
-                        </h5>
-                        <p className="text-sm text-gray-600">
-                          {session.session_summary}
-                        </p>
-                      </div>
-                    )}
-
-                    {session.mood_analysis && (
-                      <div className="mt-4">
-                        <h5 className="text-sm font-medium text-gray-700 mb-2">
-                          Mood Analysis:
-                        </h5>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-                          <div className="bg-blue-50 p-2 rounded">
-                            <span className="font-medium text-blue-700">
-                              Happiness:
-                            </span>
-                            <div className="text-blue-900">
-                              {session.mood_analysis.happiness}/10
-                            </div>
-                          </div>
-                          <div className="bg-orange-50 p-2 rounded">
-                            <span className="font-medium text-orange-700">
-                              Anxiety:
-                            </span>
-                            <div className="text-orange-900">
-                              {session.mood_analysis.anxiety}/10
-                            </div>
-                          </div>
-                          <div className="bg-purple-50 p-2 rounded">
-                            <span className="font-medium text-purple-700">
-                              Sadness:
-                            </span>
-                            <div className="text-purple-900">
-                              {session.mood_analysis.sadness}/10
-                            </div>
-                          </div>
-                          <div className="bg-red-50 p-2 rounded">
-                            <span className="font-medium text-red-700">
-                              Stress:
-                            </span>
-                            <div className="text-red-900">
-                              {session.mood_analysis.stress}/10
-                            </div>
-                          </div>
-                          <div className="bg-green-50 p-2 rounded">
-                            <span className="font-medium text-green-700">
-                              Confidence:
-                            </span>
-                            <div className="text-green-900">
-                              {session.mood_analysis.confidence}/10
-                            </div>
-                          </div>
-                        </div>
-                        {session.mood_analysis.insights && (
-                          <p className="text-sm text-gray-600 mt-2 italic">
-                            "{session.mood_analysis.insights}"
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {sessions.map((session) => (
+                    <div key={session.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-900">
+                            {new Date(session.created_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              }
+                            )}
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            Duration: {formatSessionDuration(session.session_duration)}
                           </p>
-                        )}
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-500">Mood:</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {session.mood_analysis.happiness}/10
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {session.topics.length > 0 && (
+                        <div className="mb-3">
+                          <h5 className="text-xs font-medium text-gray-700 mb-2">
+                            Topics:
+                          </h5>
+                          <div className="flex flex-wrap gap-1">
+                            {session.topics.map((topic, index) => (
+                              <span
+                                key={index}
+                                className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"
+                              >
+                                {topic}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {session.session_summary && (
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-700 mb-1">
+                            Summary:
+                          </h5>
+                          <p className="text-xs text-gray-600">
+                            {session.session_summary}
+                          </p>
+                        </div>
+                      )}
+
+                      {session.mood_analysis && (
+                        <div className="mt-3">
+                          <h5 className="text-xs font-medium text-gray-700 mb-2">
+                            Mood Breakdown:
+                          </h5>
+                          <div className="grid grid-cols-5 gap-1 text-xs">
+                            <div className="bg-blue-50 p-1 rounded text-center">
+                              <div className="font-medium text-blue-700">Happy</div>
+                              <div className="text-blue-900">{session.mood_analysis.happiness}</div>
+                            </div>
+                            <div className="bg-orange-50 p-1 rounded text-center">
+                              <div className="font-medium text-orange-700">Anxiety</div>
+                              <div className="text-orange-900">{session.mood_analysis.anxiety}</div>
+                            </div>
+                            <div className="bg-purple-50 p-1 rounded text-center">
+                              <div className="font-medium text-purple-700">Sad</div>
+                              <div className="text-purple-900">{session.mood_analysis.sadness}</div>
+                            </div>
+                            <div className="bg-red-50 p-1 rounded text-center">
+                              <div className="font-medium text-red-700">Stress</div>
+                              <div className="text-red-900">{session.mood_analysis.stress}</div>
+                            </div>
+                            <div className="bg-green-50 p-1 rounded text-center">
+                              <div className="font-medium text-green-700">Confidence</div>
+                              <div className="text-green-900">{session.mood_analysis.confidence}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
