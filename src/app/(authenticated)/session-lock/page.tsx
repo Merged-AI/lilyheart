@@ -118,6 +118,17 @@ export default function SessionLockPage() {
           </p>
         </div>
 
+        {/* Session Lock Status */}
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center space-x-2 mb-2">
+            <Lock className="h-5 w-5 text-purple-600" />
+            <h3 className="font-medium text-purple-800">Session Securely Locked</h3>
+          </div>
+          <p className="text-purple-700 text-sm">
+            Your child's session has been safely locked. Navigation has been disabled to ensure privacy and security.
+          </p>
+        </div>
+
         {/* Parent Access */}
         <div className="border-t border-gray-200 pt-6">
           <h3 className="font-semibold text-gray-900 mb-4">

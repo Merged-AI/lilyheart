@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { ChildSelector } from "@/components/dashboard/child-selector";
 import Modal from "@/components/common/Modal";
+import ChatModeModal from "@/components/common/ChatModeModal";
 import { useAuth } from "@/lib/auth-context";
 
 interface HeaderProps {
@@ -43,6 +44,7 @@ export default function Header({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [showChatModeModal, setShowChatModeModal] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -233,16 +235,14 @@ export default function Header({
                   onAddChild={handleAddChild}
                 />
               </div>
-              <Link
-                href={
-                  selectedChildId ? `/chat?childId=${selectedChildId}` : "/chat"
-                }
+              <button
+                onClick={() => setShowChatModeModal(true)}
                 className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2 text-sm whitespace-nowrap shadow-lg hover:shadow-xl transform"
               >
                 <MessageCircle className="h-4 w-4" />
                 <span className="hidden sm:inline">Start Session</span>
                 <span className="sm:hidden">Chat</span>
-              </Link>
+              </button>
 
               {/* Profile Dropdown */}
               <div className="relative profile-dropdown">
@@ -386,6 +386,12 @@ export default function Header({
         Are you sure you want to log out? You will need to log in again to
         access your dashboard.
       </Modal>
+
+      <ChatModeModal
+        isOpen={showChatModeModal}
+        onClose={() => setShowChatModeModal(false)}
+        childId={selectedChildId}
+      />
     </>
   );
 }

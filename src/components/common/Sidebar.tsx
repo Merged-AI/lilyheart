@@ -22,9 +22,9 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
     },
     {
       name: "Chat Sessions",
-      href: selectedChildId ? `/chat?childId=${selectedChildId}` : "/chat",
+      href: selectedChildId ? `/chat-sessions?childId=${selectedChildId}` : "/chat-sessions",
       icon: MessageCircle,
-      description: "Start therapy session",
+      description: "View session history",
     },
     {
       name: "Child Management",
@@ -42,7 +42,8 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
 
   const isActiveRoute = (href: string) => {
     if (href === "/dashboard" && pathname === "/dashboard") return true;
-    if (href.includes("/chat") && pathname.includes("/chat")) return true;
+    if (href.includes("/chat-sessions") && pathname.includes("/chat-sessions")) return true;
+    if (href.includes("/chat") && pathname.includes("/chat") && !pathname.includes("/chat-sessions")) return true;
     if (href.includes("/children") && pathname.includes("/children"))
       return true;
     if (href === "/session-lock-management" && pathname === "/session-lock-management")

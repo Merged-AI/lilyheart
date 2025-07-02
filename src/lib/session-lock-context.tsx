@@ -62,12 +62,54 @@ export function SessionLockProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    // Prevent browser back/forward navigation when session is locked
+    const handlePopState = (event: PopStateEvent) => {
+      if (isSessionLocked) {
+        event.preventDefault();
+        // Push the current state back to prevent navigation
+        window.history.pushState(null, "", window.location.href);
+      }
+    };
+
+    // Prevent keyboard shortcuts for navigation when session is locked
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isSessionLocked) {
+        // Prevent F5, Ctrl+R, Ctrl+Shift+R, Alt+Left, Alt+Right
+        if (
+          e.key === "F5" ||
+          (e.ctrlKey && e.key === "r") ||
+          (e.ctrlKey && e.shiftKey && e.key === "R") ||
+          (e.altKey && e.key === "ArrowLeft") ||
+          (e.altKey && e.key === "ArrowRight")
+        ) {
+          e.preventDefault();
+          return false;
+        }
+      }
+    };
+
+    // Prevent right-click context menu when session is locked
+    const handleContextMenu = (e: MouseEvent) => {
+      if (isSessionLocked) {
+        e.preventDefault();
+      }
+    };
+
     if (isSessionLocked) {
+      // Push current state to prevent back navigation
+      window.history.pushState(null, "", window.location.href);
+      
       window.addEventListener("beforeunload", handleBeforeUnload);
+      window.addEventListener("popstate", handlePopState);
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("contextmenu", handleContextMenu);
     }
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("contextmenu", handleContextMenu);
     };
   }, [isSessionLocked]);
 
