@@ -15,8 +15,9 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
   const pathname = usePathname();
   const { isAuthenticated, isLoading, selectedChildId, setSelectedChildId } = useAuth();
 
-  // Check if current path is chat page or session lock page
+  // Check if current path is chat page, chat sessions page, or session lock page
   const isChatPage = pathname === "/chat";
+  const isChatSessionsPage = pathname === "/chat-sessions";
   const isSessionLockPage = pathname === "/session-lock";
   const isPinSetupPage = pathname === "/pin-setup";
 
@@ -54,6 +55,30 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
         <SessionLockGuard />
         {children}
       </>
+    );
+  }
+
+  // For chat sessions page, include header and sidebar but no session lock guard (parents can access)
+  if (isChatSessionsPage) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+        <Sidebar selectedChildId={selectedChildId} />
+
+        {/* Main content with sidebar offset */}
+        <div className="lg:pl-64">
+          <Header
+            variant="dashboard"
+            selectedChildId={selectedChildId}
+            onChildSelect={handleChildSelect}
+            onEditChild={handleEditChild}
+          />
+
+          {/* Page content */}
+          <main>
+            {children}
+          </main>
+        </div>
+      </div>
     );
   }
 

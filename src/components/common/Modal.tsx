@@ -21,6 +21,7 @@ interface ModalProps {
   icon?: ReactNode;
   type?: "info" | "warning" | "error" | "success";
   hideCloseButton?: boolean;
+  maxWidth?: string;
 }
 
 export default function Modal({
@@ -33,6 +34,7 @@ export default function Modal({
   icon,
   type = "info",
   hideCloseButton,
+  maxWidth = "max-w-md",
 }: ModalProps) {
   if (!isOpen) {
     return null;
@@ -70,7 +72,7 @@ export default function Modal({
       style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
     >
       <div
-        className={`bg-white rounded-2xl p-8 max-w-md w-full border-4 ${getTypeStyles()}`}
+        className={`bg-white rounded-2xl p-8 ${maxWidth} w-full border-4 ${getTypeStyles()}`}
         style={{ position: "relative", zIndex: 10000 }}
       >
         <div className="flex justify-between items-start mb-4">

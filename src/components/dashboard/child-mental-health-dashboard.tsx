@@ -132,137 +132,11 @@ const alertsData = [
   },
 ];
 
-const emotionDistribution = [
-  { name: "Anxiety", value: 35, color: "#ef4444" },
-  { name: "Sadness", value: 25, color: "#3b82f6" },
-  { name: "Happiness", value: 20, color: "#10b981" },
-  { name: "Stress", value: 15, color: "#f59e0b" },
-  { name: "Anger", value: 5, color: "#8b5cf6" },
-];
-
-// Enhanced communication pattern tracking for family insights
-const communicationPatterns = [
-  {
-    id: "emotional_expression",
-    name: "Emotional Expression & Communication",
-    confidence: 78,
-    observations: [
-      "Child expressing feelings more openly in recent conversations",
-      "Increased comfort discussing school experiences",
-      "Growing emotional vocabulary over 8 conversations",
-      "Better at describing specific worries and concerns",
-    ],
-    parentInsights: [
-      "How can I continue encouraging this open communication?",
-      "What conversation starters work best for my child?",
-      "When is the best time for meaningful check-ins?",
-    ],
-    communicationTips:
-      "Children often need consistent, judgment-free spaces to practice emotional expression. Regular check-ins help build trust.",
-    nextSteps:
-      "Continue daily emotional check-ins and celebrate communication growth",
-  },
-  {
-    id: "stress_communication",
-    name: "Stress & Worry Discussion Patterns",
-    confidence: 85,
-    observations: [
-      "School-related stress mentioned in 15 conversations",
-      "Physical stress responses described (stomach aches, tiredness)",
-      "Worry patterns around social situations",
-      "Sleep concerns affecting daily communication",
-    ],
-    parentInsights: [
-      "How can our family better support during stressful times?",
-      "What stress management techniques might help?",
-      "Should we discuss these patterns with school counselors?",
-    ],
-    communicationTips:
-      "Children often express stress through physical complaints rather than direct emotional language.",
-    nextSteps:
-      "Family stress management planning and possible school communication",
-  },
-  {
-    id: "social_communication",
-    name: "Social Relationships & Friendship Topics",
-    confidence: 62,
-    observations: [
-      "Frequent mentions of feeling misunderstood by peers",
-      "Excitement about specific friendships",
-      "Challenges with group social situations",
-      "Growing confidence in one-on-one friendships",
-    ],
-    parentInsights: [
-      "How can we support healthy friendship development?",
-      "Are there social skills we could practice as a family?",
-      "Should we coordinate with other parents for social opportunities?",
-    ],
-    communicationTips:
-      "Social development varies widely. Focus on quality friendships over quantity.",
-    nextSteps: "Family social skills practice and friendship celebration",
-  },
-];
-
-const familyInsights = [
-  {
-    category: "Communication Strengths",
-    trend: "Growing Confidence",
-    details:
-      "Child initiating conversations more frequently. Average conversation length increasing from 10 to 25 minutes.",
-    familyBenefit:
-      "Stronger parent-child connection through regular emotional check-ins",
-    suggestedActions:
-      "Continue consistent conversation opportunities without pressure",
-  },
-  {
-    category: "Emotional Wellness",
-    trend: "Developing Awareness",
-    details:
-      "Child showing increased ability to name emotions and describe experiences with detail.",
-    familyBenefit:
-      "Better family understanding of child's emotional world and needs",
-    suggestedActions:
-      "Celebrate emotional vocabulary growth and provide validation",
-  },
-  {
-    category: "Family Dynamics",
-    trend: "Building Trust",
-    details:
-      "More comfortable sharing family relationship topics and asking for support when needed.",
-    familyBenefit:
-      "Improved family communication and conflict resolution skills",
-    suggestedActions:
-      "Family meetings to practice communication skills together",
-  },
-];
-
-const familyStrengths = {
-  communicationStrengths: [
-    "Child feels safe expressing difficult emotions",
-    "Creative problem-solving in family conversations",
-    "Developing empathy through family discussions",
-    "Growing confidence in asking for help when needed",
-  ],
-  areasForGrowth: [
-    "Building stress management skills as a family",
-    "Practicing conflict resolution techniques",
-    "Developing routine check-in practices",
-    "Supporting social skill development",
-  ],
-  familyDevelopment: [
-    "Communication skills developing appropriately for age",
-    "Emotional expression becoming more sophisticated",
-    "Family relationship patterns showing positive growth",
-    "Trust and openness increasing over time",
-  ],
-};
-
 export function ChildMentalHealthDashboard({
   selectedChildId,
 }: {
   selectedChildId?: string;
 }) {
-  const [selectedTimeframe, setSelectedTimeframe] = useState("30d");
   const [showDetailedPattern, setShowDetailedPattern] = useState<string | null>(
     null
   );
@@ -273,27 +147,21 @@ export function ChildMentalHealthDashboard({
   });
   const [enhancedAnalysis, setEnhancedAnalysis] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  console.log(realTimeData);
 
-  // Fetch real data on component mount
   useEffect(() => {
-    fetchRealTimeData();
-    fetchEnhancedAnalysis();
-
-    // Set up polling for real-time updates
-    const interval = setInterval(() => {
-      fetchRealTimeData();
-      fetchEnhancedAnalysis();
-    }, 30000); // Update every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [selectedChildId]); // Add selectedChildId to dependency array
+    if (selectedChildId) {
+      setIsLoading(true);
+      Promise.all([fetchRealTimeData(), fetchEnhancedAnalysis()]).finally(() =>
+        setIsLoading(false)
+      );
+    }
+  }, [selectedChildId]);
 
   const fetchRealTimeData = async () => {
     try {
       // Fetch recent therapy sessions for selected child
-      const sessionsUrl = selectedChildId
-        ? `/api/sessions?limit=10&childId=${selectedChildId}`
-        : "/api/sessions?limit=10";
+      const sessionsUrl = `/api/sessions?limit=10&childId=${selectedChildId}`;
 
       const sessionsResponse = await fetch(sessionsUrl);
       if (sessionsResponse.ok) {
@@ -338,8 +206,6 @@ export function ChildMentalHealthDashboard({
       }
     } catch (error) {
       console.error("Error fetching real-time data:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -466,6 +332,164 @@ export function ChildMentalHealthDashboard({
       ? recommendations
       : ["Continue supportive conversations"];
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Analysis Area Loading */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Communication Pattern Insights Loading */}
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-1/3 mb-6"></div>
+              <div className="space-y-6">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="border border-gray-200 rounded-lg p-6"
+                  >
+                    <div className="h-5 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Family Communication Growth Loading */}
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-1/2 mb-6"></div>
+              <div className="space-y-6">
+                {[1, 2].map((i) => (
+                  <div key={i} className="border-l-4 border-gray-200 pl-6 py-4">
+                    <div className="h-5 bg-gray-200 rounded w-1/3 mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/4 mb-3"></div>
+                    <div className="h-16 bg-gray-200 rounded"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Conversation History Loading */}
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-1/2 mb-6"></div>
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="flex justify-between mb-3">
+                      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/6"></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                        <div className="flex gap-1">
+                          <div className="h-6 bg-gray-200 rounded w-16"></div>
+                          <div className="h-6 bg-gray-200 rounded w-20"></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                        <div className="h-8 bg-gray-200 rounded"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Sidebar Loading */}
+        <div className="space-y-6">
+          {/* Family Communication Summary Loading */}
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+              <div className="space-y-4">
+                <div>
+                  <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Professional Conversation Prep Loading */}
+          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+              <div className="space-y-4">
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+                    <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+                  </div>
+                </div>
+                <div className="h-12 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Family Wellness Resources Loading */}
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-gray-50 p-3 rounded-lg">
+                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-full"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Family Action Items Loading */}
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="w-2 h-2 bg-gray-300 rounded-full mt-2"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded w-1/4 mb-1"></div>
+                      <div className="h-3 bg-gray-200 rounded w-full"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -791,7 +815,7 @@ export function ChildMentalHealthDashboard({
                           key={index}
                           className="text-sm text-green-700 flex items-start space-x-2"
                         >
-                          <span className="text-green-500 mt-1">+</span>
+                          <span className="text-green-500">+</span>
                           <span>{strength}</span>
                         </li>
                       )
@@ -810,7 +834,7 @@ export function ChildMentalHealthDashboard({
                           key={index}
                           className="text-sm text-orange-700 flex items-start space-x-2"
                         >
-                          <span className="text-orange-500 mt-1">•</span>
+                          <span className="text-orange-500">•</span>
                           <span>{area}</span>
                         </li>
                       )
@@ -829,7 +853,7 @@ export function ChildMentalHealthDashboard({
                           key={index}
                           className="text-sm text-blue-700 flex items-start space-x-2"
                         >
-                          <span className="text-blue-500 mt-1">→</span>
+                          <span className="text-blue-500">→</span>
                           <span>{rec}</span>
                         </li>
                       )

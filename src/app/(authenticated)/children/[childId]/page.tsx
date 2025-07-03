@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { formatSessionDuration } from "@/lib/utils";
+import ChatModeModal from "@/components/common/ChatModeModal";
 
 interface Child {
   id: string;
@@ -251,8 +252,10 @@ export default function ViewChildPage() {
     router.push("/children");
   };
 
+  const [showChatModeModal, setShowChatModeModal] = useState(false);
+
   const handleStartSession = () => {
-    router.push(`/chat?childId=${childId}`);
+    setShowChatModeModal(true);
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1534,6 +1537,12 @@ export default function ViewChildPage() {
           </div>
         )}
       </div>
+
+      <ChatModeModal
+        isOpen={showChatModeModal}
+        onClose={() => setShowChatModeModal(false)}
+        childId={childId}
+      />
     </div>
   );
 }

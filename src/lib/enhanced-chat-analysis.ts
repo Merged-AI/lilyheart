@@ -1,5 +1,10 @@
 import { createServerSupabase } from "@/lib/supabase-auth";
 import { formatSessionDuration } from "./utils";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 interface ConversationMetrics {
   avgSessionDuration: number;
@@ -67,10 +72,14 @@ export class EnhancedChatAnalyzer {
     const patterns = await this.analyzeCommunicationPatterns(sessions, metrics);
 
     // Generate family benefits
-    const benefits = this.generateFamilyBenefits(sessions, metrics);
+    const benefits = await this.generateFamilyBenefits(sessions, metrics);
 
     // Overall insights
-    const insights = this.generateOverallInsights(sessions, patterns, metrics);
+    const insights = await this.generateOverallInsights(
+      sessions,
+      patterns,
+      metrics
+    );
 
     return {
       totalSessions: sessions.length,
@@ -318,412 +327,471 @@ export class EnhancedChatAnalyzer {
   ): Promise<CommunicationPattern[]> {
     const patterns: CommunicationPattern[] = [];
 
-    // Emotional Expression & Communication Analysis
-    const emotionalPattern = this.analyzeEmotionalExpressionPattern(
+    // Use OpenAI to analyze communication patterns dynamically
+    const patternAnalysis = await this.generateAIPatternAnalysis(
       sessions,
       metrics
+    );
+
+    // Emotional Expression & Communication Analysis
+    const emotionalPattern = await this.generateEmotionalPattern(
+      sessions,
+      patternAnalysis.emotional
     );
     patterns.push(emotionalPattern);
 
     // Stress & Worry Discussion Patterns
-    const stressPattern = this.analyzeStressDiscussionPattern(
+    const stressPattern = await this.generateStressPattern(
       sessions,
-      metrics
+      patternAnalysis.stress
     );
     patterns.push(stressPattern);
 
     // Social Relationships & Friendship Topics
-    const socialPattern = this.analyzeSocialRelationshipPattern(
+    const socialPattern = await this.generateSocialPattern(
       sessions,
-      metrics
+      patternAnalysis.social
     );
     patterns.push(socialPattern);
 
     // Family Dynamics Pattern
-    const familyPattern = this.analyzeFamilyDynamicsPattern(sessions, metrics);
+    const familyPattern = await this.generateFamilyPattern(
+      sessions,
+      patternAnalysis.family
+    );
     patterns.push(familyPattern);
 
     return patterns;
   }
 
-  private analyzeEmotionalExpressionPattern(
+  private async generateAIPatternAnalysis(
     sessions: any[],
     metrics: ConversationMetrics
-  ): CommunicationPattern {
-    const emotionalMessages = sessions.filter((s) =>
-      this.containsEmotionalContent(s.user_message)
-    );
+  ) {
+    const sessionData = sessions.map((s) => ({
+      userMessage: s.user_message,
+      aiResponse: s.ai_response,
+      moodAnalysis: s.mood_analysis,
+      topics: s.topics,
+      sessionDuration: s.session_duration,
+    }));
 
-    // More sophisticated confidence calculation based on actual patterns
-    let confidence = 60; // Base confidence
+    const prompt = `Analyze this child's therapy session data and provide insights for 4 key areas:
 
-    // Factor 1: Emotional content frequency (0-20 points)
-    const emotionalFrequency = emotionalMessages.length / sessions.length;
-    confidence += emotionalFrequency * 20;
+Session Data: ${JSON.stringify(sessionData, null, 2)}
 
-    // Factor 2: Emotional vocabulary diversity (0-15 points)
-    const uniqueEmotions = this.countUniqueEmotionWords(sessions);
-    confidence += Math.min(15, uniqueEmotions * 2);
+Metrics: ${JSON.stringify(metrics, null, 2)}
 
-    // Factor 3: Session engagement quality (0-15 points)
-    const avgMessageLength =
-      sessions.reduce((sum, s) => sum + (s.user_message?.length || 0), 0) /
-      sessions.length;
-    confidence += Math.min(15, avgMessageLength / 10);
+Please analyze and provide insights for each area:
 
-    // Factor 4: Mood analysis consistency (0-10 points)
-    const moodConsistency = this.calculateMoodConsistency(sessions);
-    confidence += moodConsistency * 10;
+1. EMOTIONAL_EXPRESSION: How well does the child express emotions? What patterns do you see?
+2. STRESS_PATTERNS: What stress triggers and coping patterns are evident?
+3. SOCIAL_RELATIONSHIPS: How does the child discuss friendships and social situations?
+4. FAMILY_DYNAMICS: What family communication patterns are shown?
 
-    // Factor 5: Recent vs older sessions comparison (0-10 points)
-    const recentEmotionalGrowth = this.calculateEmotionalGrowth(sessions);
-    confidence += recentEmotionalGrowth * 10;
+For each area, provide:
+- Key observations (3-5 specific insights)
+- Parent insights (3 questions for parents to consider)
+- Communication tips (3 actionable tips)
+- Recommended next step (1 specific action)
 
-    confidence = Math.min(95, Math.max(40, confidence));
+Respond with JSON only:
+{
+  "emotional": {
+    "observations": ["insight1", "insight2", "insight3"],
+    "parentInsights": ["question1", "question2", "question3"],
+    "communicationTips": ["tip1", "tip2", "tip3"],
+    "recommendedNextStep": "specific action"
+  },
+  "stress": { ... },
+  "social": { ... },
+  "family": { ... }
+}`;
 
-    const observations = [
-      `Growing emotional vocabulary - child using ${this.countUniqueEmotionWords(
-        sessions
-      )} different emotion words`,
-      `${Math.round(
-        metrics.conversationInitiation
-      )}% of conversations initiated by child`,
-      `Average session length increased by ${formatSessionDuration(
-        Math.round(metrics.sessionDurationTrend)
-      )}`,
-      metrics.engagementLevel > 7
-        ? "High engagement with emotional topics"
-        : "Building comfort with emotional expression",
-      `Emotional content frequency: ${Math.round(
-        emotionalFrequency * 100
-      )}% of sessions contain emotional expression`,
-    ];
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a child psychologist analyzing therapy session data. Provide specific, actionable insights based on the actual conversation content and patterns.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 2000,
+        temperature: 0.3,
+      });
 
-    const parentInsights = [
-      "❓ How comfortable does your child seem when discussing feelings at home?",
-      "❓ Have you noticed more emotional vocabulary in daily conversations?",
-      "❓ What situations help your child open up most naturally?",
-    ];
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new Error("No response from OpenAI");
+      }
+
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const jsonString = jsonMatch ? jsonMatch[1] : response;
+      return JSON.parse(jsonString);
+    } catch (error) {
+      console.error("Error generating AI pattern analysis:", error);
+      // Fallback to static analysis
+      return this.generateFallbackPatternAnalysis();
+    }
+  }
+
+  private generateFallbackPatternAnalysis() {
+    return {
+      emotional: {
+        observations: [
+          "Building emotional vocabulary",
+          "Growing comfort with expression",
+          "Developing self-awareness",
+        ],
+        parentInsights: [
+          "How does your child express emotions at home?",
+          "What situations help them open up?",
+          "Have you noticed changes in emotional expression?",
+        ],
+        communicationTips: [
+          "Validate feelings before problem-solving",
+          "Use emotion-naming to build vocabulary",
+          "Create safe spaces for emotional expression",
+        ],
+        recommendedNextStep:
+          "Continue emotional vocabulary building through daily check-ins",
+      },
+      stress: {
+        observations: [
+          "Identifying stress triggers",
+          "Learning coping strategies",
+          "Building resilience",
+        ],
+        parentInsights: [
+          "What time of day does your child seem most stressed?",
+          "Have you noticed patterns in what triggers worry?",
+          "Which calming activities work best?",
+        ],
+        communicationTips: [
+          "Acknowledge worries before offering solutions",
+          "Teach breathing exercises during calm moments",
+          "Help identify early stress warning signs",
+        ],
+        recommendedNextStep:
+          "Practice stress-reduction techniques during family time",
+      },
+      social: {
+        observations: [
+          "Developing friendship skills",
+          "Building social confidence",
+          "Learning peer interaction",
+        ],
+        parentInsights: [
+          "How can we support healthy friendship development?",
+          "Are there social skills we could practice?",
+          "Should we coordinate with other parents?",
+        ],
+        communicationTips: [
+          "Role-play social situations during family time",
+          "Celebrate friendship successes",
+          "Focus on quality over quantity",
+        ],
+        recommendedNextStep:
+          "Family social skills practice and friendship celebration",
+      },
+      family: {
+        observations: [
+          "Building family communication",
+          "Developing trust",
+          "Learning conflict resolution",
+        ],
+        parentInsights: [
+          "What family communication patterns would you like to strengthen?",
+          "How can we create more connection opportunities?",
+          "Are there family rules that need clarification?",
+        ],
+        communicationTips: [
+          "Schedule regular family check-ins",
+          "Practice active listening as a family skill",
+          "Create family problem-solving traditions",
+        ],
+        recommendedNextStep: "Implement weekly family communication time",
+      },
+    };
+  }
+
+  private async generateEmotionalPattern(
+    sessions: any[],
+    aiAnalysis: any
+  ): Promise<CommunicationPattern> {
+    const confidence = this.calculateEmotionalConfidence(sessions);
 
     return {
       id: "emotional_expression",
       title: "Emotional Expression & Communication",
       confidence: Math.round(confidence),
       category: "emotional_expression",
-      observations,
-      parentInsights,
-      communicationTips: [
-        "Validate feelings before problem-solving",
-        "Use emotion-naming to build vocabulary",
-        "Create safe spaces for emotional expression",
-      ],
-      recommendedNextStep:
-        "Continue emotional vocabulary building through daily check-ins",
+      observations: aiAnalysis.observations,
+      parentInsights: aiAnalysis.parentInsights,
+      communicationTips: aiAnalysis.communicationTips,
+      recommendedNextStep: aiAnalysis.recommendedNextStep,
       showDetails: true,
     };
   }
 
-  private analyzeStressDiscussionPattern(
+  private async generateStressPattern(
     sessions: any[],
-    metrics: ConversationMetrics
-  ): CommunicationPattern {
-    const stressMessages = sessions.filter((s) =>
-      this.containsStressContent(s.user_message, s.mood_analysis)
-    );
-
-    const stressFrequency = stressMessages.length / sessions.length;
-    const avgStressLevel =
-      stressMessages.reduce(
-        (sum, s) => sum + (s.mood_analysis?.stress || 0),
-        0
-      ) / stressMessages.length;
-
-    // More sophisticated confidence calculation for stress patterns
-    let confidence = 50; // Base confidence
-
-    // Factor 1: Stress frequency and intensity (0-25 points)
-    confidence += stressFrequency * 25;
-    if (avgStressLevel > 7) confidence += 10;
-    else if (avgStressLevel > 5) confidence += 5;
-
-    // Factor 2: Stress trigger identification (0-20 points)
-    const stressTriggers = this.identifyStressTriggers(stressMessages);
-    if (stressTriggers.includes("Primary trigger")) confidence += 20;
-    else if (stressTriggers.includes("Stress triggers")) confidence += 10;
-
-    // Factor 3: Coping strategy discussion (0-15 points)
-    const copingStrategies = this.assessCopingStrategies(sessions);
-    if (copingStrategies.includes("discussing coping strategies"))
-      confidence += 15;
-    else confidence += 5;
-
-    // Factor 4: Session consistency with stress themes (0-10 points)
-    const stressConsistency = this.calculateStressConsistency(sessions);
-    confidence += stressConsistency * 10;
-
-    // Factor 5: Recent stress patterns (0-10 points)
-    const recentStressTrend = this.calculateStressTrend(sessions);
-    confidence += recentStressTrend * 10;
-
-    confidence = Math.min(95, Math.max(30, confidence));
-
-    const observations = [
-      stressFrequency > 0.6
-        ? "Frequent stress-related discussions"
-        : "Occasional stress management topics",
-      avgStressLevel > 6
-        ? "Elevated stress levels requiring attention"
-        : "Manageable stress levels",
-      this.identifyStressTriggers(stressMessages),
-      this.assessCopingStrategies(sessions),
-      `Stress discussion frequency: ${Math.round(
-        stressFrequency * 100
-      )}% of sessions`,
-    ];
+    aiAnalysis: any
+  ): Promise<CommunicationPattern> {
+    const confidence = this.calculateStressConfidence(sessions);
 
     return {
       id: "stress_patterns",
       title: "Stress & Worry Discussion Patterns",
       confidence: Math.round(confidence),
       category: "stress_patterns",
-      observations,
-      parentInsights: [
-        "❓ What time of day does your child seem most stressed?",
-        "❓ Have you noticed patterns in what triggers worry?",
-        "❓ Which calming activities work best for your family?",
-      ],
-      communicationTips: [
-        "Acknowledge worries before offering solutions",
-        "Teach breathing exercises during calm moments",
-        "Help identify early stress warning signs",
-      ],
-      recommendedNextStep:
-        "Practice stress-reduction techniques during family time",
+      observations: aiAnalysis.observations,
+      parentInsights: aiAnalysis.parentInsights,
+      communicationTips: aiAnalysis.communicationTips,
+      recommendedNextStep: aiAnalysis.recommendedNextStep,
       showDetails: false,
     };
   }
 
-  private analyzeSocialRelationshipPattern(
+  private async generateSocialPattern(
     sessions: any[],
-    metrics: ConversationMetrics
-  ): CommunicationPattern {
-    const socialMessages = sessions.filter((s) =>
-      this.containsSocialContent(s.user_message)
-    );
-
-    const socialFrequency = socialMessages.length / sessions.length;
-    const friendshipMentions = this.analyzeFriendshipDynamics(socialMessages);
-
-    // More sophisticated confidence calculation for social patterns
-    let confidence = 40; // Base confidence
-
-    // Factor 1: Social content frequency (0-25 points)
-    confidence += socialFrequency * 25;
-
-    // Factor 2: Friendship dynamics analysis (0-25 points)
-    const totalFriendshipMentions =
-      friendshipMentions.positive +
-      friendshipMentions.challenges +
-      friendshipMentions.misunderstood +
-      friendshipMentions.excitement +
-      friendshipMentions.groupChallenges +
-      friendshipMentions.oneOnOneSuccess;
-    confidence += Math.min(25, totalFriendshipMentions * 3);
-
-    // Factor 3: Social mood correlation (0-20 points)
-    const socialMoodCorrelation =
-      this.calculateSocialMoodCorrelation(socialMessages);
-    confidence += socialMoodCorrelation * 20;
-
-    // Factor 4: Social vocabulary development (0-15 points)
-    const socialVocabulary = this.countSocialVocabulary(sessions);
-    confidence += Math.min(15, socialVocabulary * 2);
-
-    // Factor 5: Recent social engagement (0-15 points)
-    const recentSocialEngagement =
-      this.calculateRecentSocialEngagement(sessions);
-    confidence += recentSocialEngagement * 15;
-
-    confidence = Math.min(95, Math.max(25, confidence));
-
-    const observations = [
-      friendshipMentions.misunderstood > 0
-        ? "Frequent mentions of feeling misunderstood by peers"
-        : "Generally positive peer interactions",
-      friendshipMentions.excitement > 0
-        ? "Excitement about specific friendships"
-        : "Developing friendship interests",
-      friendshipMentions.groupChallenges > 0
-        ? "Challenges with group social situations"
-        : "Comfortable in group settings",
-      friendshipMentions.oneOnOneSuccess > 0
-        ? "Growing confidence in one-on-one friendships"
-        : "Building friendship skills",
-      `Social discussion frequency: ${Math.round(
-        socialFrequency * 100
-      )}% of sessions`,
-    ];
+    aiAnalysis: any
+  ): Promise<CommunicationPattern> {
+    const confidence = this.calculateSocialConfidence(sessions);
 
     return {
       id: "social_relationships",
       title: "Social Relationships & Friendship Topics",
       confidence: Math.round(confidence),
       category: "social_relationships",
-      observations,
-      parentInsights: [
-        "❓ How can we support healthy friendship development?",
-        "❓ Are there social skills we could practice as a family?",
-        "❓ Should we coordinate with other parents for social opportunities?",
-      ],
-      communicationTips: [
-        "Social development varies widely. Focus on quality friendships over quantity.",
-        "Role-play social situations during family time",
-        "Celebrate friendship successes, big and small",
-      ],
-      recommendedNextStep:
-        "Family social skills practice and friendship celebration",
+      observations: aiAnalysis.observations,
+      parentInsights: aiAnalysis.parentInsights,
+      communicationTips: aiAnalysis.communicationTips,
+      recommendedNextStep: aiAnalysis.recommendedNextStep,
       showDetails: true,
     };
   }
 
-  private analyzeFamilyDynamicsPattern(
+  private async generateFamilyPattern(
     sessions: any[],
-    metrics: ConversationMetrics
-  ): CommunicationPattern {
-    const familyMessages = sessions.filter((s) =>
-      this.containsFamilyContent(s.user_message)
-    );
-
-    const familyFrequency = familyMessages.length / sessions.length;
-    const familyToneAnalysis = this.analyzeFamilyTone(familyMessages);
-
-    // More sophisticated confidence calculation for family dynamics
-    let confidence = 45; // Base confidence
-
-    // Factor 1: Family content frequency (0-25 points)
-    confidence += familyFrequency * 25;
-
-    // Factor 2: Family tone analysis (0-25 points)
-    confidence += familyToneAnalysis.positive * 5;
-    if (familyToneAnalysis.trustBuilding) confidence += 10;
-    if (familyToneAnalysis.conflictResolution) confidence += 10;
-
-    // Factor 3: Family vocabulary development (0-20 points)
-    const familyVocabulary = this.countFamilyVocabulary(sessions);
-    confidence += Math.min(20, familyVocabulary * 3);
-
-    // Factor 4: Family mood correlation (0-15 points)
-    const familyMoodCorrelation =
-      this.calculateFamilyMoodCorrelation(familyMessages);
-    confidence += familyMoodCorrelation * 15;
-
-    // Factor 5: Recent family engagement (0-15 points)
-    const recentFamilyEngagement =
-      this.calculateRecentFamilyEngagement(sessions);
-    confidence += recentFamilyEngagement * 15;
-
-    confidence = Math.min(90, Math.max(30, confidence));
+    aiAnalysis: any
+  ): Promise<CommunicationPattern> {
+    const confidence = this.calculateFamilyConfidence(sessions);
 
     return {
       id: "family_dynamics",
       title: "Family Communication & Relationships",
       confidence: Math.round(confidence),
       category: "family_dynamics",
-      observations: [
-        familyToneAnalysis.trustBuilding
-          ? "Building trust through open communication"
-          : "Developing family communication skills",
-        familyToneAnalysis.conflictResolution
-          ? "Learning healthy conflict resolution"
-          : "Working on family problem-solving",
-        `${Math.round(
-          metrics.conversationInitiation
-        )}% of conversations initiated by child shows growing comfort`,
-        `Family discussion frequency: ${Math.round(
-          familyFrequency * 100
-        )}% of sessions`,
-      ],
-      parentInsights: [
-        "❓ What family communication patterns would you like to strengthen?",
-        "❓ How can we create more opportunities for family connection?",
-        "❓ Are there family rules or boundaries that need clarification?",
-      ],
-      communicationTips: [
-        "Schedule regular family check-ins",
-        "Practice active listening as a family skill",
-        "Create family problem-solving traditions",
-      ],
-      recommendedNextStep: "Implement weekly family communication time",
+      observations: aiAnalysis.observations,
+      parentInsights: aiAnalysis.parentInsights,
+      communicationTips: aiAnalysis.communicationTips,
+      recommendedNextStep: aiAnalysis.recommendedNextStep,
       showDetails: false,
     };
   }
 
-  private generateFamilyBenefits(
+  private async generateFamilyBenefits(
     sessions: any[],
     metrics: ConversationMetrics
-  ): FamilyBenefit[] {
-    return [
-      {
-        area: "Communication Strengths",
-        currentProgress: "Growing Confidence",
-        benefit: `Child initiating conversations more frequently. Average conversation length increasing from ${formatSessionDuration(
-          600
-        )} to ${formatSessionDuration(1500)}.`,
-        suggestedActions: [
-          "Continue consistent conversation opportunities without pressure",
+  ): Promise<FamilyBenefit[]> {
+    const sessionData = sessions.map((s) => ({
+      userMessage: s.user_message,
+      aiResponse: s.ai_response,
+      moodAnalysis: s.mood_analysis,
+      topics: s.topics,
+      sessionDuration: s.session_duration,
+    }));
+
+    const prompt = `Analyze this child's therapy session data and identify 3 key family benefit areas:
+
+Session Data: ${JSON.stringify(sessionData, null, 2)}
+
+Metrics: ${JSON.stringify(metrics, null, 2)}
+
+For each of the 3 areas, provide:
+- Area name (specific benefit category)
+- Current progress status (brief description)
+- Specific benefit description (what the child has gained)
+- Suggested actions (2-3 actionable steps for parents)
+
+Focus on concrete, measurable improvements and specific actions families can take.
+
+Respond with JSON only:
+{
+  "benefits": [
+    {
+      "area": "specific area name",
+      "currentProgress": "progress description",
+      "benefit": "specific benefit description",
+      "suggestedActions": ["action1", "action2", "action3"]
+    }
+  ]
+}`;
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a family therapist analyzing child therapy session data. Provide specific, actionable family benefits based on actual session content and patterns.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
         ],
-      },
-      {
-        area: "Emotional Wellness",
-        currentProgress: "Developing Awareness",
-        benefit:
-          "Child showing increased ability to name emotions and describe experiences with detail.",
-        suggestedActions: [
-          "Celebrate emotional vocabulary growth and provide validation",
-        ],
-      },
-      {
-        area: "Family Dynamics",
-        currentProgress: "Building Trust",
-        benefit:
-          "More comfortable sharing family relationship topics and asking for support when needed.",
-        suggestedActions: [
-          "Family meetings to practice communication skills together",
-        ],
-      },
-    ];
+        max_tokens: 1500,
+        temperature: 0.3,
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new Error("No response from OpenAI");
+      }
+
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const jsonString = jsonMatch ? jsonMatch[1] : response;
+      const result = JSON.parse(jsonString);
+      return result.benefits;
+    } catch (error) {
+      console.error("Error generating AI family benefits:", error);
+      // Fallback to static benefits
+      return [
+        {
+          area: "Communication Strengths",
+          currentProgress: "Growing Confidence",
+          benefit: `Child initiating conversations more frequently. Average conversation length increasing from ${formatSessionDuration(
+            600
+          )} to ${formatSessionDuration(1500)}.`,
+          suggestedActions: [
+            "Continue consistent conversation opportunities without pressure",
+          ],
+        },
+        {
+          area: "Emotional Wellness",
+          currentProgress: "Developing Awareness",
+          benefit:
+            "Child showing increased ability to name emotions and describe experiences with detail.",
+          suggestedActions: [
+            "Celebrate emotional vocabulary growth and provide validation",
+          ],
+        },
+        {
+          area: "Family Dynamics",
+          currentProgress: "Building Trust",
+          benefit:
+            "More comfortable sharing family relationship topics and asking for support when needed.",
+          suggestedActions: [
+            "Family meetings to practice communication skills together",
+          ],
+        },
+      ];
+    }
   }
 
-  private generateOverallInsights(
+  private async generateOverallInsights(
     sessions: any[],
     patterns: CommunicationPattern[],
     metrics: ConversationMetrics
   ) {
-    return {
-      strengths: [
-        metrics.sessionDurationTrend > 0
-          ? "Increasing engagement with therapy sessions"
-          : "Consistent therapy participation",
-        metrics.emotionalVocabularyGrowth > 5
-          ? "Strong emotional vocabulary development"
-          : "Building emotional awareness",
-        metrics.conversationInitiation > 50
-          ? "Active conversation participation"
-          : "Growing comfort with communication",
-      ],
-      growthAreas: [
-        patterns.find((p) => p.confidence < 60)
-          ? "Building confidence in emotional expression"
-          : null,
-        metrics.engagementLevel < 6 ? "Increasing therapy engagement" : null,
-        "Continuing to develop coping strategies",
-      ].filter(Boolean) as string[],
-      recommendations: [
-        "Maintain consistent therapy schedule",
-        "Practice emotional vocabulary in daily life",
-        "Celebrate communication growth and progress",
-      ],
-    };
+    const sessionData = sessions.map((s) => ({
+      userMessage: s.user_message,
+      aiResponse: s.ai_response,
+      moodAnalysis: s.mood_analysis,
+      topics: s.topics,
+      sessionDuration: s.session_duration,
+    }));
+
+    const prompt = `Analyze this child's therapy session data and provide overall insights:
+
+Session Data: ${JSON.stringify(sessionData, null, 2)}
+
+Patterns: ${JSON.stringify(patterns, null, 2)}
+
+Metrics: ${JSON.stringify(metrics, null, 2)}
+
+Provide 3 categories of insights:
+
+1. STRENGTHS: 3-4 specific strengths the child has shown
+2. GROWTH_AREAS: 2-3 areas where the child can continue to grow
+3. RECOMMENDATIONS: 3-4 specific, actionable recommendations for continued progress
+
+Focus on concrete, evidence-based insights from the actual session data.
+
+Respond with JSON only:
+{
+  "strengths": ["strength1", "strength2", "strength3"],
+  "growthAreas": ["area1", "area2"],
+  "recommendations": ["recommendation1", "recommendation2", "recommendation3"]
+}`;
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a child psychologist providing overall therapy progress insights. Base your analysis on actual session data and patterns.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 1000,
+        temperature: 0.3,
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new Error("No response from OpenAI");
+      }
+
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const jsonString = jsonMatch ? jsonMatch[1] : response;
+      return JSON.parse(jsonString);
+    } catch (error) {
+      console.error("Error generating AI overall insights:", error);
+      // Fallback to static insights
+      return {
+        strengths: [
+          metrics.sessionDurationTrend > 0
+            ? "Increasing engagement with therapy sessions"
+            : "Consistent therapy participation",
+          metrics.emotionalVocabularyGrowth > 5
+            ? "Strong emotional vocabulary development"
+            : "Building emotional awareness",
+          metrics.conversationInitiation > 50
+            ? "Active conversation participation"
+            : "Growing comfort with communication",
+        ],
+        growthAreas: [
+          patterns.find((p) => p.confidence < 60)
+            ? "Building confidence in emotional expression"
+            : null,
+          metrics.engagementLevel < 6 ? "Increasing therapy engagement" : null,
+          "Continuing to develop coping strategies",
+        ].filter(Boolean) as string[],
+        recommendations: [
+          "Maintain consistent therapy schedule",
+          "Practice emotional vocabulary in daily life",
+          "Celebrate communication growth and progress",
+        ],
+      };
+    }
   }
 
   // Helper methods for analysis
@@ -1140,6 +1208,122 @@ export class EnhancedChatAnalyzer {
     const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
     const squaredDiffs = values.map((val) => Math.pow(val - mean, 2));
     return squaredDiffs.reduce((sum, diff) => sum + diff, 0) / values.length;
+  }
+
+  private calculateEmotionalConfidence(sessions: any[]): number {
+    let confidence = 60; // Base confidence
+
+    // Factor 1: Emotional content frequency (0-20 points)
+    const emotionalMessages = sessions.filter((s) =>
+      this.containsEmotionalContent(s.user_message)
+    );
+    const emotionalFrequency = emotionalMessages.length / sessions.length;
+    confidence += emotionalFrequency * 20;
+
+    // Factor 2: Emotional vocabulary diversity (0-15 points)
+    const uniqueEmotions = this.countUniqueEmotionWords(sessions);
+    confidence += Math.min(15, uniqueEmotions * 2);
+
+    // Factor 3: Session engagement quality (0-15 points)
+    const avgMessageLength =
+      sessions.reduce((sum, s) => sum + (s.user_message?.length || 0), 0) /
+      sessions.length;
+    confidence += Math.min(15, avgMessageLength / 10);
+
+    // Factor 4: Mood analysis consistency (0-10 points)
+    const moodConsistency = this.calculateMoodConsistency(sessions);
+    confidence += moodConsistency * 10;
+
+    return Math.min(95, Math.max(40, confidence));
+  }
+
+  private calculateStressConfidence(sessions: any[]): number {
+    let confidence = 50; // Base confidence
+
+    // Factor 1: Stress frequency and intensity (0-25 points)
+    const stressMessages = sessions.filter((s) =>
+      this.containsStressContent(s.user_message, s.mood_analysis)
+    );
+    const stressFrequency = stressMessages.length / sessions.length;
+    confidence += stressFrequency * 25;
+
+    // Factor 2: Stress trigger identification (0-20 points)
+    const stressTriggers = this.identifyStressTriggers(stressMessages);
+    if (stressTriggers.includes("Primary trigger")) confidence += 20;
+    else if (stressTriggers.includes("Stress triggers")) confidence += 10;
+
+    // Factor 3: Coping strategy discussion (0-15 points)
+    const copingStrategies = this.assessCopingStrategies(sessions);
+    if (copingStrategies.includes("discussing coping strategies"))
+      confidence += 15;
+    else confidence += 5;
+
+    // Factor 4: Session consistency with stress themes (0-10 points)
+    const stressConsistency = this.calculateStressConsistency(sessions);
+    confidence += stressConsistency * 10;
+
+    return Math.min(95, Math.max(30, confidence));
+  }
+
+  private calculateSocialConfidence(sessions: any[]): number {
+    let confidence = 40; // Base confidence
+
+    // Factor 1: Social content frequency (0-25 points)
+    const socialMessages = sessions.filter((s) =>
+      this.containsSocialContent(s.user_message)
+    );
+    const socialFrequency = socialMessages.length / sessions.length;
+    confidence += socialFrequency * 25;
+
+    // Factor 2: Friendship dynamics analysis (0-25 points)
+    const friendshipMentions = this.analyzeFriendshipDynamics(socialMessages);
+    const totalFriendshipMentions =
+      friendshipMentions.positive +
+      friendshipMentions.challenges +
+      friendshipMentions.misunderstood +
+      friendshipMentions.excitement +
+      friendshipMentions.groupChallenges +
+      friendshipMentions.oneOnOneSuccess;
+    confidence += Math.min(25, totalFriendshipMentions * 3);
+
+    // Factor 3: Social mood correlation (0-20 points)
+    const socialMoodCorrelation =
+      this.calculateSocialMoodCorrelation(socialMessages);
+    confidence += socialMoodCorrelation * 20;
+
+    // Factor 4: Social vocabulary development (0-15 points)
+    const socialVocabulary = this.countSocialVocabulary(sessions);
+    confidence += Math.min(15, socialVocabulary * 2);
+
+    return Math.min(95, Math.max(25, confidence));
+  }
+
+  private calculateFamilyConfidence(sessions: any[]): number {
+    let confidence = 45; // Base confidence
+
+    // Factor 1: Family content frequency (0-25 points)
+    const familyMessages = sessions.filter((s) =>
+      this.containsFamilyContent(s.user_message)
+    );
+    const familyFrequency = familyMessages.length / sessions.length;
+    confidence += familyFrequency * 25;
+
+    // Factor 2: Family tone analysis (0-25 points)
+    const familyToneAnalysis = this.analyzeFamilyTone(familyMessages);
+    confidence += familyToneAnalysis.positive * 5;
+    if (familyToneAnalysis.trustBuilding) confidence += 10;
+    if (familyToneAnalysis.conflictResolution) confidence += 10;
+
+    // Factor 3: Family vocabulary development (0-20 points)
+    const familyVocabulary = this.countFamilyVocabulary(sessions);
+    confidence += Math.min(20, familyVocabulary * 3);
+
+    // Factor 4: Family mood correlation (0-15 points)
+    const familyMoodCorrelation =
+      this.calculateFamilyMoodCorrelation(familyMessages);
+    confidence += familyMoodCorrelation * 15;
+
+    return Math.min(90, Math.max(30, confidence));
   }
 }
 

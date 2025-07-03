@@ -9,16 +9,24 @@ export default function SessionLockGuard() {
   const pathname = usePathname();
   const { isSessionLocked, isUnlocking } = useSessionLock();
   const lastLockedState = useRef(isSessionLocked);
+  const redirectAttempted = useRef(false);
 
   useEffect(() => {
     // Don't redirect if we're in the process of unlocking
     if (isUnlocking) {
+      redirectAttempted.current = false;
       return;
     }
 
     // Only redirect if session is locked and user is not on session lock page
-    if (isSessionLocked && pathname !== "/session-lock") {
-      router.push("/session-lock");
+    if (isSessionLocked && pathname !== "/session-lock" && !redirectAttempted.current) {
+      redirectAttempted.current = true;
+      router.replace("/session-lock");
+    }
+
+    // Reset redirect attempt flag when session is unlocked
+    if (!isSessionLocked) {
+      redirectAttempted.current = false;
     }
 
     // Update the ref to track state changes
