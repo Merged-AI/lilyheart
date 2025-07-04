@@ -134,6 +134,7 @@ export default function ViewChildPage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [showChatModeModal, setShowChatModeModal] = useState(false);
 
   useEffect(() => {
     if (childId) {
@@ -251,8 +252,6 @@ export default function ViewChildPage() {
   const handleBackToChildren = () => {
     router.push("/children");
   };
-
-  const [showChatModeModal, setShowChatModeModal] = useState(false);
 
   const handleStartSession = () => {
     setShowChatModeModal(true);
@@ -745,7 +744,10 @@ export default function ViewChildPage() {
               <div className="p-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {sessions.map((session) => (
-                    <div key={session.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div
+                      key={session.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <h4 className="text-sm font-medium text-gray-900">
@@ -759,7 +761,8 @@ export default function ViewChildPage() {
                             )}
                           </h4>
                           <p className="text-xs text-gray-500">
-                            Duration: {formatSessionDuration(session.session_duration)}
+                            Duration:{" "}
+                            {formatSessionDuration(session.session_duration)}
                           </p>
                         </div>
                         <div className="text-right">
@@ -808,24 +811,44 @@ export default function ViewChildPage() {
                           </h5>
                           <div className="grid grid-cols-5 gap-1 text-xs">
                             <div className="bg-blue-50 p-1 rounded text-center">
-                              <div className="font-medium text-blue-700">Happy</div>
-                              <div className="text-blue-900">{session.mood_analysis.happiness}</div>
+                              <div className="font-medium text-blue-700">
+                                Happy
+                              </div>
+                              <div className="text-blue-900">
+                                {session.mood_analysis.happiness}
+                              </div>
                             </div>
                             <div className="bg-orange-50 p-1 rounded text-center">
-                              <div className="font-medium text-orange-700">Anxiety</div>
-                              <div className="text-orange-900">{session.mood_analysis.anxiety}</div>
+                              <div className="font-medium text-orange-700">
+                                Anxiety
+                              </div>
+                              <div className="text-orange-900">
+                                {session.mood_analysis.anxiety}
+                              </div>
                             </div>
                             <div className="bg-purple-50 p-1 rounded text-center">
-                              <div className="font-medium text-purple-700">Sad</div>
-                              <div className="text-purple-900">{session.mood_analysis.sadness}</div>
+                              <div className="font-medium text-purple-700">
+                                Sad
+                              </div>
+                              <div className="text-purple-900">
+                                {session.mood_analysis.sadness}
+                              </div>
                             </div>
                             <div className="bg-red-50 p-1 rounded text-center">
-                              <div className="font-medium text-red-700">Stress</div>
-                              <div className="text-red-900">{session.mood_analysis.stress}</div>
+                              <div className="font-medium text-red-700">
+                                Stress
+                              </div>
+                              <div className="text-red-900">
+                                {session.mood_analysis.stress}
+                              </div>
                             </div>
                             <div className="bg-green-50 p-1 rounded text-center">
-                              <div className="font-medium text-green-700">Confidence</div>
-                              <div className="text-green-900">{session.mood_analysis.confidence}</div>
+                              <div className="font-medium text-green-700">
+                                Confidence
+                              </div>
+                              <div className="text-green-900">
+                                {session.mood_analysis.confidence}
+                              </div>
                             </div>
                           </div>
                         </div>

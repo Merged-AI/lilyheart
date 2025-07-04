@@ -72,7 +72,7 @@ export default function Modal({
       style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
     >
       <div
-        className={`bg-white rounded-2xl p-8 ${maxWidth} w-full border-4 ${getTypeStyles()}`}
+        className={`bg-white rounded-2xl p-4 sm:p-6 lg:p-8 ${maxWidth} w-full border-4 ${getTypeStyles()} max-h-[90vh] overflow-hidden`}
         style={{ position: "relative", zIndex: 10000 }}
       >
         <div className="flex justify-between items-start mb-4">
@@ -96,7 +96,12 @@ export default function Modal({
           )}
         </div>
 
-        <div className="text-gray-700 mb-6">{children}</div>
+        <div
+          className="text-gray-700 mb-6 px-4 overflow-y-auto"
+          style={{ maxHeight: "calc(90vh - 200px)" }}
+        >
+          {children}
+        </div>
 
         <div className="flex justify-end space-x-3">
           {secondaryButton && (

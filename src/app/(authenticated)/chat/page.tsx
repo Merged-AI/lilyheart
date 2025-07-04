@@ -15,7 +15,6 @@ import {
   Heart,
   Brain,
   Shield,
-  Home,
   Phone,
   LogOut,
   AlertTriangle,
@@ -24,9 +23,9 @@ import {
   Loader2,
   Lock,
 } from "lucide-react";
-import Link from "next/link";
 import MessageContent from "@/components/chat/MessageContent";
 import Modal from "@/components/common/Modal";
+import ChildOnboardingModal from "@/components/common/ChildOnboardingModal";
 import { useSessionLock } from "@/lib/session-lock-context";
 
 interface Message {
@@ -49,13 +48,6 @@ const supportiveResponses = [
   "Thank you for sharing that with me. It takes courage to talk about difficult things.",
   "I can hear that this is important to you. Tell me more about how you're feeling.",
   "You're doing a great job expressing your feelings. That's a really important skill.",
-];
-
-const anxietyHelpers = [
-  "When you feel worried, try taking three deep breaths with me. Ready? Breathe in... hold... breathe out...",
-  "Sometimes when we're anxious, our thoughts race around. What's one thing you can see, hear, and feel right now?",
-  "Anxiety can feel scary, but remember - you are safe right now. Your feelings are real, and they will pass.",
-  "It's okay to feel anxious sometimes. Even adults feel this way. What usually helps you feel a little better?",
 ];
 
 // Loading component for Suspense fallback
@@ -100,8 +92,9 @@ function ChatContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCrisisHelp, setShowCrisisHelp] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
-  const [isSessionActive, setIsSessionActive] = useState(true);
   const [profileCheckComplete, setProfileCheckComplete] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
   const { lockSession } = useSessionLock();
 
   // Voice chat state
@@ -110,16 +103,8 @@ function ChatContent() {
   // Real-time voice chat state
   const [isRealTimeMode, setIsRealTimeMode] = useState(false);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const [silenceDetection, setSilenceDetection] = useState({
-    isDetecting: false,
-    silenceStart: 0,
-    lastSoundTime: 0,
-    threshold: 30, // Audio threshold (0-255)
-    silenceDuration: 2000, // 2 seconds of silence
-  });
-  const [currentAudioChunk, setCurrentAudioChunk] = useState<Blob[]>([]);
+  const shouldStopVoiceChat = useRef(false);
   const [audioRecordingBuffer, setAudioRecordingBuffer] =
     useState<MediaRecorder | null>(null);
 
@@ -271,6 +256,23 @@ function ChatContent() {
     router.push("/dashboard");
   }, [handleModalClose, router]);
 
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboarding(false);
+    setOnboardingComplete(true);
+    
+    // Auto-start real-time voice chat if in voice mode
+    if (chatMode === "voice") {
+      setTimeout(() => {
+        startRealTimeVoiceChat();
+      }, 500);
+    }
+  }, [chatMode]);
+
+  const handleOnboardingClose = useCallback(() => {
+    // Don't allow closing without completing onboarding
+    // This ensures children must acknowledge the disclaimer
+  }, []);
+
   // Memoize modal config
   const getModalConfig = useCallback(
     (
@@ -387,12 +389,17 @@ function ChatContent() {
         if (response.ok) {
           setProfileCheckComplete(true);
 
-          // Auto-start real-time voice chat if in voice mode
-          if (chatMode === "voice") {
-            // Small delay to ensure component is fully mounted
-            setTimeout(() => {
-              startRealTimeVoiceChat();
-            }, 500);
+          // Show onboarding if not completed yet
+          if (!onboardingComplete) {
+            setShowOnboarding(true);
+          } else {
+            // Auto-start real-time voice chat if in voice mode
+            if (chatMode === "voice") {
+              // Small delay to ensure component is fully mounted
+              setTimeout(() => {
+                startRealTimeVoiceChat();
+              }, 500);
+            }
           }
         } else {
           setModalConfig(getModalConfig("error"));
@@ -562,7 +569,11 @@ function ChatContent() {
   };
 
   const endSession = () => {
-    setIsSessionActive(false);
+    // Stop voice chat if it's running
+    if (isRealTimeMode) {
+      stopRealTimeVoiceChat();
+    }
+
     // Remove navigation prevention and allow redirect to session lock
     window.removeEventListener("popstate", () => {});
     window.removeEventListener("beforeunload", () => {});
@@ -665,6 +676,9 @@ function ChatContent() {
     try {
       console.log("Starting real-time voice chat...");
 
+      // Reset stop flag
+      shouldStopVoiceChat.current = false;
+
       // Request high-quality audio optimized for speech recognition
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -687,7 +701,6 @@ function ChatContent() {
       const analyserNode = audioCtx.createAnalyser();
       analyserNode.fftSize = 256;
       analyserNode.smoothingTimeConstant = 0.3;
-      setAnalyser(analyserNode);
 
       // Connect audio stream to analyser
       const source = audioCtx.createMediaStreamSource(stream);
@@ -732,6 +745,9 @@ function ChatContent() {
   };
 
   const stopRealTimeVoiceChat = () => {
+    // Set flag to stop voice chat
+    shouldStopVoiceChat.current = true;
+
     // Stop all audio processes
     if (audioRecordingBuffer) {
       audioRecordingBuffer.stop();
@@ -748,19 +764,8 @@ function ChatContent() {
       setMediaStream(null);
     }
 
-    setAnalyser(null);
     setIsRealTimeMode(false);
     setIsProcessingVoice(false);
-    setCurrentAudioChunk([]);
-
-    // Reset silence detection state
-    setSilenceDetection({
-      isDetecting: false,
-      silenceStart: 0,
-      lastSoundTime: 0,
-      threshold: 30,
-      silenceDuration: 2000,
-    });
   };
 
   const startContinuousRecording = (
@@ -802,10 +807,15 @@ function ChatContent() {
         chunks = [];
       }
 
-      // Resume recording after processing (if still in real-time mode)
-      if (isRealTimeModeActive && !isCurrentlyProcessing && stream) {
+      // Resume recording after processing (if still in real-time mode and not stopped)
+      if (
+        isRealTimeModeActive &&
+        !isCurrentlyProcessing &&
+        stream &&
+        !shouldStopVoiceChat.current
+      ) {
         setTimeout(async () => {
-          if (isRealTimeModeActive) {
+          if (isRealTimeModeActive && !shouldStopVoiceChat.current) {
             try {
               // Check if stream is still active, if not, recreate it
               let activeStream = stream;
@@ -859,7 +869,12 @@ function ChatContent() {
 
     // Start audio frequency detection
     const detectAudioFrequency = () => {
-      if (!isRealTimeModeActive || !analyserNode || !isCurrentlyRecording) {
+      if (
+        !isRealTimeModeActive ||
+        !analyserNode ||
+        !isCurrentlyRecording ||
+        shouldStopVoiceChat.current
+      ) {
         return;
       }
 
@@ -904,13 +919,21 @@ function ChatContent() {
           }
         }
 
-        // Continue detecting if still in real-time mode
-        if (isRealTimeModeActive && isCurrentlyRecording) {
+        // Continue detecting if still in real-time mode and not stopped
+        if (
+          isRealTimeModeActive &&
+          isCurrentlyRecording &&
+          !shouldStopVoiceChat.current
+        ) {
           requestAnimationFrame(detectAudioFrequency);
         }
       } catch (error) {
         // Continue the loop even if there's an error
-        if (isRealTimeModeActive && isCurrentlyRecording) {
+        if (
+          isRealTimeModeActive &&
+          isCurrentlyRecording &&
+          !shouldStopVoiceChat.current
+        ) {
           requestAnimationFrame(detectAudioFrequency);
         }
       }
@@ -974,21 +997,26 @@ function ChatContent() {
             timestamp: new Date(),
           };
 
-          // Add AI response
-          const aiMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            content: data.aiResponse,
-            sender: "ai",
-            timestamp: new Date(),
-          };
+          setMessages((prev) => [...prev, userMessage]);
 
-          setMessages((prev) => [...prev, userMessage, aiMessage]);
+          // Only add AI response if there's actual AI content
+          if (data.aiResponse && data.aiResponse.trim().length > 0) {
+            // Add AI response
+            const aiMessage: Message = {
+              id: (Date.now() + 1).toString(),
+              content: data.aiResponse,
+              sender: "ai",
+              timestamp: new Date(),
+            };
 
-          // Play audio response if available
-          if (data.audioResponse) {
-            await playAudioResponse(data.audioResponse);
-          } else if (data.useClientTTS) {
-            await speakWithClientTTS(data.aiResponse);
+            setMessages((prev) => [...prev, aiMessage]);
+
+            // Play audio response if available
+            if (data.audioResponse) {
+              await playAudioResponse(data.audioResponse);
+            } else if (data.useClientTTS) {
+              await speakWithClientTTS(data.aiResponse);
+            }
           }
         }
       }
@@ -1037,10 +1065,6 @@ function ChatContent() {
   if (!profileCheckComplete) {
     return loadingState;
   }
-
-  const handleEditChildFromContext = (childId: string) => {
-    router.push(`/children/add?childId=${selectedChildId}`);
-  };
 
   return (
     <>
@@ -1092,7 +1116,6 @@ function ChatContent() {
                     strokeWidth="2"
                     viewBox="0 0 24 24"
                   >
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
                     <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 )}
@@ -1387,6 +1410,13 @@ function ChatContent() {
           </div>
         </div>
       )}
+
+      {/* Child Onboarding Modal */}
+      <ChildOnboardingModal
+        isOpen={showOnboarding}
+        onContinue={handleOnboardingComplete}
+        onClose={handleOnboardingClose}
+      />
 
       {/* Modal for child selection and other alerts */}
       {modalConfig.isOpen && (

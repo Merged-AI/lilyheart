@@ -86,8 +86,6 @@ async function transcribeAudio(audioData: string): Promise<string> {
         language: "en", // Specify English for better accuracy
         response_format: "text", // Get plain text response
         temperature: 0.0, // Lower temperature for more accurate transcription
-        prompt:
-          "This is a conversation with a child in a therapeutic setting. The speech should be transcribed accurately. Please transcribe all spoken words clearly, even if the audio is short or contains pauses.", // Updated prompt for real-time chunks
       });
     } catch (error: any) {
       console.log(
@@ -102,8 +100,6 @@ async function transcribeAudio(audioData: string): Promise<string> {
         language: "en",
         response_format: "text",
         temperature: 0.0,
-        prompt:
-          "This is a conversation with a child in a therapeutic setting. The speech should be transcribed accurately, even if the audio is short or contains pauses.",
       });
     }
 
@@ -299,7 +295,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 2: Process through existing chat logic
+    // Step 2: Process through existing chat logic ONLY if there's transcribed text
     // Use OpenAI Chat Completions for AI response
     const aiResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -322,9 +318,7 @@ export async function POST(request: NextRequest) {
       temperature: 0.8, // Slightly higher for more natural conversation
     });
 
-    const aiResponseText =
-      aiResponse.choices[0]?.message?.content ||
-      "I'm here to help you. Could you tell me more?";
+    const aiResponseText = aiResponse.choices[0]?.message?.content || "";
 
     // Step 3: Convert AI response to speech (or indicate client-side TTS)
     let audioResponse = null;
