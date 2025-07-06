@@ -259,7 +259,7 @@ function ChatContent() {
   const handleOnboardingComplete = useCallback(() => {
     setShowOnboarding(false);
     setOnboardingComplete(true);
-    
+
     // Auto-start real-time voice chat if in voice mode
     if (chatMode === "voice") {
       setTimeout(() => {
@@ -674,8 +674,6 @@ function ChatContent() {
   // Real-time voice chat functions
   const startRealTimeVoiceChat = async () => {
     try {
-      console.log("Starting real-time voice chat...");
-
       // Reset stop flag
       shouldStopVoiceChat.current = false;
 
@@ -728,6 +726,7 @@ function ChatContent() {
       // Start continuous recording and silence detection
       startContinuousRecording(recorder, analyserNode, stream);
     } catch (error) {
+      console.log("Error starting real-time voice chat:", error);
       setModalConfig({
         isOpen: true,
         title: "Microphone Access Required",
@@ -777,10 +776,10 @@ function ChatContent() {
     let isCurrentlyRecording = false;
     let isCurrentlyProcessing = false; // Local processing state
     let isRealTimeModeActive = true; // Local real-time mode state
-    let silenceStartTime = 0;
     let lastSoundTime = Date.now();
-    const SILENCE_THRESHOLD = 10; // Increased threshold (0-255) - was 5
-    const SILENCE_DURATION = 2000; // 2 seconds of silence
+    let recordingStartTime = Date.now();
+    const SILENCE_THRESHOLD = 5; // Lowered threshold for better sensitivity
+    const MAX_RECORDING_DURATION = 10000; // 10 seconds maximum recording time
 
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -864,8 +863,13 @@ function ChatContent() {
     };
 
     // Start recording
-    recorder.start(100); // Collect data every 100ms
-    isCurrentlyRecording = true;
+    try {
+      recorder.start(100); // Collect data every 100ms
+      isCurrentlyRecording = true;
+    } catch (error) {
+      console.error("Error starting MediaRecorder:", error);
+      return;
+    }
 
     // Start audio frequency detection
     const detectAudioFrequency = () => {
@@ -887,36 +891,31 @@ function ChatContent() {
         const average =
           dataArray.reduce((acc, val) => acc + val, 0) / bufferLength;
         const currentTime = Date.now();
+        const recordingElapsed = currentTime - recordingStartTime;
 
-        // Check if audio is above threshold (sound detected)
+        // Fallback: Stop recording if maximum duration reached
+        if (recordingElapsed >= MAX_RECORDING_DURATION) {
+          if (isCurrentlyRecording) {
+            recorder.stop();
+            isCurrentlyRecording = false;
+          }
+          return;
+        }
+
+        // Simple approach: Stop recording after 5 seconds of continuous audio
+        // This assumes the user will pause naturally after speaking
+        if (currentTime - lastSoundTime > 5000) {
+          // 5 seconds of continuous audio
+          if (isCurrentlyRecording) {
+            recorder.stop();
+            isCurrentlyRecording = false;
+          }
+          return;
+        }
+
+        // Update last sound time if audio is detected
         if (average > SILENCE_THRESHOLD) {
-          // Sound detected - reset silence detection
           lastSoundTime = currentTime;
-          silenceStartTime = 0;
-        } else {
-          // Low audio/silence detected
-          // Start silence timer if not already started and we had sound recently
-          if (silenceStartTime === 0 && currentTime - lastSoundTime > 500) {
-            silenceStartTime = currentTime;
-          }
-
-          // Check if silence duration threshold is met
-          if (silenceStartTime > 0) {
-            const silenceElapsed = currentTime - silenceStartTime;
-            if (silenceElapsed >= SILENCE_DURATION) {
-              // Stop current recording and process the audio
-              if (isCurrentlyRecording) {
-                recorder.stop();
-                isCurrentlyRecording = false;
-
-                // Reset silence detection
-                silenceStartTime = 0;
-                lastSoundTime = currentTime;
-              }
-
-              return; // Exit the detection loop
-            }
-          }
         }
 
         // Continue detecting if still in real-time mode and not stopped
@@ -926,6 +925,7 @@ function ChatContent() {
           !shouldStopVoiceChat.current
         ) {
           requestAnimationFrame(detectAudioFrequency);
+        } else {
         }
       } catch (error) {
         // Continue the loop even if there's an error
