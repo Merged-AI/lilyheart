@@ -26,6 +26,7 @@ import {
 import MessageContent from "@/components/chat/MessageContent";
 import Modal from "@/components/common/Modal";
 import ChildOnboardingModal from "@/components/common/ChildOnboardingModal";
+import RealtimeVoiceChat from "@/components/chat/RealtimeVoiceChat";
 import { useSessionLock } from "@/lib/session-lock-context";
 
 interface Message {
@@ -110,6 +111,10 @@ function ChatContent() {
   const [voiceChatError, setVoiceChatError] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [voiceActivityLevel, setVoiceActivityLevel] = useState(0); // Voice activity indicator
+
+  // OpenAI Realtime API state
+  const [useOpenAIRealtime, setUseOpenAIRealtime] = useState(false);
+  const [realtimeSessionActive, setRealtimeSessionActive] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -265,15 +270,31 @@ function ChatContent() {
 
     // Auto-start real-time voice chat if in voice mode
     if (chatMode === "voice") {
-      setTimeout(() => {
-        startRealTimeVoiceChat();
-      }, 500);
+      // Use OpenAI Realtime API for better performance
+      setUseOpenAIRealtime(true);
     }
   }, [chatMode]);
 
   const handleOnboardingClose = useCallback(() => {
     // Don't allow closing without completing onboarding
     // This ensures children must acknowledge the disclaimer
+  }, []);
+
+  // Handle messages from OpenAI Realtime API
+  const handleRealtimeMessage = useCallback((message: Message) => {
+    setMessages((prev) => [...prev, message]);
+  }, []);
+
+  // Handle realtime session start
+  const handleRealtimeSessionStart = useCallback(() => {
+    setRealtimeSessionActive(true);
+    setIsRealTimeMode(true);
+  }, []);
+
+  // Handle realtime session end
+  const handleRealtimeSessionEnd = useCallback(() => {
+    setRealtimeSessionActive(false);
+    setIsRealTimeMode(false);
   }, []);
 
   // Memoize modal config
@@ -398,10 +419,8 @@ function ChatContent() {
           } else {
             // Auto-start real-time voice chat if in voice mode
             if (chatMode === "voice") {
-              // Small delay to ensure component is fully mounted
-              setTimeout(() => {
-                startRealTimeVoiceChat();
-              }, 500);
+              // Use OpenAI Realtime API for better performance
+              setUseOpenAIRealtime(true);
             }
           }
         } else {
@@ -574,7 +593,14 @@ function ChatContent() {
   const endSession = () => {
     // Stop voice chat if it's running
     if (isRealTimeMode) {
-      stopRealTimeVoiceChat();
+      if (useOpenAIRealtime) {
+        // Stop OpenAI Realtime session
+        setUseOpenAIRealtime(false);
+        setRealtimeSessionActive(false);
+      } else {
+        // Stop legacy voice chat
+        stopRealTimeVoiceChat();
+      }
     }
 
     // Remove navigation prevention and allow redirect to session lock
@@ -1357,96 +1383,111 @@ function ChatContent() {
             {chatMode === "voice" ? (
               /* Voice Mode Interface */
               <div className="text-center">
-                <div className="mb-4">
-                  {isProcessingVoice ? (
-                    /* Processing state */
-                    <div>
-                      <div className="w-20 h-20 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <Loader2 className="h-10 w-10 text-white animate-spin" />
+                {useOpenAIRealtime ? (
+                  /* OpenAI Realtime API Interface */
+                  <RealtimeVoiceChat
+                    childId={selectedChildId || ""}
+                    onMessageReceived={handleRealtimeMessage}
+                    onSessionStart={handleRealtimeSessionStart}
+                    onSessionEnd={handleRealtimeSessionEnd}
+                    isActive={useOpenAIRealtime}
+                  />
+                ) : (
+                  /* Legacy Voice Mode Interface */
+                  <div className="mb-4">
+                    {isProcessingVoice ? (
+                      /* Processing state */
+                      <div>
+                        <div className="w-20 h-20 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                          <Loader2 className="h-10 w-10 text-white animate-spin" />
+                        </div>
+                        <h3 className="text-lg font-bold text-purple-800 mb-2">
+                          Processing your message...
+                        </h3>
+                        <p className="text-purple-600 mb-4">
+                          Dr. Emma is listening and thinking about your
+                          message...
+                        </p>
                       </div>
-                      <h3 className="text-lg font-bold text-purple-800 mb-2">
-                        Processing your message...
-                      </h3>
-                      <p className="text-purple-600 mb-4">
-                        Dr. Emma is listening and thinking about your message...
-                      </p>
-                    </div>
-                  ) : isRealTimeMode ? (
-                    /* Listening state */
-                    <div>
-                      <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <div
-                          className="w-4 h-4 bg-white rounded-full animate-ping"
-                          style={{
-                            transform: `scale(${
-                              1 + (voiceActivityLevel / 100) * 0.5
-                            })`,
-                            opacity: 0.5 + (voiceActivityLevel / 100) * 0.5,
-                          }}
-                        ></div>
-                      </div>
-                      <h3 className="text-lg font-bold text-purple-800 mb-2">
-                        Listening...
-                      </h3>
-                      <p className="text-purple-600 mb-4">
-                        Speak naturally in English! Dr. Emma detects when you
-                        pause and responds automatically.
-                      </p>
-                      <div className="mb-4">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="flex items-center justify-center space-x-2 text-sm text-green-700">
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                            <span>Listening for your voice...</span>
-                          </div>
-                          <div className="text-xs text-green-600 mt-1">
-                            Pause for 2 seconds to send your message
+                    ) : isRealTimeMode ? (
+                      /* Listening state */
+                      <div>
+                        <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                          <div
+                            className="w-4 h-4 bg-white rounded-full animate-ping"
+                            style={{
+                              transform: `scale(${
+                                1 + (voiceActivityLevel / 100) * 0.5
+                              })`,
+                              opacity: 0.5 + (voiceActivityLevel / 100) * 0.5,
+                            }}
+                          ></div>
+                        </div>
+                        <h3 className="text-lg font-bold text-purple-800 mb-2">
+                          Listening...
+                        </h3>
+                        <p className="text-purple-600 mb-4">
+                          Speak naturally in English! Dr. Emma detects when you
+                          pause and responds automatically.
+                        </p>
+                        <div className="mb-4">
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="flex items-center justify-center space-x-2 text-sm text-green-700">
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                              <span>Listening for your voice...</span>
+                            </div>
+                            <div className="text-xs text-green-600 mt-1">
+                              Pause for 2 seconds to send your message
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ) : voiceChatError ? (
-                    /* Error state - show retry button */
-                    <div>
-                      <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Mic className="h-10 w-10 text-white" />
+                    ) : voiceChatError ? (
+                      /* Error state - show retry button */
+                      <div>
+                        <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Mic className="h-10 w-10 text-white" />
+                        </div>
+                        <h3 className="text-lg font-bold text-purple-800 mb-2">
+                          Voice Chat Unavailable
+                        </h3>
+                        <p className="text-purple-600 mb-4">
+                          Unable to start voice chat. Please check your
+                          microphone permissions.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setVoiceChatError(false);
+                            startRealTimeVoiceChat();
+                          }}
+                          className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
+                        >
+                          🔄 Try Again
+                        </button>
                       </div>
-                      <h3 className="text-lg font-bold text-purple-800 mb-2">
-                        Voice Chat Unavailable
-                      </h3>
-                      <p className="text-purple-600 mb-4">
-                        Unable to start voice chat. Please check your microphone
-                        permissions.
-                      </p>
-                      <button
-                        onClick={() => {
-                          setVoiceChatError(false);
-                          startRealTimeVoiceChat();
-                        }}
-                        className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
-                      >
-                        🔄 Try Again
-                      </button>
-                    </div>
-                  ) : (
-                    /* Initial state - auto-start voice chat */
-                    <div>
-                      <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <Loader2 className="h-10 w-10 text-white animate-spin" />
+                    ) : (
+                      /* Initial state - auto-start voice chat */
+                      <div>
+                        <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                          <Loader2 className="h-10 w-10 text-white animate-spin" />
+                        </div>
+                        <h3 className="text-lg font-bold text-purple-800 mb-2">
+                          Starting Voice Chat...
+                        </h3>
+                        <p className="text-purple-600 mb-4">
+                          Preparing your voice chat session...
+                        </p>
                       </div>
-                      <h3 className="text-lg font-bold text-purple-800 mb-2">
-                        Starting Voice Chat...
-                      </h3>
-                      <p className="text-purple-600 mb-4">
-                        Preparing your voice chat session...
-                      </p>
-                    </div>
-                  )}
+                    )}
 
-                  <div className="flex items-center justify-center space-x-2 text-xs text-purple-500">
-                    <Shield className="h-3 w-3" />
-                    <span>Your voice is private and secure • English only</span>
+                    <div className="flex items-center justify-center space-x-2 text-xs text-purple-500">
+                      <Shield className="h-3 w-3" />
+                      <span>
+                        Your voice is private and secure • English only
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ) : (
               /* Text Mode Interface */

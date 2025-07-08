@@ -5,6 +5,40 @@ import {
 } from "@/lib/supabase-auth";
 import { enhancedChatAnalyzer } from "@/lib/enhanced-chat-analysis";
 
+// Simple in-memory cache for enhanced analysis (clears every 10 minutes)
+const analysisCache = new Map();
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+
+function getCachedAnalysis(childId: string, timeframeDays: number): any | null {
+  const cacheKey = `${childId}_${timeframeDays}`;
+  const cached = analysisCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.analysis;
+  }
+  
+  return null;
+}
+
+function setCachedAnalysis(childId: string, timeframeDays: number, analysis: any): void {
+  const cacheKey = `${childId}_${timeframeDays}`;
+  analysisCache.set(cacheKey, {
+    analysis,
+    timestamp: Date.now()
+  });
+  
+  // Clean up old entries
+  if (analysisCache.size > 50) {
+    const now = Date.now();
+    const entries = Array.from(analysisCache.entries());
+    for (const [key, value] of entries) {
+      if (now - value.timestamp > CACHE_DURATION) {
+        analysisCache.delete(key);
+      }
+    }
+  }
+}
+
 // Validate child belongs to authenticated family
 async function validateChildAccess(
   familyId: string,
@@ -89,11 +123,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check cache for existing analysis
+    const cachedAnalysis = getCachedAnalysis(targetChildId, timeframeDays);
+    if (cachedAnalysis) {
+      return NextResponse.json({
+        success: true,
+        childId: targetChildId,
+        childInfo: null, // No need to refetch child info if cached
+        analysis: cachedAnalysis,
+        sessionData: null, // No need to refetch session data if cached
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          timeframe: `${timeframeDays} days`,
+          totalSessions: cachedAnalysis.totalSessions,
+          patternsAnalyzed: cachedAnalysis.communicationPatterns.length,
+          dailyInsights: cachedAnalysis.dailyInsights,
+        },
+      });
+    }
+
     // Generate enhanced analysis
     const analysis = await enhancedChatAnalyzer.generateComprehensiveAnalysis(
       targetChildId,
       timeframeDays
     );
+
+    // Cache the analysis
+    setCachedAnalysis(targetChildId, timeframeDays, analysis);
 
     // Get child details for additional context
     const supabase = createServerSupabase();
@@ -103,19 +159,23 @@ export async function GET(request: NextRequest) {
       .eq("id", targetChildId)
       .single();
 
-    // Get session data for additional insights
+    // Get session data for additional insights (limit to essential fields)
     const { data: sessions } = await supabase
       .from("therapy_sessions")
-      .select("*")
+      .select("id, created_at, session_duration, topics, has_alert, alert_level, mood_analysis")
       .eq("child_id", targetChildId)
       .gte(
         "created_at",
         new Date(Date.now() - timeframeDays * 24 * 60 * 60 * 1000).toISOString()
       )
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(1000); // Limit to prevent excessive data processing
 
-    // Group sessions by date for better insights
+    // Group sessions by date for better insights (optimized)
     const groupedSessions = groupSessionsByDate(sessions || []);
+
+    // Generate daily insights (cached with analysis)
+    const dailyInsights = generateDailyInsights(groupedSessions);
 
     return NextResponse.json({
       success: true,
@@ -143,7 +203,7 @@ export async function GET(request: NextRequest) {
         timeframe: `${timeframeDays} days`,
         totalSessions: analysis.totalSessions,
         patternsAnalyzed: analysis.communicationPatterns.length,
-        dailyInsights: generateDailyInsights(groupedSessions),
+        dailyInsights,
       },
     });
   } catch (error) {
@@ -158,99 +218,100 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Group sessions by date for better analysis
+// Group sessions by date for better analysis (optimized)
 function groupSessionsByDate(sessions: any[]): any[] {
+  if (sessions.length === 0) return [];
+  
   const grouped: any[] = [];
   const sessionMap = new Map<string, any[]>();
 
-  sessions.forEach((session) => {
+  // Single pass to group sessions
+  for (const session of sessions) {
     const date = session.created_at.split("T")[0];
     if (!sessionMap.has(date)) {
       sessionMap.set(date, []);
     }
-    sessionMap.get(date)?.push(session);
-  });
+    sessionMap.get(date)!.push(session);
+  }
 
-  sessionMap.forEach((daySessions, date) => {
-    // Calculate daily metrics
-    const totalDuration = daySessions.reduce(
-      (sum, session) => sum + (session.session_duration || 0),
-      0
-    );
-    const avgMood = calculateAverageMood(daySessions);
-    const allTopics = Array.from(
-      new Set(daySessions.flatMap((session) => session.topics || []))
-    );
-    const hasAlert = daySessions.some((session) => session.has_alert);
-    const alertLevel =
-      daySessions.find((session) => session.alert_level === "high")
-        ?.alert_level ||
-      daySessions.find((session) => session.alert_level === "medium")
-        ?.alert_level ||
-      null;
+  // Process each day's sessions
+  const entries = Array.from(sessionMap.entries());
+  for (const [date, daySessions] of entries) {
+    // Calculate daily metrics efficiently
+    let totalDuration = 0;
+    let validMoodSessions = 0;
+    let totalHappiness = 0;
+    let totalAnxiety = 0;
+    let totalSadness = 0;
+    let totalStress = 0;
+    let totalConfidence = 0;
+    const topicsSet = new Set<string>();
+    let hasAlert = false;
+    let alertLevel: string | null = null;
+
+    for (const session of daySessions) {
+      totalDuration += session.session_duration || 0;
+      
+      if (session.mood_analysis && typeof session.mood_analysis.happiness === "number") {
+        validMoodSessions++;
+        totalHappiness += session.mood_analysis.happiness;
+        totalAnxiety += session.mood_analysis.anxiety || 0;
+        totalSadness += session.mood_analysis.sadness || 0;
+        totalStress += session.mood_analysis.stress || 0;
+        totalConfidence += session.mood_analysis.confidence || 0;
+      }
+      
+      if (session.topics) {
+        for (const topic of session.topics) {
+          topicsSet.add(topic);
+        }
+      }
+      
+      if (session.has_alert) {
+        hasAlert = true;
+        if (session.alert_level === "high") {
+          alertLevel = "high";
+        } else if (!alertLevel && session.alert_level === "medium") {
+          alertLevel = "medium";
+        }
+      }
+    }
+
+    const averageMood = validMoodSessions > 0 ? {
+      happiness: Math.round(totalHappiness / validMoodSessions),
+      anxiety: Math.round(totalAnxiety / validMoodSessions),
+      sadness: Math.round(totalSadness / validMoodSessions),
+      stress: Math.round(totalStress / validMoodSessions),
+      confidence: Math.round(totalConfidence / validMoodSessions),
+      insights: `Average mood from ${validMoodSessions} sessions`,
+    } : null;
 
     grouped.push({
       date,
       sessionCount: daySessions.length,
       totalDuration,
-      averageMood: avgMood,
-      topics: allTopics,
+      averageMood,
+      topics: Array.from(topicsSet),
       hasAlert,
       alertLevel,
       sessions: daySessions.map((session: any) => ({
-        ...session,
+        id: session.id,
         date: session.created_at.split("T")[0],
+        session_duration: session.session_duration,
+        topics: session.topics,
+        has_alert: session.has_alert,
+        alert_level: session.alert_level,
+        mood_analysis: session.mood_analysis,
       })),
     });
-  });
+  }
 
   return grouped.sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 }
 
-// Calculate average mood from multiple sessions
-function calculateAverageMood(sessions: any[]): any {
-  const validMoods = sessions.filter(
-    (session) =>
-      session.mood_analysis &&
-      typeof session.mood_analysis.happiness === "number"
-  );
-
-  if (validMoods.length === 0) return null;
-
-  const totalHappiness = validMoods.reduce(
-    (sum, session) => sum + session.mood_analysis.happiness,
-    0
-  );
-  const totalAnxiety = validMoods.reduce(
-    (sum, session) => sum + (session.mood_analysis.anxiety || 0),
-    0
-  );
-  const totalSadness = validMoods.reduce(
-    (sum, session) => sum + (session.mood_analysis.sadness || 0),
-    0
-  );
-  const totalStress = validMoods.reduce(
-    (sum, session) => sum + (session.mood_analysis.stress || 0),
-    0
-  );
-  const totalConfidence = validMoods.reduce(
-    (sum, session) => sum + (session.mood_analysis.confidence || 0),
-    0
-  );
-
-  return {
-    happiness: Math.round(totalHappiness / validMoods.length),
-    anxiety: Math.round(totalAnxiety / validMoods.length),
-    sadness: Math.round(totalSadness / validMoods.length),
-    stress: Math.round(totalStress / validMoods.length),
-    confidence: Math.round(totalConfidence / validMoods.length),
-    insights: `Average mood from ${validMoods.length} sessions`,
-  };
-}
-
-// Generate daily insights from grouped sessions
+// Generate daily insights from grouped sessions (optimized)
 function generateDailyInsights(groupedSessions: any[]): any {
   if (groupedSessions.length === 0) {
     return {
@@ -263,10 +324,12 @@ function generateDailyInsights(groupedSessions: any[]): any {
   const trends = [];
   const patterns = [];
 
-  // Analyze session frequency trends
-  const sessionCounts = groupedSessions.map((day) => day.sessionCount);
-  const avgSessionsPerDay =
-    sessionCounts.reduce((sum, count) => sum + count, 0) / sessionCounts.length;
+  // Calculate session frequency efficiently
+  let totalSessions = 0;
+  for (const day of groupedSessions) {
+    totalSessions += day.sessionCount;
+  }
+  const avgSessionsPerDay = totalSessions / groupedSessions.length;
 
   if (avgSessionsPerDay > 2) {
     trends.push("High engagement: Child is having multiple sessions per day");
@@ -276,15 +339,22 @@ function generateDailyInsights(groupedSessions: any[]): any {
     trends.push("Moderate engagement: Child is having occasional sessions");
   }
 
-  // Analyze mood trends
-  const moodDays = groupedSessions.filter((day) => day.averageMood);
-  if (moodDays.length > 0) {
-    const avgHappiness =
-      moodDays.reduce((sum, day) => sum + day.averageMood.happiness, 0) /
-      moodDays.length;
-    const avgAnxiety =
-      moodDays.reduce((sum, day) => sum + day.averageMood.anxiety, 0) /
-      moodDays.length;
+  // Analyze mood trends efficiently
+  let totalHappiness = 0;
+  let totalAnxiety = 0;
+  let moodDaysCount = 0;
+  
+  for (const day of groupedSessions) {
+    if (day.averageMood) {
+      totalHappiness += day.averageMood.happiness;
+      totalAnxiety += day.averageMood.anxiety;
+      moodDaysCount++;
+    }
+  }
+
+  if (moodDaysCount > 0) {
+    const avgHappiness = totalHappiness / moodDaysCount;
+    const avgAnxiety = totalAnxiety / moodDaysCount;
 
     if (avgHappiness > 7) {
       trends.push(
@@ -296,20 +366,27 @@ function generateDailyInsights(groupedSessions: any[]): any {
     }
   }
 
-  // Analyze alert patterns
-  const alertDays = groupedSessions.filter((day) => day.hasAlert);
-  if (alertDays.length > 0) {
+  // Analyze alert patterns efficiently
+  let alertDaysCount = 0;
+  for (const day of groupedSessions) {
+    if (day.hasAlert) {
+      alertDaysCount++;
+    }
+  }
+  
+  if (alertDaysCount > 0) {
     patterns.push(
-      `Alert days: ${alertDays.length} days with concerning indicators`
+      `Alert days: ${alertDaysCount} days with concerning indicators`
     );
   }
 
-  // Analyze topic patterns
-  const allTopics = groupedSessions.flatMap((day) => day.topics);
+  // Analyze topic patterns efficiently
   const topicFrequency: { [key: string]: number } = {};
-  allTopics.forEach((topic) => {
-    topicFrequency[topic] = (topicFrequency[topic] || 0) + 1;
-  });
+  for (const day of groupedSessions) {
+    for (const topic of day.topics) {
+      topicFrequency[topic] = (topicFrequency[topic] || 0) + 1;
+    }
+  }
 
   const frequentTopics = Object.entries(topicFrequency)
     .filter(([_, count]) => (count as number) > 1)
@@ -326,11 +403,6 @@ function generateDailyInsights(groupedSessions: any[]): any {
     averageSessionsPerDay: avgSessionsPerDay,
     trends,
     patterns,
-    summary: `Analyzed ${
-      groupedSessions.length
-    } days of session data with ${groupedSessions.reduce(
-      (sum, day) => sum + day.sessionCount,
-      0
-    )} total sessions`,
+    summary: `Analyzed ${groupedSessions.length} days of session data with ${totalSessions} total sessions`,
   };
 }

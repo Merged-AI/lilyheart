@@ -147,7 +147,6 @@ export function ChildMentalHealthDashboard({
   });
   const [enhancedAnalysis, setEnhancedAnalysis] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
-  console.log(realTimeData);
 
   useEffect(() => {
     if (selectedChildId) {

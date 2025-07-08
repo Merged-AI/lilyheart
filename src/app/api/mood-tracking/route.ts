@@ -12,6 +12,40 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Simple in-memory cache for mood analysis (clears every 5 minutes)
+const moodAnalysisCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+function getCachedMoodAnalysis(input: string, childAge?: number): any | null {
+  const cacheKey = `${input.substring(0, 100)}_${childAge || 'unknown'}`;
+  const cached = moodAnalysisCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.analysis;
+  }
+  
+  return null;
+}
+
+function setCachedMoodAnalysis(input: string, childAge: number | undefined, analysis: any): void {
+  const cacheKey = `${input.substring(0, 100)}_${childAge || 'unknown'}`;
+  moodAnalysisCache.set(cacheKey, {
+    analysis,
+    timestamp: Date.now()
+  });
+  
+  // Clean up old entries
+  if (moodAnalysisCache.size > 100) {
+    const now = Date.now();
+    const entries = Array.from(moodAnalysisCache.entries());
+    for (const [key, value] of entries) {
+      if (now - value.timestamp > CACHE_DURATION) {
+        moodAnalysisCache.delete(key);
+      }
+    }
+  }
+}
+
 // Validate child belongs to authenticated family
 async function validateChildAccess(
   familyId: string,
@@ -37,35 +71,26 @@ async function analyzeMoodFromInput(
   childAge?: number
 ): Promise<any> {
   try {
-    const prompt = `Analyze the emotional state of a child based on their message. Provide a detailed mood analysis with scores from 1-10 for each dimension.
+    // Check cache first
+    const cached = getCachedMoodAnalysis(input, childAge);
+    if (cached) {
+      return cached;
+    }
 
-Child's message: "${input}"
+    const prompt = `Analyze the emotional state from this message: "${input}"
 ${childAge ? `Child's age: ${childAge} years` : ""}
 
-Please analyze the emotional content and provide scores for:
-- happiness (1=very sad, 10=very happy)
-- anxiety (1=very calm, 10=very anxious)
-- sadness (1=not sad at all, 10=extremely sad)
-- stress (1=very relaxed, 10=extremely stressed)
-- confidence (1=very low confidence, 10=very confident)
+Provide scores (1-10) for: happiness, anxiety, sadness, stress, confidence.
+Watch for concerning content (harm, suicide, extreme distress).
 
-IMPORTANT: Pay special attention to concerning content like:
-- Thoughts of harm to self or others
-- Suicidal ideation
-- Extreme emotional distress
-- Violent thoughts
-- Hopelessness
-
-For concerning content, use appropriate high scores for anxiety, sadness, and stress.
-
-Respond with a JSON object only:
+Respond with JSON only:
 {
   "happiness": number,
   "anxiety": number,
   "sadness": number,
   "stress": number,
   "confidence": number,
-  "insights": "Brief clinical observation about the emotional state"
+  "insights": "Brief observation"
 }`;
 
     const completion = await openai.chat.completions.create({
@@ -73,16 +98,15 @@ Respond with a JSON object only:
       messages: [
         {
           role: "system",
-          content:
-            "You are a child psychologist specializing in emotional assessment. Provide accurate, nuanced mood analysis based on the child's message content.",
+          content: "You are a child psychologist. Provide accurate mood analysis in JSON format only.",
         },
         {
           role: "user",
           content: prompt,
         },
       ],
-      max_tokens: 300,
-      temperature: 0.3,
+      max_tokens: 150, // Reduced from 300
+      temperature: 0.2, // Reduced from 0.3 for more consistent results
     });
 
     const response = completion.choices[0]?.message?.content;
@@ -105,6 +129,9 @@ Respond with a JSON object only:
       1,
       Math.min(10, moodAnalysis.confidence || 5)
     );
+
+    // Cache the result
+    setCachedMoodAnalysis(input, childAge, moodAnalysis);
 
     return moodAnalysis;
   } catch (error) {
@@ -421,8 +448,19 @@ export async function GET(request: NextRequest) {
         latestSessionId = session.id;
         latestSessionTime = session.created_at;
 
-        // Always re-analyze mood from the user message to ensure accuracy and consistency
-        if (session.user_message) {
+        // Use existing mood analysis if available and not forcing refresh
+        if (session.mood_analysis && !forceRefresh) {
+          dayMoodScores.push({
+            happiness: session.mood_analysis.happiness || 5,
+            anxiety: session.mood_analysis.anxiety || 5,
+            sadness: session.mood_analysis.sadness || 5,
+            stress: session.mood_analysis.stress || 5,
+            confidence: session.mood_analysis.confidence || 5,
+            insights: session.mood_analysis.insights || "Existing analysis",
+          });
+          dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Existing'}] ${session.user_message?.substring(0, 50) || 'No message'}...`);
+        } else if (session.user_message) {
+          // Only do AI analysis if no existing analysis or forcing refresh
           try {
             // Analyze mood from session content using the same approach as sessions API
             const aiMoodAnalysis = await analyzeMoodFromInput(
@@ -440,6 +478,16 @@ export async function GET(request: NextRequest) {
             });
 
             dayNotes.push(`[Session ${session.id}: ${aiMoodAnalysis.insights}] ${session.user_message.substring(0, 50)}...`);
+
+            // Update the session with the new mood analysis to cache it
+            if (!session.mood_analysis || forceRefresh) {
+              await supabase
+                .from("therapy_sessions")
+                .update({
+                  mood_analysis: aiMoodAnalysis,
+                })
+                .eq("id", session.id);
+            }
           } catch (error) {
             console.error(`Error analyzing session ${session.id}:`, error);
             
@@ -454,6 +502,17 @@ export async function GET(request: NextRequest) {
                 insights: session.mood_analysis.insights || "Fallback analysis",
               });
               dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Fallback'}] ${session.user_message?.substring(0, 50) || 'No message'}...`);
+            } else {
+              // Use neutral scores if no analysis available
+              dayMoodScores.push({
+                happiness: 5,
+                anxiety: 5,
+                sadness: 5,
+                stress: 5,
+                confidence: 5,
+                insights: "No analysis available",
+              });
+              dayNotes.push(`[Session ${session.id}: No analysis] ${session.user_message?.substring(0, 50) || 'No message'}...`);
             }
           }
         } else if (session.mood_analysis) {
