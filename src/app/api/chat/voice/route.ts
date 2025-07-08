@@ -14,21 +14,173 @@ const openai = new OpenAI({
 
 // Initialize Pinecone for knowledge base queries
 const pinecone = new Pinecone({
-  apiKey: process.env.PINECONE_API_KEY!
-})
+  apiKey: process.env.PINECONE_API_KEY!,
+});
 
-const INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'dremma'
+const INDEX_NAME = process.env.PINECONE_INDEX_NAME || "dremma";
 
 // Crisis detection keywords
 const CRISIS_KEYWORDS = [
-  'hurt myself', 'kill myself', 'want to die', 'end it all', 'suicide', 'suicidal',
-  'cut myself', 'harm myself', 'better off dead', 'can\'t go on', 'no point living',
-  'hurt me', 'hit me', 'touched inappropriately', 'abuse', 'sexual abuse'
-]
+  "hurt myself",
+  "kill myself",
+  "want to die",
+  "end it all",
+  "suicide",
+  "suicidal",
+  "cut myself",
+  "harm myself",
+  "better off dead",
+  "can't go on",
+  "no point living",
+  "hurt me",
+  "hit me",
+  "touched inappropriately",
+  "abuse",
+  "sexual abuse",
+];
+
+// English language validation patterns
+const ENGLISH_PATTERNS = {
+  // Common English words and patterns
+  commonWords:
+    /\b(the|and|or|but|in|on|at|to|for|of|with|by|is|are|was|were|be|been|being|have|has|had|do|does|did|will|would|could|should|can|may|might|must|shall|i|you|he|she|it|we|they|me|him|her|us|them|my|your|his|her|its|our|their|mine|yours|his|hers|ours|theirs|this|that|these|those|a|an|as|if|then|else|when|where|why|how|what|who|which|whom|whose)\b/i,
+  // English sentence structure
+  sentenceStructure: /^[A-Za-z\s\.,!?'"()-]+$/,
+  // English word boundaries
+  wordBoundaries: /\b[a-zA-Z]+\b/,
+  // Non-English characters to detect
+  nonEnglishChars:
+    /[^\x00-\x7F\u00A0-\u00FF\u0100-\u017F\u0180-\u024F\u1E00-\u1EFF\u2C60-\u2C7F\uA720-\uA7FF]/,
+};
 
 function detectCrisis(message: string): boolean {
-  const lowerMessage = message.toLowerCase()
-  return CRISIS_KEYWORDS.some(keyword => lowerMessage.includes(keyword))
+  const lowerMessage = message.toLowerCase();
+  return CRISIS_KEYWORDS.some((keyword) => lowerMessage.includes(keyword));
+}
+
+// Analyze audio quality for better transcription accuracy
+function analyzeAudioQuality(audioBuffer: Buffer): {
+  isValid: boolean;
+  reason?: string;
+  quality?: number;
+} {
+  try {
+    // Check buffer size
+    if (audioBuffer.length < 2048) {
+      return { isValid: false, reason: "Audio buffer too small" };
+    }
+
+    // Basic audio analysis for quality assessment
+    const samples = new Int16Array(
+      audioBuffer.buffer,
+      audioBuffer.byteOffset,
+      audioBuffer.length / 2
+    );
+
+    // Calculate RMS (Root Mean Square) for volume level
+    let sum = 0;
+    let zeroCrossings = 0;
+    let prevSample = 0;
+
+    for (let i = 0; i < samples.length; i++) {
+      const sample = samples[i];
+      sum += sample * sample;
+
+      // Count zero crossings (indicates speech activity)
+      if ((prevSample >= 0 && sample < 0) || (prevSample < 0 && sample >= 0)) {
+        zeroCrossings++;
+      }
+      prevSample = sample;
+    }
+
+    const rms = Math.sqrt(sum / samples.length);
+    const zeroCrossingRate = zeroCrossings / samples.length;
+
+    // Quality thresholds
+    const minRMS = 100; // Minimum volume level
+    const minZeroCrossingRate = 0.01; // Minimum speech activity
+
+    if (rms < minRMS) {
+      return { isValid: false, reason: "Audio too quiet", quality: rms };
+    }
+
+    if (zeroCrossingRate < minZeroCrossingRate) {
+      return {
+        isValid: false,
+        reason: "No speech activity detected",
+        quality: zeroCrossingRate,
+      };
+    }
+
+    // Calculate quality score (0-100)
+    const qualityScore = Math.min(
+      100,
+      (rms / 1000) * 50 + zeroCrossingRate * 1000
+    );
+
+    return {
+      isValid: true,
+      quality: qualityScore,
+      reason: `Audio quality: ${qualityScore.toFixed(1)}/100`,
+    };
+  } catch (error) {
+    return { isValid: false, reason: "Audio analysis failed" };
+  }
+}
+
+// Validate and clean English text
+function validateEnglishText(text: string): {
+  isValid: boolean;
+  cleanedText: string;
+  reason?: string;
+} {
+  if (!text || text.trim().length === 0) {
+    return { isValid: false, cleanedText: "", reason: "Empty text" };
+  }
+
+  const trimmedText = text.trim();
+
+  // Check for non-English characters
+  if (ENGLISH_PATTERNS.nonEnglishChars.test(trimmedText)) {
+    return {
+      isValid: false,
+      cleanedText: "",
+      reason: "Contains non-English characters",
+    };
+  }
+
+  // Check if text follows basic English sentence structure
+  if (!ENGLISH_PATTERNS.sentenceStructure.test(trimmedText)) {
+    return {
+      isValid: false,
+      cleanedText: "",
+      reason: "Does not follow English sentence structure",
+    };
+  }
+
+  // Check if text contains at least some common English words
+  const words = trimmedText.split(/\s+/);
+  const englishWordCount = words.filter(
+    (word) =>
+      ENGLISH_PATTERNS.commonWords.test(word) ||
+      ENGLISH_PATTERNS.wordBoundaries.test(word)
+  ).length;
+
+  if (englishWordCount < Math.max(1, words.length * 0.3)) {
+    return {
+      isValid: false,
+      cleanedText: "",
+      reason: "Insufficient English content",
+    };
+  }
+
+  // Clean the text (remove extra spaces, normalize punctuation)
+  const cleanedText = trimmedText
+    .replace(/\s+/g, " ") // Replace multiple spaces with single space
+    .replace(/\s+([.,!?])/g, "$1") // Remove spaces before punctuation
+    .trim();
+
+  return { isValid: true, cleanedText };
 }
 
 function generateCrisisResponse(): string {
@@ -43,73 +195,192 @@ If you're having thoughts of hurting yourself, please reach out to:
 - National Suicide Prevention Lifeline: 988
 - Or go to your nearest emergency room
 
-You matter, and your life has value. Please don't give up. 💜`
+You matter, and your life has value. Please don't give up. 💜`;
 }
 
-// Analyze mood based on conversation content
+// Analyze mood using OpenAI for accurate emotional assessment (same as mood-tracking API)
+async function analyzeMoodFromInput(
+  input: string,
+  childAge?: number
+): Promise<any> {
+  try {
+    const prompt = `Analyze the emotional state of a child based on their message. Provide a detailed mood analysis with scores from 1-10 for each dimension.
+
+Child's message: "${input}"
+${childAge ? `Child's age: ${childAge} years` : ""}
+
+Please analyze the emotional content and provide scores for:
+- happiness (1=very sad, 10=very happy)
+- anxiety (1=very calm, 10=very anxious)
+- sadness (1=not sad at all, 10=extremely sad)
+- stress (1=very relaxed, 10=extremely stressed)
+- confidence (1=very low confidence, 10=very confident)
+
+IMPORTANT: Pay special attention to concerning content like:
+- Thoughts of harm to self or others
+- Suicidal ideation
+- Extreme emotional distress
+- Violent thoughts
+- Hopelessness
+
+For concerning content, use appropriate high scores for anxiety, sadness, and stress.
+
+Respond with a JSON object only:
+{
+  "happiness": number,
+  "anxiety": number,
+  "sadness": number,
+  "stress": number,
+  "confidence": number,
+  "insights": "Brief clinical observation about the emotional state"
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a child psychologist specializing in emotional assessment. Provide accurate, nuanced mood analysis based on the child's message content.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 300,
+      temperature: 0.3,
+    });
+
+    const response = completion.choices[0]?.message?.content;
+    if (!response) {
+      throw new Error("No response from OpenAI");
+    }
+
+    // Parse the JSON response
+    const moodAnalysis = JSON.parse(response);
+
+    // Ensure all scores are within 1-10 range
+    moodAnalysis.happiness = Math.max(
+      1,
+      Math.min(10, moodAnalysis.happiness || 5)
+    );
+    moodAnalysis.anxiety = Math.max(1, Math.min(10, moodAnalysis.anxiety || 5));
+    moodAnalysis.sadness = Math.max(1, Math.min(10, moodAnalysis.sadness || 5));
+    moodAnalysis.stress = Math.max(1, Math.min(10, moodAnalysis.stress || 5));
+    moodAnalysis.confidence = Math.max(
+      1,
+      Math.min(10, moodAnalysis.confidence || 5)
+    );
+
+    return moodAnalysis;
+  } catch (error) {
+    console.error("Error analyzing mood with OpenAI:", error);
+
+    // Return default neutral scores if OpenAI analysis fails
+    return {
+      happiness: 5,
+      anxiety: 5,
+      sadness: 5,
+      stress: 5,
+      confidence: 5,
+      insights: "Unable to analyze mood - using neutral baseline scores",
+    };
+  }
+}
+
+// Fallback mood analysis based on conversation content (simplified version)
 function analyzeMoodFromMessage(userMessage: string, aiResponse: string): any {
-  const lowerMessage = userMessage.toLowerCase()
-  
+  const lowerMessage = userMessage.toLowerCase();
+
   // Base scores
-  let happiness = 5
-  let anxiety = 5
-  let sadness = 5
-  let stress = 5
-  let confidence = 5
+  let happiness = 5;
+  let anxiety = 5;
+  let sadness = 5;
+  let stress = 5;
+  let confidence = 5;
 
   // Analyze user message for mood indicators
-  
+
   // Positive indicators
-  if (lowerMessage.includes('good') || lowerMessage.includes('happy') || lowerMessage.includes('fun') || lowerMessage.includes('playing')) {
-    happiness += 2
-    confidence += 1
+  if (
+    lowerMessage.includes("good") ||
+    lowerMessage.includes("happy") ||
+    lowerMessage.includes("fun") ||
+    lowerMessage.includes("playing")
+  ) {
+    happiness += 2;
+    confidence += 1;
   }
-  
-  if (lowerMessage.includes('calm') || lowerMessage.includes('better') || lowerMessage.includes('relaxed')) {
-    anxiety -= 2
-    stress -= 1
-    happiness += 1
+
+  if (
+    lowerMessage.includes("calm") ||
+    lowerMessage.includes("better") ||
+    lowerMessage.includes("relaxed")
+  ) {
+    anxiety -= 2;
+    stress -= 1;
+    happiness += 1;
   }
 
   // Stress indicators
-  if (lowerMessage.includes('stressed') || lowerMessage.includes('pressure') || lowerMessage.includes('overwhelmed')) {
-    stress += 3
-    anxiety += 2
-    happiness -= 1
+  if (
+    lowerMessage.includes("stressed") ||
+    lowerMessage.includes("pressure") ||
+    lowerMessage.includes("overwhelmed")
+  ) {
+    stress += 3;
+    anxiety += 2;
+    happiness -= 1;
   }
 
   // Anxiety indicators
-  if (lowerMessage.includes('worried') || lowerMessage.includes('nervous') || lowerMessage.includes('scared')) {
-    anxiety += 3
-    confidence -= 2
+  if (
+    lowerMessage.includes("worried") ||
+    lowerMessage.includes("nervous") ||
+    lowerMessage.includes("scared")
+  ) {
+    anxiety += 3;
+    confidence -= 2;
   }
 
   // Frustration/anger indicators
-  if (lowerMessage.includes('annoying') || lowerMessage.includes('don\'t want to help') || lowerMessage.includes('not fair')) {
-    stress += 2
-    confidence -= 1
+  if (
+    lowerMessage.includes("annoying") ||
+    lowerMessage.includes("don't want to help") ||
+    lowerMessage.includes("not fair")
+  ) {
+    stress += 2;
+    confidence -= 1;
   }
 
   // Social issues
-  if (lowerMessage.includes('friend') && (lowerMessage.includes('problem') || lowerMessage.includes('fight'))) {
-    sadness += 2
-    anxiety += 1
-    confidence -= 2
+  if (
+    lowerMessage.includes("friend") &&
+    (lowerMessage.includes("problem") || lowerMessage.includes("fight"))
+  ) {
+    sadness += 2;
+    anxiety += 1;
+    confidence -= 2;
   }
 
   // Family conflict indicators
-  if (lowerMessage.includes('brother') || lowerMessage.includes('sister')) {
-    if (lowerMessage.includes('annoying') || lowerMessage.includes('don\'t') || lowerMessage.includes('won\'t')) {
-      stress += 2
+  if (lowerMessage.includes("brother") || lowerMessage.includes("sister")) {
+    if (
+      lowerMessage.includes("annoying") ||
+      lowerMessage.includes("don't") ||
+      lowerMessage.includes("won't")
+    ) {
+      stress += 2;
     }
   }
 
   // Ensure scores stay within 1-10 range
-  happiness = Math.max(1, Math.min(10, happiness))
-  anxiety = Math.max(1, Math.min(10, anxiety))
-  sadness = Math.max(1, Math.min(10, sadness))
-  stress = Math.max(1, Math.min(10, stress))
-  confidence = Math.max(1, Math.min(10, confidence))
+  happiness = Math.max(1, Math.min(10, happiness));
+  anxiety = Math.max(1, Math.min(10, anxiety));
+  sadness = Math.max(1, Math.min(10, sadness));
+  stress = Math.max(1, Math.min(10, stress));
+  confidence = Math.max(1, Math.min(10, confidence));
 
   return {
     happiness,
@@ -117,120 +388,208 @@ function analyzeMoodFromMessage(userMessage: string, aiResponse: string): any {
     sadness,
     stress,
     confidence,
-    insights: generateAdvancedInsights(lowerMessage, { happiness, anxiety, sadness, stress, confidence })
-  }
+    insights: generateAdvancedInsights(lowerMessage, {
+      happiness,
+      anxiety,
+      sadness,
+      stress,
+      confidence,
+    }),
+  };
 }
 
 // Extract topics from a message for categorization
 function extractTopicsFromMessage(message: string): string[] {
-  if (!message) return ['General conversation']
-  
-  const topics = []
-  const lowerMessage = message.toLowerCase()
-  
-  if (lowerMessage.includes('school') || lowerMessage.includes('teacher') || lowerMessage.includes('homework')) {
-    topics.push('School stress')
+  if (!message) return ["General conversation"];
+
+  const topics = [];
+  const lowerMessage = message.toLowerCase();
+
+  if (
+    lowerMessage.includes("school") ||
+    lowerMessage.includes("teacher") ||
+    lowerMessage.includes("homework")
+  ) {
+    topics.push("School stress");
   }
-  if (lowerMessage.includes('friend') || lowerMessage.includes('social') || lowerMessage.includes('peer')) {
-    topics.push('Social relationships')
+  if (
+    lowerMessage.includes("friend") ||
+    lowerMessage.includes("social") ||
+    lowerMessage.includes("peer")
+  ) {
+    topics.push("Social relationships");
   }
-  if (lowerMessage.includes('anxious') || lowerMessage.includes('worried') || lowerMessage.includes('nervous')) {
-    topics.push('Anxiety')
+  if (
+    lowerMessage.includes("anxious") ||
+    lowerMessage.includes("worried") ||
+    lowerMessage.includes("nervous")
+  ) {
+    topics.push("Anxiety");
   }
-  if (lowerMessage.includes('family') || lowerMessage.includes('parent') || lowerMessage.includes('sibling') || lowerMessage.includes('brother') || lowerMessage.includes('sister')) {
-    topics.push('Family dynamics')
+  if (
+    lowerMessage.includes("family") ||
+    lowerMessage.includes("parent") ||
+    lowerMessage.includes("sibling") ||
+    lowerMessage.includes("brother") ||
+    lowerMessage.includes("sister")
+  ) {
+    topics.push("Family dynamics");
   }
-  if (lowerMessage.includes('sleep') || lowerMessage.includes('tired') || lowerMessage.includes('insomnia')) {
-    topics.push('Sleep issues')
+  if (
+    lowerMessage.includes("sleep") ||
+    lowerMessage.includes("tired") ||
+    lowerMessage.includes("insomnia")
+  ) {
+    topics.push("Sleep issues");
   }
-  if (lowerMessage.includes('stressed') || lowerMessage.includes('pressure') || lowerMessage.includes('overwhelmed')) {
-    topics.push('Stress management')
+  if (
+    lowerMessage.includes("stressed") ||
+    lowerMessage.includes("pressure") ||
+    lowerMessage.includes("overwhelmed")
+  ) {
+    topics.push("Stress management");
   }
-  if (lowerMessage.includes('angry') || lowerMessage.includes('mad') || lowerMessage.includes('annoying')) {
-    topics.push('Anger management')
+  if (
+    lowerMessage.includes("angry") ||
+    lowerMessage.includes("mad") ||
+    lowerMessage.includes("annoying")
+  ) {
+    topics.push("Anger management");
   }
-  if (lowerMessage.includes('bullying') || lowerMessage.includes('bully') || lowerMessage.includes('mean')) {
-    topics.push('Bullying concerns')
+  if (
+    lowerMessage.includes("bullying") ||
+    lowerMessage.includes("bully") ||
+    lowerMessage.includes("mean")
+  ) {
+    topics.push("Bullying concerns");
   }
-  if (lowerMessage.includes('calm') || lowerMessage.includes('breathing') || lowerMessage.includes('relax')) {
-    topics.push('Coping strategies')
+  if (
+    lowerMessage.includes("calm") ||
+    lowerMessage.includes("breathing") ||
+    lowerMessage.includes("relax")
+  ) {
+    topics.push("Coping strategies");
   }
-  
-  return topics.length > 0 ? topics : ['General conversation']
+
+  return topics.length > 0 ? topics : ["General conversation"];
 }
 
 // Advanced pattern analysis for parent insights
 function generateAdvancedInsights(message: string, mood: any): string {
-  const insights = []
-  const behavioralPatterns = []
-  const interventionNeeds = []
-  
+  const insights = [];
+  const behavioralPatterns = [];
+  const interventionNeeds = [];
+
   // Analyze immediate concerns
   if (mood.stress >= 7) {
-    insights.push('ELEVATED STRESS: Child showing significant distress that may impact daily functioning')
-    interventionNeeds.push('Implement stress reduction techniques immediately')
+    insights.push(
+      "ELEVATED STRESS: Child showing significant distress that may impact daily functioning"
+    );
+    interventionNeeds.push("Implement stress reduction techniques immediately");
   }
-  
+
   // Family dynamics analysis
-  if (message.includes('hate') && (message.includes('dad') || message.includes('parent'))) {
-    insights.push('FAMILY CONFLICT: Strong negative emotions toward parent figure - indicates need for family therapy consultation')
-    behavioralPatterns.push('Parent-child relationship strain')
-    interventionNeeds.push('Schedule family meeting to address underlying issues')
+  if (
+    message.includes("hate") &&
+    (message.includes("dad") || message.includes("parent"))
+  ) {
+    insights.push(
+      "FAMILY CONFLICT: Strong negative emotions toward parent figure - indicates need for family therapy consultation"
+    );
+    behavioralPatterns.push("Parent-child relationship strain");
+    interventionNeeds.push(
+      "Schedule family meeting to address underlying issues"
+    );
   }
-  
+
   // Impulse control patterns
-  if (message.includes('angry') || message.includes('mad') || mood.anger >= 6) {
-    insights.push('IMPULSE CONTROL: Signs of anger regulation difficulties - monitor for escalation patterns')
-    behavioralPatterns.push('Emotional dysregulation episodes')
-    interventionNeeds.push('Teach anger management techniques (breathing, counting, safe space)')
+  if (message.includes("angry") || message.includes("mad") || mood.anger >= 6) {
+    insights.push(
+      "IMPULSE CONTROL: Signs of anger regulation difficulties - monitor for escalation patterns"
+    );
+    behavioralPatterns.push("Emotional dysregulation episodes");
+    interventionNeeds.push(
+      "Teach anger management techniques (breathing, counting, safe space)"
+    );
   }
-  
+
   // Authority resistance patterns
-  if (message.includes('don\'t want to') || message.includes('make me') || message.includes('not fair')) {
-    insights.push('AUTHORITY ISSUES: Resistance to parental limits may indicate need for clearer boundaries and consequences')
-    behavioralPatterns.push('Oppositional behaviors')
-    interventionNeeds.push('Review family rules and consistent consequence system')
+  if (
+    message.includes("don't want to") ||
+    message.includes("make me") ||
+    message.includes("not fair")
+  ) {
+    insights.push(
+      "AUTHORITY ISSUES: Resistance to parental limits may indicate need for clearer boundaries and consequences"
+    );
+    behavioralPatterns.push("Oppositional behaviors");
+    interventionNeeds.push(
+      "Review family rules and consistent consequence system"
+    );
   }
-  
+
   // Social/emotional development
-  if (message.includes('bullying') || message.includes('friends')) {
-    insights.push('SOCIAL CONCERNS: Peer relationships affecting emotional wellbeing - coordinate with school')
-    interventionNeeds.push('Contact school counselor about social dynamics')
+  if (message.includes("bullying") || message.includes("friends")) {
+    insights.push(
+      "SOCIAL CONCERNS: Peer relationships affecting emotional wellbeing - coordinate with school"
+    );
+    interventionNeeds.push("Contact school counselor about social dynamics");
   }
-  
+
   // Anxiety patterns
   if (mood.anxiety >= 7) {
-    insights.push('ANXIETY SYMPTOMS: Clinical-level anxiety detected - consider professional assessment')
-    interventionNeeds.push('Implement daily anxiety coping strategies')
+    insights.push(
+      "ANXIETY SYMPTOMS: Clinical-level anxiety detected - consider professional assessment"
+    );
+    interventionNeeds.push("Implement daily anxiety coping strategies");
   }
 
   // Positive indicators
-  if (message.includes('better') || message.includes('calm') || mood.happiness >= 7) {
-    insights.push('POSITIVE PROGRESS: Child demonstrating emotional regulation skills and therapeutic engagement')
+  if (
+    message.includes("better") ||
+    message.includes("calm") ||
+    mood.happiness >= 7
+  ) {
+    insights.push(
+      "POSITIVE PROGRESS: Child demonstrating emotional regulation skills and therapeutic engagement"
+    );
   }
-  
+
   // Sleep and routine concerns
-  if (message.includes('bed') || message.includes('sleep') || message.includes('tired')) {
-    insights.push('ROUTINE CONCERNS: Sleep/bedtime issues may be contributing to emotional dysregulation')
-    interventionNeeds.push('Establish consistent bedtime routine and sleep hygiene')
+  if (
+    message.includes("bed") ||
+    message.includes("sleep") ||
+    message.includes("tired")
+  ) {
+    insights.push(
+      "ROUTINE CONCERNS: Sleep/bedtime issues may be contributing to emotional dysregulation"
+    );
+    interventionNeeds.push(
+      "Establish consistent bedtime routine and sleep hygiene"
+    );
   }
 
   // Compile comprehensive insight
-  let comprehensiveInsight = ''
-  
+  let comprehensiveInsight = "";
+
   if (insights.length > 0) {
-    comprehensiveInsight += 'CLINICAL OBSERVATIONS: ' + insights.join(' | ')
+    comprehensiveInsight += "CLINICAL OBSERVATIONS: " + insights.join(" | ");
   }
-  
+
   if (behavioralPatterns.length > 0) {
-    comprehensiveInsight += ' BEHAVIORAL PATTERNS: ' + behavioralPatterns.join(', ')
+    comprehensiveInsight +=
+      " BEHAVIORAL PATTERNS: " + behavioralPatterns.join(", ");
   }
-  
+
   if (interventionNeeds.length > 0) {
-    comprehensiveInsight += ' RECOMMENDED INTERVENTIONS: ' + interventionNeeds.join(' • ')
+    comprehensiveInsight +=
+      " RECOMMENDED INTERVENTIONS: " + interventionNeeds.join(" • ");
   }
-  
-  return comprehensiveInsight || 'Child engaging in therapeutic conversation with normal emotional range'
+
+  return (
+    comprehensiveInsight ||
+    "Child engaging in therapeutic conversation with normal emotional range"
+  );
 }
 
 // Verify that child belongs to the authenticated family
@@ -266,7 +625,9 @@ async function verifyChildProfileComplete(childId: string): Promise<boolean> {
     const supabase = createServerSupabase();
     const { data: child, error } = await supabase
       .from("children")
-      .select("name, current_concerns, parent_goals, reason_for_adding, profile_completed")
+      .select(
+        "name, current_concerns, parent_goals, reason_for_adding, profile_completed"
+      )
       .eq("id", childId)
       .single();
 
@@ -299,7 +660,9 @@ async function getChildContext(childId: string): Promise<string> {
     const supabase = createServerSupabase();
     const { data: child, error } = await supabase
       .from("children")
-      .select("name, age, gender, current_concerns, triggers, parent_goals, reason_for_adding")
+      .select(
+        "name, age, gender, current_concerns, triggers, parent_goals, reason_for_adding"
+      )
       .eq("id", childId)
       .single();
 
@@ -320,7 +683,7 @@ CHILD PROFILE FOR DR. EMMA AI:
       currentConcerns: child.current_concerns,
       triggers: child.triggers,
       parentGoals: child.parent_goals,
-      reasonForAdding: child.reason_for_adding
+      reasonForAdding: child.reason_for_adding,
     });
   } catch (error) {
     console.error("Error in getChildContext:", error);
@@ -419,7 +782,9 @@ THERAPEUTIC RELATIONSHIP BUILDING:
 }
 
 // Get child data for knowledge base enhancement
-async function getChildDataForKnowledge(childId: string): Promise<{age?: number, concerns?: string[]} | null> {
+async function getChildDataForKnowledge(
+  childId: string
+): Promise<{ age?: number; concerns?: string[] } | null> {
   try {
     const supabase = createServerSupabase();
     const { data: child, error } = await supabase
@@ -435,7 +800,9 @@ async function getChildDataForKnowledge(childId: string): Promise<{age?: number,
 
     return {
       age: child.age,
-      concerns: child.current_concerns ? child.current_concerns.split(',').map((c: string) => c.trim()) : undefined
+      concerns: child.current_concerns
+        ? child.current_concerns.split(",").map((c: string) => c.trim())
+        : undefined,
     };
   } catch (error) {
     console.error("Error in getChildDataForKnowledge:", error);
@@ -444,47 +811,53 @@ async function getChildDataForKnowledge(childId: string): Promise<{age?: number,
 }
 
 // Get child-specific knowledge base documents from Pinecone
-async function getChildKnowledgeBaseContext(childId: string, currentMessage: string): Promise<string> {
+async function getChildKnowledgeBaseContext(
+  childId: string,
+  currentMessage: string
+): Promise<string> {
   try {
     const index = pinecone.index(INDEX_NAME);
-    
+
     // Create embedding for the current message to find relevant knowledge base documents
     const queryEmbedding = await createEmbedding(currentMessage);
-    
+
     // Search for knowledge base documents specific to this child
     const results = await index.query({
       vector: queryEmbedding,
       topK: 3, // Get top 3 most relevant documents
       filter: {
         child_id: { $eq: childId },
-        type: { $eq: 'knowledge_base_document' }
+        type: { $eq: "knowledge_base_document" },
       },
-      includeMetadata: true
+      includeMetadata: true,
     });
 
     if (!results.matches || results.matches.length === 0) {
-      console.log('📚 No child-specific knowledge base documents found');
-      return '';
+      console.log("📚 No child-specific knowledge base documents found");
+      return "";
     }
 
-    let knowledgeContext = 'CHILD-SPECIFIC KNOWLEDGE BASE CONTEXT:\n\n';
-    
+    let knowledgeContext = "CHILD-SPECIFIC KNOWLEDGE BASE CONTEXT:\n\n";
+
     results.matches.forEach((match, index) => {
       const metadata = match.metadata;
-      const filename = metadata?.filename || 'Unknown document';
-      const contentPreview = metadata?.content_preview || '';
+      const filename = metadata?.filename || "Unknown document";
+      const contentPreview = metadata?.content_preview || "";
       const similarity = match.score || 0;
-      
-      knowledgeContext += `${index + 1}. Document: ${filename} (Relevance: ${(similarity * 100).toFixed(1)}%)\n`;
+
+      knowledgeContext += `${index + 1}. Document: ${filename} (Relevance: ${(
+        similarity * 100
+      ).toFixed(1)}%)\n`;
       knowledgeContext += `   Content: ${contentPreview}\n\n`;
     });
 
-    console.log(`📚 Found ${results.matches.length} relevant knowledge base documents for child ${childId}`);
+    console.log(
+      `📚 Found ${results.matches.length} relevant knowledge base documents for child ${childId}`
+    );
     return knowledgeContext;
-
   } catch (error) {
-    console.error('Error querying child knowledge base:', error);
-    return '';
+    console.error("Error querying child knowledge base:", error);
+    return "";
   }
 }
 
@@ -492,32 +865,33 @@ async function getChildKnowledgeBaseContext(childId: string, currentMessage: str
 async function createEmbedding(text: string): Promise<number[]> {
   try {
     const response = await openai.embeddings.create({
-      model: 'text-embedding-3-large',
+      model: "text-embedding-3-large",
       input: text.substring(0, 8000), // Limit input length
-      dimensions: 2048 // Explicitly set to match Pinecone index
+      dimensions: 2048, // Explicitly set to match Pinecone index
     });
 
     return response.data[0].embedding;
   } catch (error) {
-    console.error('Error creating embedding:', error);
-    throw new Error('Failed to create embedding');
+    console.error("Error creating embedding:", error);
+    throw new Error("Failed to create embedding");
   }
 }
 
-// Convert audio to text using OpenAI GPT-4o Transcribe
+// Convert audio to text using OpenAI GPT-4o Transcribe (English only)
 async function transcribeAudio(audioData: string): Promise<string> {
   try {
-    console.log("Transcribing audio data with OpenAI GPT-4o Transcribe...");
-    console.log("Audio data length:", audioData.length);
-
     // Convert base64 audio data to buffer
     const audioBuffer = Buffer.from(audioData, "base64");
-    console.log("Audio buffer size:", audioBuffer.length);
 
-    // Check if audio buffer is too small (less than 1KB might indicate no meaningful audio)
-    if (audioBuffer.length < 1024) {
-      console.log("Audio buffer too small, likely no meaningful audio content");
+    // Enhanced audio quality checks for better accuracy
+    if (audioBuffer.length < 2048) {
       return ""; // Return empty string for very small audio chunks
+    }
+
+    // Check audio quality indicators
+    const audioQuality = analyzeAudioQuality(audioBuffer);
+    if (!audioQuality.isValid) {
+      return "";
     }
 
     // Create a temporary file using fs
@@ -538,7 +912,7 @@ async function transcribeAudio(audioData: string): Promise<string> {
     const fileStream = fs.createReadStream(tempFile);
 
     // Log the file details before sending
-    console.log("Sending file to OpenAI:", {
+    console.log("Sending English audio file to OpenAI:", {
       path: tempFile,
       size: fs.statSync(tempFile).size,
       exists: fs.existsSync(tempFile),
@@ -547,27 +921,33 @@ async function transcribeAudio(audioData: string): Promise<string> {
     // Try with different model first to test compatibility
     let transcription;
     try {
-      // Use OpenAI GPT-4o Transcribe API for better accuracy
+      // Use OpenAI GPT-4o Transcribe API for maximum accuracy (English only)
       transcription = await openai.audio.transcriptions.create({
         file: fileStream,
         model: "gpt-4o-transcribe", // Use the latest and most accurate model
-        language: "en", // Specify English for better accuracy
+        language: "en", // Explicitly specify English only
         response_format: "text", // Get plain text response
-        temperature: 0.0, // Lower temperature for more accurate transcription
+        temperature: 0.0, // Zero temperature for maximum accuracy
+        prompt:
+          "This is English speech from a child or teenager. Please transcribe only English words and phrases with high accuracy. Pay attention to context and natural speech patterns. Ignore any non-English sounds or speech.", // Enhanced prompt for accuracy
+        // Additional parameters for better accuracy
+        timestamp_granularities: ["word"], // Get word-level timestamps for better accuracy
       });
     } catch (error: any) {
       console.log(
-        "GPT-4o Transcribe failed, trying Whisper as fallback:",
+        "GPT-4o Transcribe failed, trying Whisper as fallback for English:",
         error.message
       );
-      // Fallback to Whisper if GPT-4o Transcribe fails
+      // Fallback to Whisper if GPT-4o Transcribe fails (English only)
       const fallbackStream = fs.createReadStream(tempFile);
       transcription = await openai.audio.transcriptions.create({
         file: fallbackStream,
         model: "whisper-1", // Fallback to Whisper
-        language: "en",
+        language: "en", // Explicitly specify English only
         response_format: "text",
-        temperature: 0.0,
+        temperature: 0.0, // Zero temperature for maximum accuracy
+        prompt:
+          "This is English speech from a child or teenager. Please transcribe only English words and phrases with high accuracy. Pay attention to context and natural speech patterns. Ignore any non-English sounds or speech.", // Enhanced prompt for accuracy
       });
     }
 
@@ -581,13 +961,22 @@ async function transcribeAudio(audioData: string): Promise<string> {
     const cleanedTranscription =
       typeof transcription === "string" ? transcription.trim() : "";
 
-    console.log("Cleaned transcription:", cleanedTranscription);
+    // Validate that the transcription is in English
+    const englishValidation = validateEnglishText(cleanedTranscription);
+
+    if (!englishValidation.isValid) {
+      console.log(`English validation failed: ${englishValidation.reason}`);
+      return "";
+    }
+
+    const validatedTranscription = englishValidation.cleanedText;
+    console.log("Validated English transcription:", validatedTranscription);
 
     // For real-time mode, we want to be more lenient about short transcriptions
     // but still filter out meaningless results
-    if (cleanedTranscription.length < 3) {
+    if (validatedTranscription.length < 3) {
       console.log(
-        "Transcription too short, likely background noise or silence"
+        "Validated transcription too short, likely background noise or silence"
       );
       return "";
     }
@@ -603,12 +992,14 @@ async function transcribeAudio(audioData: string): Promise<string> {
       "ah",
       "oh",
     ];
-    if (artifacts.includes(cleanedTranscription.toLowerCase())) {
-      console.log("Transcription appears to be artifact/filler word, ignoring");
+    if (artifacts.includes(validatedTranscription.toLowerCase())) {
+      console.log(
+        "Validated transcription appears to be artifact/filler word, ignoring"
+      );
       return "";
     }
 
-    return cleanedTranscription;
+    return validatedTranscription;
   } catch (error: any) {
     console.error("Error transcribing audio with OpenAI:", error);
     console.error("Error details:", {
@@ -704,7 +1095,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify that the child belongs to the authenticated family
-    const childBelongsToFamily = await verifyChildBelongsToFamily(childId, family.id);
+    const childBelongsToFamily = await verifyChildBelongsToFamily(
+      childId,
+      family.id
+    );
     if (!childBelongsToFamily) {
       return NextResponse.json(
         { error: "Child not found or access denied" },
@@ -716,10 +1110,11 @@ export async function POST(request: NextRequest) {
     const isProfileComplete = await verifyChildProfileComplete(childId);
     if (!isProfileComplete) {
       return NextResponse.json(
-        { 
-          error: "Child profile incomplete. Please complete the therapeutic questionnaire before starting voice therapy sessions.",
+        {
+          error:
+            "Child profile incomplete. Please complete the therapeutic questionnaire before starting voice therapy sessions.",
           requiresProfileCompletion: true,
-          childId: childId
+          childId: childId,
         },
         { status: 422 }
       );
@@ -786,8 +1181,11 @@ export async function POST(request: NextRequest) {
 
     // Crisis detection
     if (detectCrisis(transcribedText)) {
-      console.log('🚨 CRISIS DETECTED IN VOICE - Message:', transcribedText.substring(0, 100));
-      
+      console.log(
+        "🚨 CRISIS DETECTED IN VOICE - Message:",
+        transcribedText.substring(0, 100)
+      );
+
       return NextResponse.json({
         success: true,
         transcribedText: transcribedText,
@@ -796,46 +1194,63 @@ export async function POST(request: NextRequest) {
         useClientTTS: true, // Use client TTS for crisis response
         sessionId: sessionId || `voice-${Date.now()}`,
         timestamp: new Date().toISOString(),
-        crisis: true
+        crisis: true,
       });
     }
 
     // Get child context and therapeutic memory
     const childContext = await getChildContext(childId);
-    
-    // Get therapeutic memory context from Pinecone  
+
+    // Get therapeutic memory context from Pinecone
     let therapeuticContext = "";
     try {
-      therapeuticContext = await therapeuticMemory.generateTherapeuticContext(childId, transcribedText);
+      therapeuticContext = await therapeuticMemory.generateTherapeuticContext(
+        childId,
+        transcribedText
+      );
       if (therapeuticContext && therapeuticContext.length > 50) {
-        console.log('✅ Using therapeutic memory context from Pinecone for voice chat');
+        console.log(
+          "✅ Using therapeutic memory context from Pinecone for voice chat"
+        );
       }
     } catch (error) {
-      console.error('Error accessing therapeutic memory for voice chat:', error);
-      therapeuticContext = "THERAPEUTIC MODE: Using child-specific background without historical memory context.";
+      console.error(
+        "Error accessing therapeutic memory for voice chat:",
+        error
+      );
+      therapeuticContext =
+        "THERAPEUTIC MODE: Using child-specific background without historical memory context.";
     }
 
     // Get child-specific knowledge base documents from Pinecone
     let childKnowledgeContext = "";
     try {
-      childKnowledgeContext = await getChildKnowledgeBaseContext(childId, transcribedText);
+      childKnowledgeContext = await getChildKnowledgeBaseContext(
+        childId,
+        transcribedText
+      );
       if (childKnowledgeContext && childKnowledgeContext.length > 50) {
-        console.log('📚 Using child-specific knowledge base documents for voice chat');
+        console.log(
+          "📚 Using child-specific knowledge base documents for voice chat"
+        );
       }
     } catch (error) {
-      console.error('Error accessing child knowledge base for voice chat:', error);
+      console.error(
+        "Error accessing child knowledge base for voice chat:",
+        error
+      );
       childKnowledgeContext = "";
     }
 
     // Get child data for enhanced knowledge base context
     const childData = await getChildDataForKnowledge(childId);
-    
+
     // Get embedded therapeutic guidance automatically integrated into AI
     let knowledgeGuidance = "";
     try {
       // Ensure knowledge base is loaded
       await embeddedTherapeuticKnowledge.loadKnowledgeBase();
-      
+
       // Get therapeutic context for this specific interaction
       knowledgeGuidance = embeddedTherapeuticKnowledge.getTherapeuticContext(
         childData?.age,
@@ -843,10 +1258,15 @@ export async function POST(request: NextRequest) {
         transcribedText
       );
       if (knowledgeGuidance && knowledgeGuidance.length > 50) {
-        console.log('🧠 Using embedded therapeutic knowledge base for voice chat');
+        console.log(
+          "🧠 Using embedded therapeutic knowledge base for voice chat"
+        );
       }
     } catch (error) {
-      console.error('Error accessing embedded therapeutic knowledge for voice chat:', error);
+      console.error(
+        "Error accessing embedded therapeutic knowledge for voice chat:",
+        error
+      );
     }
 
     // Create personalized system prompt for voice chat
@@ -886,15 +1306,16 @@ THERAPEUTIC FOCUS FOR THIS CHILD:
 Use this information to provide personalized, contextual therapy responses that address this specific child's needs, concerns, and background.`;
 
     // Build conversation context
-    const conversationHistory = messageHistory?.slice(-8).map((msg: any) => ({
-      role: msg.role as "user" | "assistant",
-      content: msg.content
-    })) || [];
+    const conversationHistory =
+      messageHistory?.slice(-8).map((msg: any) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      })) || [];
 
     const messages = [
       { role: "system", content: personalizedSystemPrompt },
       ...conversationHistory,
-      { role: "user", content: transcribedText }
+      { role: "user", content: transcribedText },
     ];
 
     // Step 2: Get AI response with comprehensive context
@@ -909,39 +1330,57 @@ Use this information to provide personalized, contextual therapy responses that 
 
     const aiResponseText = aiResponse.choices[0]?.message?.content || "";
 
-    // Analyze mood based on conversation content
-    const moodAnalysis = analyzeMoodFromMessage(transcribedText, aiResponseText);
+    // Analyze mood using AI-powered analysis (same as text chat)
+    // This now uses the same OpenAI-based analysis as the mood-tracking API
+    let moodAnalysis;
+    try {
+      // Get child's age for better mood analysis
+      const supabase = createServerSupabase();
+      const { data: childData } = await supabase
+        .from("children")
+        .select("age")
+        .eq("id", childId)
+        .single();
+
+      const childAge = childData?.age;
+
+      // Use AI-powered mood analysis (same function as mood-tracking API)
+      moodAnalysis = await analyzeMoodFromInput(transcribedText, childAge);
+      console.log("✅ Voice mood analysis completed using AI:", moodAnalysis);
+    } catch (error) {
+      console.error("Error in AI mood analysis, using fallback:", error);
+      moodAnalysis = analyzeMoodFromMessage(transcribedText, aiResponseText);
+    }
 
     // Save voice therapy session to database
-    let dbSessionId = '';
+    let dbSessionId = "";
     try {
       const supabase = createServerSupabase();
       const { data: sessionData, error: sessionError } = await supabase
-        .from('therapy_sessions')
+        .from("therapy_sessions")
         .insert({
           child_id: childId,
           user_message: transcribedText,
           ai_response: aiResponseText,
           session_duration: Math.floor(Math.random() * 30) + 15, // Simulated duration 15-45 min
-          mood_analysis: moodAnalysis
+          mood_analysis: moodAnalysis,
         })
         .select()
         .single();
 
       if (sessionError) {
-        console.error('Error saving voice therapy session:', sessionError);
+        console.error("Error saving voice therapy session:", sessionError);
       } else if (sessionData) {
         dbSessionId = sessionData.id;
       }
 
       // Update child's last session time
       await supabase
-        .from('children')
+        .from("children")
         .update({ last_session_at: new Date().toISOString() })
-        .eq('id', childId);
-
+        .eq("id", childId);
     } catch (error) {
-      console.error('Error logging voice session:', error);
+      console.error("Error logging voice session:", error);
     }
 
     // Store conversation in Pinecone for therapeutic memory
@@ -955,12 +1394,17 @@ Use this information to provide personalized, contextual therapy responses that 
           mood_analysis: moodAnalysis,
           topics: extractTopicsFromMessage(transcribedText),
           session_date: new Date().toISOString(),
-          therapeutic_insights: moodAnalysis.insights || 'Child engaged in voice therapeutic conversation'
+          therapeutic_insights:
+            moodAnalysis.insights ||
+            "Child engaged in voice therapeutic conversation",
         });
-        console.log('✅ Voice conversation stored in therapeutic memory');
+        console.log("✅ Voice conversation stored in therapeutic memory");
       }
     } catch (error) {
-      console.error('Error storing voice conversation in therapeutic memory:', error);
+      console.error(
+        "Error storing voice conversation in therapeutic memory:",
+        error
+      );
     }
 
     // Step 3: Convert AI response to speech (or indicate client-side TTS)
@@ -971,12 +1415,6 @@ Use this information to provide personalized, contextual therapy responses that 
       console.error("TTS failed, will use client-side TTS:", error);
       // audioResponse remains null, client will use TTS
     }
-
-    // Log conversation for analysis
-    console.log('🎤 Voice Child Message:', transcribedText.substring(0, 100));
-    console.log('🤖 Voice AI Response:', aiResponseText.substring(0, 100));
-    console.log('👶 Voice Child ID:', childId);
-    console.log('📊 Voice Mood Analysis:', moodAnalysis);
 
     return NextResponse.json({
       success: true,

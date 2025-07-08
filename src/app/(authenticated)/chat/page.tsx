@@ -107,6 +107,9 @@ function ChatContent() {
   const shouldStopVoiceChat = useRef(false);
   const [audioRecordingBuffer, setAudioRecordingBuffer] =
     useState<MediaRecorder | null>(null);
+  const [voiceChatError, setVoiceChatError] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [voiceActivityLevel, setVoiceActivityLevel] = useState(0); // Voice activity indicator
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -580,12 +583,19 @@ function ChatContent() {
     window.removeEventListener("keydown", () => {});
     window.removeEventListener("contextmenu", () => {});
 
-    // Navigate to session lock page
+    // Navigate to session lock page immediately
+    // Voice chat will be stopped and any ongoing processing will be aborted
     router.push("/session-lock");
   };
 
   const playAudioResponse = (base64Audio: string): Promise<void> => {
     return new Promise((resolve, reject) => {
+      // Check if voice chat should be stopped
+      if (shouldStopVoiceChat.current) {
+        resolve();
+        return;
+      }
+
       try {
         const audioData = atob(base64Audio);
         const arrayBuffer = new ArrayBuffer(audioData.length);
@@ -608,7 +618,13 @@ function ChatContent() {
           reject(error);
         };
 
-        audio.play();
+        // Check again before playing
+        if (!shouldStopVoiceChat.current) {
+          audio.play();
+        } else {
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        }
       } catch (error) {
         reject(error);
       }
@@ -618,6 +634,12 @@ function ChatContent() {
   // Client-side text-to-speech using Web Speech API
   const speakWithClientTTS = (text: string): Promise<void> => {
     return new Promise((resolve, reject) => {
+      // Check if voice chat should be stopped
+      if (shouldStopVoiceChat.current) {
+        resolve();
+        return;
+      }
+
       try {
         // Check if speech synthesis is supported
         if ("speechSynthesis" in window) {
@@ -660,8 +682,12 @@ function ChatContent() {
             reject(event.error);
           };
 
-          // Speak the text
-          window.speechSynthesis.speak(utterance);
+          // Check again before speaking
+          if (!shouldStopVoiceChat.current) {
+            window.speechSynthesis.speak(utterance);
+          } else {
+            resolve();
+          }
         } else {
           resolve();
         }
@@ -677,14 +703,23 @@ function ChatContent() {
       // Reset stop flag
       shouldStopVoiceChat.current = false;
 
-      // Request high-quality audio optimized for speech recognition
+      // Request high-quality audio optimized for English speech recognition
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 16000,
-          channelCount: 1,
+          sampleRate: 48000, // Higher sample rate for better quality
+          channelCount: 1, // Mono channel for better English speech processing
+          // Browser-specific optimizations for better voice accuracy
+          ...(navigator.userAgent.includes("Chrome") && {
+            googEchoCancellation: true,
+            googAutoGainControl: true,
+            googNoiseSuppression: true,
+            googHighpassFilter: true,
+            googTypingNoiseDetection: true,
+            googAudioMirroring: false,
+          }),
         },
       });
 
@@ -727,25 +762,20 @@ function ChatContent() {
       startContinuousRecording(recorder, analyserNode, stream);
     } catch (error) {
       console.log("Error starting real-time voice chat:", error);
-      setModalConfig({
-        isOpen: true,
-        title: "Microphone Access Required",
-        message:
-          "Please allow microphone access to use real-time voice chat. You can enable it in your browser settings.",
-        type: "warning",
-        icon: <Mic className="h-6 w-6 text-yellow-600" />,
-        primaryButton: {
-          text: "OK",
-          onClick: handleModalClose,
-          className: "bg-yellow-600 hover:bg-yellow-700",
-        },
-      });
+      setVoiceChatError(true);
+      setIsRealTimeMode(false);
     }
   };
 
   const stopRealTimeVoiceChat = () => {
     // Set flag to stop voice chat
     shouldStopVoiceChat.current = true;
+
+    // Abort any ongoing API calls
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
 
     // Stop all audio processes
     if (audioRecordingBuffer) {
@@ -765,6 +795,7 @@ function ChatContent() {
 
     setIsRealTimeMode(false);
     setIsProcessingVoice(false);
+    setVoiceChatError(false);
   };
 
   const startContinuousRecording = (
@@ -774,12 +805,20 @@ function ChatContent() {
   ) => {
     let chunks: Blob[] = [];
     let isCurrentlyRecording = false;
-    let isCurrentlyProcessing = false; // Local processing state
-    let isRealTimeModeActive = true; // Local real-time mode state
-    let lastSoundTime = Date.now();
+    let isCurrentlyProcessing = false;
+    let isRealTimeModeActive = true;
     let recordingStartTime = Date.now();
-    const SILENCE_THRESHOLD = 5; // Lowered threshold for better sensitivity
-    const MAX_RECORDING_DURATION = 10000; // 10 seconds maximum recording time
+
+    // Enhanced voice detection parameters for better accuracy
+    const SILENCE_THRESHOLD = 3;
+    const MAX_RECORDING_DURATION = 15000;
+    const MIN_RECORDING_DURATION = 1000;
+
+    // Voice activity detection variables
+    let voiceActivityBuffer: number[] = [];
+    let consecutiveVoiceFrames = 0;
+    let consecutiveSilenceFrames = 0;
+    const SILENCE_FRAME_THRESHOLD = 15;
 
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -827,8 +866,17 @@ function ChatContent() {
                       echoCancellation: true,
                       noiseSuppression: true,
                       autoGainControl: true,
-                      sampleRate: 16000,
-                      channelCount: 1,
+                      sampleRate: 48000, // Higher sample rate for better quality
+                      channelCount: 1, // Mono channel for better English speech processing
+                      // Browser-specific optimizations for better voice accuracy
+                      ...(navigator.userAgent.includes("Chrome") && {
+                        googEchoCancellation: true,
+                        googAutoGainControl: true,
+                        googNoiseSuppression: true,
+                        googHighpassFilter: true,
+                        googTypingNoiseDetection: true,
+                        googAudioMirroring: false,
+                      }),
                     },
                   });
                 } catch (streamError) {
@@ -871,7 +919,7 @@ function ChatContent() {
       return;
     }
 
-    // Start audio frequency detection
+    // Enhanced audio frequency detection for better voice accuracy
     const detectAudioFrequency = () => {
       if (
         !isRealTimeModeActive ||
@@ -887,14 +935,62 @@ function ChatContent() {
         const dataArray = new Uint8Array(bufferLength);
         analyserNode.getByteFrequencyData(dataArray);
 
-        // Calculate average volume
-        const average =
-          dataArray.reduce((acc, val) => acc + val, 0) / bufferLength;
+        // Enhanced volume calculation with frequency weighting
+        let weightedSum = 0;
+        let totalWeight = 0;
+
+        // Focus on human speech frequencies (85Hz - 255Hz for fundamental, 255Hz - 2000Hz for harmonics)
+        for (let i = 0; i < bufferLength; i++) {
+          const frequency = (i * 22050) / bufferLength; // Approximate frequency for this bin
+          const amplitude = dataArray[i];
+
+          // Weight frequencies in human speech range more heavily
+          let weight = 1;
+          if (frequency >= 85 && frequency <= 255) {
+            weight = 2; // Fundamental speech frequencies
+          } else if (frequency >= 255 && frequency <= 2000) {
+            weight = 1.5; // Speech harmonics
+          } else if (frequency > 2000) {
+            weight = 0.5; // Reduce weight for high frequencies
+          }
+
+          weightedSum += amplitude * weight;
+          totalWeight += weight;
+        }
+
+        const weightedAverage = weightedSum / totalWeight;
         const currentTime = Date.now();
         const recordingElapsed = currentTime - recordingStartTime;
 
-        // Fallback: Stop recording if maximum duration reached
+        // Add to voice activity buffer
+        voiceActivityBuffer.push(weightedAverage);
+        if (voiceActivityBuffer.length > 30) {
+          // Keep last 30 frames
+          voiceActivityBuffer.shift();
+        }
+
+        // Calculate voice activity level
+        const recentActivity =
+          voiceActivityBuffer.slice(-10).reduce((sum, val) => sum + val, 0) /
+          10;
+        const isVoiceActive = recentActivity > SILENCE_THRESHOLD;
+
+        // Update voice activity level for visual feedback (0-100)
+        const activityPercentage = Math.min(100, (recentActivity / 50) * 100);
+        setVoiceActivityLevel(activityPercentage);
+
+        // Update consecutive frame counters
+        if (isVoiceActive) {
+          consecutiveVoiceFrames++;
+          consecutiveSilenceFrames = 0;
+        } else {
+          consecutiveSilenceFrames++;
+          consecutiveVoiceFrames = 0;
+        }
+
+        // Enhanced recording logic
         if (recordingElapsed >= MAX_RECORDING_DURATION) {
+          // Maximum duration reached
           if (isCurrentlyRecording) {
             recorder.stop();
             isCurrentlyRecording = false;
@@ -902,20 +998,17 @@ function ChatContent() {
           return;
         }
 
-        // Simple approach: Stop recording after 5 seconds of continuous audio
-        // This assumes the user will pause naturally after speaking
-        if (currentTime - lastSoundTime > 5000) {
-          // 5 seconds of continuous audio
+        // Check for sufficient voice activity before stopping
+        if (
+          consecutiveSilenceFrames >= SILENCE_FRAME_THRESHOLD &&
+          recordingElapsed >= MIN_RECORDING_DURATION
+        ) {
+          // Sufficient silence detected after minimum recording time
           if (isCurrentlyRecording) {
             recorder.stop();
             isCurrentlyRecording = false;
           }
           return;
-        }
-
-        // Update last sound time if audio is detected
-        if (average > SILENCE_THRESHOLD) {
-          lastSoundTime = currentTime;
         }
 
         // Continue detecting if still in real-time mode and not stopped
@@ -925,9 +1018,9 @@ function ChatContent() {
           !shouldStopVoiceChat.current
         ) {
           requestAnimationFrame(detectAudioFrequency);
-        } else {
         }
       } catch (error) {
+        console.error("Error in audio frequency detection:", error);
         // Continue the loop even if there's an error
         if (
           isRealTimeModeActive &&
@@ -946,8 +1039,16 @@ function ChatContent() {
   const processVoiceChunk = async (audioBlob: Blob) => {
     if (isProcessingVoice) return; // Prevent multiple simultaneous processing
 
+    // Check if voice chat should be stopped
+    if (shouldStopVoiceChat.current) {
+      return;
+    }
+
     try {
       setIsProcessingVoice(true);
+
+      // Create new AbortController for this request
+      abortControllerRef.current = new AbortController();
 
       // Convert blob to base64
       const arrayBuffer = await audioBlob.arrayBuffer();
@@ -966,7 +1067,7 @@ function ChatContent() {
         content: msg.content,
       }));
 
-      // Call voice chat API
+      // Call voice chat API with abort controller
       const response = await fetch("/api/chat/voice", {
         method: "POST",
         headers: {
@@ -978,6 +1079,7 @@ function ChatContent() {
           sessionId: `realtime-voice-session-${Date.now()}`,
           messageHistory,
         }),
+        signal: abortControllerRef.current?.signal,
       });
 
       if (!response.ok) {
@@ -1011,16 +1113,23 @@ function ChatContent() {
 
             setMessages((prev) => [...prev, aiMessage]);
 
-            // Play audio response if available
-            if (data.audioResponse) {
-              await playAudioResponse(data.audioResponse);
-            } else if (data.useClientTTS) {
-              await speakWithClientTTS(data.aiResponse);
+            // Play audio response if available (only if voice chat is still active)
+            if (!shouldStopVoiceChat.current) {
+              if (data.audioResponse) {
+                await playAudioResponse(data.audioResponse);
+              } else if (data.useClientTTS) {
+                await speakWithClientTTS(data.aiResponse);
+              }
             }
           }
         }
       }
     } catch (error) {
+      // Check if this is an abort error (voice chat stopped)
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+
       // Silent error handling for real-time mode
     } finally {
       setIsProcessingVoice(false);
@@ -1250,78 +1359,93 @@ function ChatContent() {
               <div className="text-center">
                 <div className="mb-4">
                   {isProcessingVoice ? (
-                    <div className="w-20 h-20 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                      <Loader2 className="h-10 w-10 text-white animate-spin" />
+                    /* Processing state */
+                    <div>
+                      <div className="w-20 h-20 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                        <Loader2 className="h-10 w-10 text-white animate-spin" />
+                      </div>
+                      <h3 className="text-lg font-bold text-purple-800 mb-2">
+                        Processing your message...
+                      </h3>
+                      <p className="text-purple-600 mb-4">
+                        Dr. Emma is listening and thinking about your message...
+                      </p>
                     </div>
                   ) : isRealTimeMode ? (
-                    /* Real-time mode interface */
+                    /* Listening state */
                     <div>
                       <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <div className="w-4 h-4 bg-white rounded-full animate-ping"></div>
+                        <div
+                          className="w-4 h-4 bg-white rounded-full animate-ping"
+                          style={{
+                            transform: `scale(${
+                              1 + (voiceActivityLevel / 100) * 0.5
+                            })`,
+                            opacity: 0.5 + (voiceActivityLevel / 100) * 0.5,
+                          }}
+                        ></div>
                       </div>
-
+                      <h3 className="text-lg font-bold text-purple-800 mb-2">
+                        Listening...
+                      </h3>
+                      <p className="text-purple-600 mb-4">
+                        Speak naturally in English! Dr. Emma detects when you
+                        pause and responds automatically.
+                      </p>
                       <div className="mb-4">
-                        <button
-                          onClick={stopRealTimeVoiceChat}
-                          className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
-                        >
-                          🛑 Stop Voice Chat
-                        </button>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-center justify-center space-x-2 text-sm text-green-700">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <span>Listening for your voice...</span>
+                          </div>
+                          <div className="text-xs text-green-600 mt-1">
+                            Pause for 2 seconds to send your message
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  ) : voiceChatError ? (
+                    /* Error state - show retry button */
+                    <div>
+                      <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Mic className="h-10 w-10 text-white" />
+                      </div>
+                      <h3 className="text-lg font-bold text-purple-800 mb-2">
+                        Voice Chat Unavailable
+                      </h3>
+                      <p className="text-purple-600 mb-4">
+                        Unable to start voice chat. Please check your microphone
+                        permissions.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setVoiceChatError(false);
+                          startRealTimeVoiceChat();
+                        }}
+                        className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
+                      >
+                        🔄 Try Again
+                      </button>
+                    </div>
                   ) : (
-                    /* Loading state while starting voice chat */
+                    /* Initial state - auto-start voice chat */
                     <div>
                       <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
                         <Loader2 className="h-10 w-10 text-white animate-spin" />
                       </div>
-                      <div className="mb-4">
-                        <button
-                          onClick={startRealTimeVoiceChat}
-                          className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
-                        >
-                          🎤 Start Voice Chat
-                        </button>
-                      </div>
+                      <h3 className="text-lg font-bold text-purple-800 mb-2">
+                        Starting Voice Chat...
+                      </h3>
+                      <p className="text-purple-600 mb-4">
+                        Preparing your voice chat session...
+                      </p>
                     </div>
                   )}
 
-                  <h3 className="text-lg font-bold text-purple-800 mb-2">
-                    {isProcessingVoice
-                      ? "Processing your message..."
-                      : isRealTimeMode
-                      ? "Voice Chat Active"
-                      : "Starting Voice Chat..."}
-                  </h3>
-
-                  <p className="text-purple-600 mb-4">
-                    {isProcessingVoice
-                      ? "Dr. Emma is listening and thinking about your message..."
-                      : isRealTimeMode
-                      ? "Speak naturally! Dr. Emma detects when you pause and responds automatically."
-                      : "Preparing your voice chat session..."}
-                  </p>
-
-                  {isRealTimeMode && (
-                    <div className="mb-4">
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <div className="flex items-center justify-center space-x-2 text-sm text-green-700">
-                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                          <span>Listening for your voice...</span>
-                        </div>
-                        <div className="text-xs text-green-600 mt-1">
-                          Pause for 2 seconds to send your message
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {!isProcessingVoice && (
-                    <div className="flex items-center justify-center space-x-2 text-xs text-purple-500">
-                      <Shield className="h-3 w-3" />
-                      <span>Your voice is private and secure</span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-center space-x-2 text-xs text-purple-500">
+                    <Shield className="h-3 w-3" />
+                    <span>Your voice is private and secure • English only</span>
+                  </div>
                 </div>
               </div>
             ) : (
