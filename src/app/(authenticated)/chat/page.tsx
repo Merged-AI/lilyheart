@@ -111,6 +111,8 @@ function ChatContent() {
   const [voiceChatError, setVoiceChatError] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [voiceActivityLevel, setVoiceActivityLevel] = useState(0); // Voice activity indicator
+  const [isEndingSession, setIsEndingSession] = useState(false); // Session ending indicator
+  const sessionEndingRef = useRef(false); // Track if session is being ended
 
   // OpenAI Realtime API state
   const [useOpenAIRealtime, setUseOpenAIRealtime] = useState(false);
@@ -295,6 +297,24 @@ function ChatContent() {
   const handleRealtimeSessionEnd = useCallback(() => {
     setRealtimeSessionActive(false);
     setIsRealTimeMode(false);
+    setUseOpenAIRealtime(false);
+    
+    // Force immediate state update
+    setTimeout(() => {
+      if (sessionEndingRef.current) {
+        setUseOpenAIRealtime(false);
+        setRealtimeSessionActive(false);
+        setIsRealTimeMode(false);
+      }
+    }, 10);
+  }, []);
+
+  // Force cleanup function
+  const forceCleanup = useCallback(() => {
+    setUseOpenAIRealtime(false);
+    setRealtimeSessionActive(false);
+    setIsRealTimeMode(false);
+    setIsEndingSession(true);
   }, []);
 
   // Memoize modal config
@@ -591,12 +611,18 @@ function ChatContent() {
   };
 
   const endSession = () => {
+    setIsEndingSession(true);
+    sessionEndingRef.current = true;
+    
     // Stop voice chat if it's running
     if (isRealTimeMode) {
       if (useOpenAIRealtime) {
         // Stop OpenAI Realtime session
         setUseOpenAIRealtime(false);
         setRealtimeSessionActive(false);
+        
+        // Call session end handler once
+        handleRealtimeSessionEnd();
       } else {
         // Stop legacy voice chat
         stopRealTimeVoiceChat();
@@ -610,7 +636,6 @@ function ChatContent() {
     window.removeEventListener("contextmenu", () => {});
 
     // Navigate to session lock page immediately
-    // Voice chat will be stopped and any ongoing processing will be aborted
     router.push("/session-lock");
   };
 
@@ -1273,10 +1298,19 @@ function ChatContent() {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={endSession}
-                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                    disabled={isEndingSession}
+                    className={`${
+                      isEndingSession
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-red-500 hover:bg-red-600"
+                    } text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2`}
                   >
-                    <LogOut className="h-4 w-4" />
-                    <span>End Session</span>
+                    {isEndingSession ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <LogOut className="h-4 w-4" />
+                    )}
+                    <span>{isEndingSession ? "Ending..." : "End Session"}</span>
                   </button>
                 </div>
               </div>
@@ -1383,7 +1417,20 @@ function ChatContent() {
             {chatMode === "voice" ? (
               /* Voice Mode Interface */
               <div className="text-center">
-                {useOpenAIRealtime ? (
+                {isEndingSession ? (
+                  /* Session ending state for OpenAI Realtime */
+                  <div>
+                    <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                      <Loader2 className="h-10 w-10 text-white animate-spin" />
+                    </div>
+                    <h3 className="text-lg font-bold text-red-800 mb-2">
+                      Ending Session...
+                    </h3>
+                    <p className="text-red-600 mb-4">
+                      Safely disconnecting from Dr. Emma...
+                    </p>
+                  </div>
+                ) : useOpenAIRealtime ? (
                   /* OpenAI Realtime API Interface */
                   <RealtimeVoiceChat
                     childId={selectedChildId || ""}
@@ -1391,11 +1438,25 @@ function ChatContent() {
                     onSessionStart={handleRealtimeSessionStart}
                     onSessionEnd={handleRealtimeSessionEnd}
                     isActive={useOpenAIRealtime}
+                    forceCleanup={forceCleanup}
                   />
                 ) : (
                   /* Legacy Voice Mode Interface */
                   <div className="mb-4">
-                    {isProcessingVoice ? (
+                    {isEndingSession ? (
+                      /* Session ending state */
+                      <div>
+                        <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                          <Loader2 className="h-10 w-10 text-white animate-spin" />
+                        </div>
+                        <h3 className="text-lg font-bold text-red-800 mb-2">
+                          Ending Session...
+                        </h3>
+                        <p className="text-red-600 mb-4">
+                          Safely disconnecting from Dr. Emma...
+                        </p>
+                      </div>
+                    ) : isProcessingVoice ? (
                       /* Processing state */
                       <div>
                         <div className="w-20 h-20 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
