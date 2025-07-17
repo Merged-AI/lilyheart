@@ -41,6 +41,7 @@ interface Message {
     stress: number;
     confidence: number;
   };
+  sessionId?: string | null;
 }
 
 const supportiveResponses = [
@@ -116,7 +117,7 @@ function ChatContent() {
 
   // OpenAI Realtime API state
   const [useOpenAIRealtime, setUseOpenAIRealtime] = useState(false);
-  const [realtimeSessionActive, setRealtimeSessionActive] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -289,21 +290,18 @@ function ChatContent() {
 
   // Handle realtime session start
   const handleRealtimeSessionStart = useCallback(() => {
-    setRealtimeSessionActive(true);
     setIsRealTimeMode(true);
   }, []);
 
   // Handle realtime session end
   const handleRealtimeSessionEnd = useCallback(() => {
-    setRealtimeSessionActive(false);
     setIsRealTimeMode(false);
     setUseOpenAIRealtime(false);
-    
+
     // Force immediate state update
     setTimeout(() => {
       if (sessionEndingRef.current) {
         setUseOpenAIRealtime(false);
-        setRealtimeSessionActive(false);
         setIsRealTimeMode(false);
       }
     }, 10);
@@ -312,7 +310,6 @@ function ChatContent() {
   // Force cleanup function
   const forceCleanup = useCallback(() => {
     setUseOpenAIRealtime(false);
-    setRealtimeSessionActive(false);
     setIsRealTimeMode(false);
     setIsEndingSession(true);
   }, []);
@@ -496,7 +493,7 @@ function ChatContent() {
   const generateAIResponse = async (
     userMessage: string,
     messageHistory: Message[]
-  ) => {
+  ): Promise<{ response: string; sessionId: string | null }> => {
     setIsLoading(true);
 
     try {
@@ -513,6 +510,7 @@ function ChatContent() {
           message: userMessage,
           history: messageHistory.slice(-10), // Send last 10 messages for context
           childId: selectedChildId,
+          sessionId: currentSessionId, // Pass the current session ID if it exists
         }),
       });
 
@@ -521,7 +519,10 @@ function ChatContent() {
         const data = await response.json();
         if (data.requiresProfileCompletion) {
           router.push(`/children/add?childId=${selectedChildId}`);
-          return "Redirecting you to complete the therapeutic profile...";
+          return {
+            response: "Redirecting you to complete the therapeutic profile...",
+            sessionId: null,
+          };
         }
       }
 
@@ -536,12 +537,24 @@ function ChatContent() {
         setShowCrisisHelp(true);
       }
 
-      return data.response;
+      // Store the session ID
+      if (data.sessionId) {
+        setCurrentSessionId(data.sessionId);
+      }
+
+      return {
+        response: data.response,
+        sessionId: data.sessionId,
+      };
     } catch (error) {
       // Fallback to supportive responses
-      return supportiveResponses[
-        Math.floor(Math.random() * supportiveResponses.length)
-      ];
+      return {
+        response:
+          supportiveResponses[
+            Math.floor(Math.random() * supportiveResponses.length)
+          ],
+        sessionId: currentSessionId, // Keep using current session ID even in error case
+      };
     } finally {
       setIsLoading(false);
     }
@@ -587,19 +600,27 @@ function ChatContent() {
 
     // Simulate typing delay
     setTimeout(async () => {
-      const aiResponse = await generateAIResponse(currentMessage, messages);
+      const aiResponseData = await generateAIResponse(currentMessage, messages);
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: aiResponse,
+        content: aiResponseData.response,
         sender: "ai",
         timestamp: new Date(),
+        sessionId: aiResponseData.sessionId,
       };
 
-      setMessages((prev) => [...prev, aiMessage]);
+      setMessages((prev) => {
+        // Update the user message with the session ID as well
+        const updatedMessages = prev.map((msg) =>
+          msg.id === userMessage.id
+            ? { ...msg, sessionId: aiResponseData.sessionId }
+            : msg
+        );
+        // Add the AI message
+        return [...updatedMessages, aiMessage];
+      });
       setIsTyping(false);
-
-      // Session is automatically saved in the chat API - no need for separate call
     }, 1000 + Math.random() * 2000); // 1-3 second delay
   };
 
@@ -610,23 +631,58 @@ function ChatContent() {
     }
   };
 
-  const endSession = () => {
+  const endSession = async () => {
     setIsEndingSession(true);
     sessionEndingRef.current = true;
-    
+
     // Stop voice chat if it's running
     if (isRealTimeMode) {
       if (useOpenAIRealtime) {
         // Stop OpenAI Realtime session
         setUseOpenAIRealtime(false);
-        setRealtimeSessionActive(false);
-        
+
         // Call session end handler once
         handleRealtimeSessionEnd();
       } else {
         // Stop legacy voice chat
         stopRealTimeVoiceChat();
       }
+    }
+
+    try {
+      if (selectedChildId) {
+        // Complete the active session for this child
+        const completeResponse = await fetch("/api/chat/sessions/complete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            childId: selectedChildId,
+          }),
+        });
+
+        if (!completeResponse.ok) {
+          console.error(
+            "Error completing session:",
+            await completeResponse.json()
+          );
+        }
+
+        // Update dashboard analytics
+        await fetch(`/api/analysis/dashboard-analytics`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            childId: selectedChildId,
+          }),
+        });
+      }
+    } catch (error) {
+      console.error("Error ending session:", error);
+      // Continue with session end even if completion fails
     }
 
     // Remove navigation prevention and allow redirect to session lock

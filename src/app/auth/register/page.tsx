@@ -306,7 +306,9 @@ export default function RegisterPage() {
               <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Start Your Free Trial</h2>
                 
+                {/* Use key prop to ensure PaymentForm is properly unmounted/remounted */}
                 <PaymentForm
+                  key={`payment-form-${step}`}
                   familyData={formData}
                   onSuccess={handlePaymentSuccess}
                   onError={handlePaymentError}

@@ -20,23 +20,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find family by email
-    const { data: family, error: familyError } = await supabase
-      .from('families')
-      .select('*')
-      .eq('parent_email', email.toLowerCase())
-      .single()
+    // Sign in with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: email.toLowerCase(),
+      password: password
+    })
 
-    if (familyError || !family) {
+    if (authError || !authData.user) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       )
     }
 
-    // In a real app, you'd verify the password hash here
-    // For demo purposes, we'll just check if the family exists
-    // TODO: Implement proper password hashing and verification
+    // Get family data
+    const { data: family, error: familyError } = await supabase
+      .from('families')
+      .select('*')
+      .eq('user_id', authData.user.id)
+      .single()
+
+    if (familyError || !family) {
+      return NextResponse.json(
+        { error: 'Family record not found' },
+        { status: 404 }
+      )
+    }
 
     // Generate session token
     const sessionToken = generateSessionToken(family.id)

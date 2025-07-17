@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Poppins } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
+import SecurityBanner from '@/components/common/SecurityBanner'
 import './globals.css'
 
 // Configure fonts
@@ -146,12 +147,7 @@ export default function RootLayout({
         />
 
         {/* Security Notice */}
-        <div className="fixed bottom-4 right-4 z-40">
-          <div className="bg-purple-600 text-white p-2 rounded-lg text-xs max-w-xs shadow-lg">
-            <p className="font-medium">🔒 Secure Platform</p>
-            <p className="opacity-90">All conversations are encrypted and protected</p>
-          </div>
-        </div>
+        <SecurityBanner />
 
         {/* Support Resources Banner (if needed) */}
         <div className="hidden" id="support-banner">

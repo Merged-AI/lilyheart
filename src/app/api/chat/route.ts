@@ -223,313 +223,134 @@ async function verifyChildProfileComplete(childId: string): Promise<boolean> {
 }
 
 // Analyze mood based on conversation content
-function analyzeMoodFromMessage(userMessage: string, aiResponse: string): any {
-  const lowerMessage = userMessage.toLowerCase();
+async function analyzeMoodFromMessage(
+  userMessage: string,
+  aiResponse: string
+): Promise<any> {
+  try {
+    const moodAnalysisPrompt = `Analyze the emotional state and mood of a child based on this message: "${userMessage}"
 
-  // Base scores
-  let happiness = 5;
-  let anxiety = 5;
-  let sadness = 5;
-  let stress = 5;
-  let confidence = 5;
+Please provide scores from 1-10 for each of these aspects:
+- Happiness: How happy or positive do they seem?
+- Anxiety: How anxious or worried do they appear?
+- Sadness: How sad or down do they seem?
+- Stress: How stressed or overwhelmed do they appear?
+- Confidence: How confident or self-assured do they sound?
 
-  // Analyze user message for mood indicators
+Also provide clinical insights about their emotional state and any patterns to watch for.
 
-  // Positive indicators
-  if (
-    lowerMessage.includes("good") ||
-    lowerMessage.includes("happy") ||
-    lowerMessage.includes("fun") ||
-    lowerMessage.includes("playing")
-  ) {
-    happiness += 2;
-    confidence += 1;
+Return the analysis in this exact JSON format:
+{
+  "happiness": number,
+  "anxiety": number,
+  "sadness": number,
+  "stress": number,
+  "confidence": number,
+  "insights": "string with clinical observations"
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-2025-04-14",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert child psychologist analyzing emotional states.",
+        },
+        { role: "user", content: moodAnalysisPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    });
+
+    const moodAnalysis = JSON.parse(
+      completion.choices[0]?.message?.content || "{}"
+    );
+
+    // Ensure all required fields exist with valid values
+    const defaultScore = 5;
+    return {
+      happiness: Number(moodAnalysis.happiness) || defaultScore,
+      anxiety: Number(moodAnalysis.anxiety) || defaultScore,
+      sadness: Number(moodAnalysis.sadness) || defaultScore,
+      stress: Number(moodAnalysis.stress) || defaultScore,
+      confidence: Number(moodAnalysis.confidence) || defaultScore,
+      insights:
+        moodAnalysis.insights ||
+        "Child engaging in therapeutic conversation with normal emotional range",
+    };
+  } catch (error) {
+    console.error("Error in mood analysis:", error);
+    // Return default values if analysis fails
+    return {
+      happiness: 5,
+      anxiety: 5,
+      sadness: 5,
+      stress: 5,
+      confidence: 5,
+      insights:
+        "Child engaging in therapeutic conversation with normal emotional range",
+    };
   }
-
-  if (
-    lowerMessage.includes("calm") ||
-    lowerMessage.includes("better") ||
-    lowerMessage.includes("relaxed")
-  ) {
-    anxiety -= 2;
-    stress -= 1;
-    happiness += 1;
-  }
-
-  // Stress indicators
-  if (
-    lowerMessage.includes("stressed") ||
-    lowerMessage.includes("pressure") ||
-    lowerMessage.includes("overwhelmed")
-  ) {
-    stress += 3;
-    anxiety += 2;
-    happiness -= 1;
-  }
-
-  // Anxiety indicators
-  if (
-    lowerMessage.includes("worried") ||
-    lowerMessage.includes("nervous") ||
-    lowerMessage.includes("scared")
-  ) {
-    anxiety += 3;
-    confidence -= 2;
-  }
-
-  // Frustration/anger indicators (important for children with impulse control issues)
-  if (
-    lowerMessage.includes("annoying") ||
-    lowerMessage.includes("don't want to help") ||
-    lowerMessage.includes("not fair")
-  ) {
-    stress += 2;
-    confidence -= 1;
-    // This could indicate building frustration that might lead to anger episodes
-  }
-
-  // Social issues
-  if (
-    lowerMessage.includes("friend") &&
-    (lowerMessage.includes("problem") || lowerMessage.includes("fight"))
-  ) {
-    sadness += 2;
-    anxiety += 1;
-    confidence -= 2;
-  }
-
-  // Family conflict indicators
-  if (lowerMessage.includes("brother") || lowerMessage.includes("sister")) {
-    if (
-      lowerMessage.includes("annoying") ||
-      lowerMessage.includes("don't") ||
-      lowerMessage.includes("won't")
-    ) {
-      stress += 2;
-      // Pattern consistent with family tension issues
-    }
-  }
-
-  // Ensure scores stay within 1-10 range
-  happiness = Math.max(1, Math.min(10, happiness));
-  anxiety = Math.max(1, Math.min(10, anxiety));
-  sadness = Math.max(1, Math.min(10, sadness));
-  stress = Math.max(1, Math.min(10, stress));
-  confidence = Math.max(1, Math.min(10, confidence));
-
-  return {
-    happiness,
-    anxiety,
-    sadness,
-    stress,
-    confidence,
-    // Add insights for parents
-    insights: generateAdvancedInsights(lowerMessage, {
-      happiness,
-      anxiety,
-      sadness,
-      stress,
-      confidence,
-    }),
-  };
 }
 
 // Extract topics from a message for categorization
-function extractTopicsFromMessage(message: string): string[] {
+async function extractTopicsFromMessage(message: string): Promise<string[]> {
   if (!message) return ["General conversation"];
 
-  const topics = [];
-  const lowerMessage = message.toLowerCase();
+  try {
+    const topicExtractionPrompt = `Analyze this message from a child and identify the main therapeutic/psychological topics being discussed: "${message}"
 
-  if (
-    lowerMessage.includes("school") ||
-    lowerMessage.includes("teacher") ||
-    lowerMessage.includes("homework")
-  ) {
-    topics.push("School stress");
-  }
-  if (
-    lowerMessage.includes("friend") ||
-    lowerMessage.includes("social") ||
-    lowerMessage.includes("peer")
-  ) {
-    topics.push("Social relationships");
-  }
-  if (
-    lowerMessage.includes("anxious") ||
-    lowerMessage.includes("worried") ||
-    lowerMessage.includes("nervous")
-  ) {
-    topics.push("Anxiety");
-  }
-  if (
-    lowerMessage.includes("family") ||
-    lowerMessage.includes("parent") ||
-    lowerMessage.includes("sibling") ||
-    lowerMessage.includes("brother") ||
-    lowerMessage.includes("sister")
-  ) {
-    topics.push("Family dynamics");
-  }
-  if (
-    lowerMessage.includes("sleep") ||
-    lowerMessage.includes("tired") ||
-    lowerMessage.includes("insomnia")
-  ) {
-    topics.push("Sleep issues");
-  }
-  if (
-    lowerMessage.includes("stressed") ||
-    lowerMessage.includes("pressure") ||
-    lowerMessage.includes("overwhelmed")
-  ) {
-    topics.push("Stress management");
-  }
-  if (
-    lowerMessage.includes("angry") ||
-    lowerMessage.includes("mad") ||
-    lowerMessage.includes("annoying")
-  ) {
-    topics.push("Anger management");
-  }
-  if (
-    lowerMessage.includes("bullying") ||
-    lowerMessage.includes("bully") ||
-    lowerMessage.includes("mean")
-  ) {
-    topics.push("Bullying concerns");
-  }
-  if (
-    lowerMessage.includes("calm") ||
-    lowerMessage.includes("breathing") ||
-    lowerMessage.includes("relax")
-  ) {
-    topics.push("Coping strategies");
-  }
+Extract 1-3 most relevant topics from these categories:
+- School stress
+- Social relationships
+- Anxiety
+- Family dynamics
+- Sleep issues
+- Stress management
+- Anger management
+- Bullying concerns
+- Coping strategies
+- Emotional regulation
+- Self-esteem
+- Behavioral issues
+- General conversation
+- Mental health
+- Personal growth
+- Peer relationships
+- Academic challenges
+- Identity development
+- Creative expression
+- Physical health
 
-  return topics.length > 0 ? topics : ["General conversation"];
-}
+Return ONLY an array of the most relevant topics in this exact JSON format:
+{
+  "topics": ["topic1", "topic2", "topic3"]
+}`;
 
-// Advanced pattern analysis for parent insights
-function generateAdvancedInsights(
-  message: string,
-  mood: any,
-  conversationHistory?: any[]
-): string {
-  const insights = [];
-  const behavioralPatterns = [];
-  const interventionNeeds = [];
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-2025-04-14",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert child psychologist identifying therapeutic discussion topics.",
+        },
+        { role: "user", content: topicExtractionPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    });
 
-  // Analyze immediate concerns
-  if (mood.stress >= 7) {
-    insights.push(
-      "ELEVATED STRESS: Child showing significant distress that may impact daily functioning"
-    );
-    interventionNeeds.push("Implement stress reduction techniques immediately");
+    const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
+    const topics = result.topics || [];
+
+    // Ensure we always return at least one topic
+    return topics.length > 0 ? topics : ["General conversation"];
+  } catch (error) {
+    console.error("Error in topic extraction:", error);
+    return ["General conversation"];
   }
-
-  // Family dynamics analysis
-  if (
-    message.includes("hate") &&
-    (message.includes("dad") || message.includes("parent"))
-  ) {
-    insights.push(
-      "FAMILY CONFLICT: Strong negative emotions toward parent figure - indicates need for family therapy consultation"
-    );
-    behavioralPatterns.push("Parent-child relationship strain");
-    interventionNeeds.push(
-      "Schedule family meeting to address underlying issues"
-    );
-  }
-
-  // Impulse control patterns (specific to children with emotional regulation difficulties)
-  if (message.includes("angry") || message.includes("mad") || mood.anger >= 6) {
-    insights.push(
-      "IMPULSE CONTROL: Signs of anger regulation difficulties - monitor for escalation patterns"
-    );
-    behavioralPatterns.push("Emotional dysregulation episodes");
-    interventionNeeds.push(
-      "Teach anger management techniques (breathing, counting, safe space)"
-    );
-  }
-
-  // Authority resistance patterns
-  if (
-    message.includes("don't want to") ||
-    message.includes("make me") ||
-    message.includes("not fair")
-  ) {
-    insights.push(
-      "AUTHORITY ISSUES: Resistance to parental limits may indicate need for clearer boundaries and consequences"
-    );
-    behavioralPatterns.push("Oppositional behaviors");
-    interventionNeeds.push(
-      "Review family rules and consistent consequence system"
-    );
-  }
-
-  // Social/emotional development
-  if (message.includes("bullying") || message.includes("friends")) {
-    insights.push(
-      "SOCIAL CONCERNS: Peer relationships affecting emotional wellbeing - coordinate with school"
-    );
-    interventionNeeds.push("Contact school counselor about social dynamics");
-  }
-
-  // Anxiety patterns
-  if (mood.anxiety >= 7) {
-    insights.push(
-      "ANXIETY SYMPTOMS: Clinical-level anxiety detected - consider professional assessment"
-    );
-    interventionNeeds.push("Implement daily anxiety coping strategies");
-  }
-
-  // Positive indicators
-  if (
-    message.includes("better") ||
-    message.includes("calm") ||
-    mood.happiness >= 7
-  ) {
-    insights.push(
-      "POSITIVE PROGRESS: Child demonstrating emotional regulation skills and therapeutic engagement"
-    );
-  }
-
-  // Sleep and routine concerns
-  if (
-    message.includes("bed") ||
-    message.includes("sleep") ||
-    message.includes("tired")
-  ) {
-    insights.push(
-      "ROUTINE CONCERNS: Sleep/bedtime issues may be contributing to emotional dysregulation"
-    );
-    interventionNeeds.push(
-      "Establish consistent bedtime routine and sleep hygiene"
-    );
-  }
-
-  // Compile comprehensive insight
-  let comprehensiveInsight = "";
-
-  if (insights.length > 0) {
-    comprehensiveInsight += "CLINICAL OBSERVATIONS: " + insights.join(" | ");
-  }
-
-  if (behavioralPatterns.length > 0) {
-    comprehensiveInsight +=
-      " BEHAVIORAL PATTERNS: " + behavioralPatterns.join(", ");
-  }
-
-  if (interventionNeeds.length > 0) {
-    comprehensiveInsight +=
-      " RECOMMENDED INTERVENTIONS: " + interventionNeeds.join(" • ");
-  }
-
-  return (
-    comprehensiveInsight ||
-    "Child engaging in therapeutic conversation with normal emotional range"
-  );
 }
 
 // Get child's background context for personalized therapy
@@ -757,6 +578,38 @@ async function createEmbedding(text: string): Promise<number[]> {
   }
 }
 
+// Analyze all messages for comprehensive mood and topics
+async function analyzeAllMessages(messages: any[]) {
+  // Extract all child messages and AI responses for analysis
+  const allChildMessages = messages
+    .filter((msg) => msg.sender === "child")
+    .map((msg) => msg.content)
+    .join("\n");
+
+  const allAIResponses = messages
+    .filter((msg) => msg.sender === "ai")
+    .map((msg) => msg.content)
+    .join("\n");
+
+  // Get comprehensive mood analysis
+  const comprehensiveMoodAnalysis = await analyzeMoodFromMessage(
+    allChildMessages,
+    allAIResponses
+  );
+
+  // Get topics from all messages
+  const allTopics = new Set<string>();
+  for (const childMessage of messages.filter((msg) => msg.sender === "child")) {
+    const messageTopics = await extractTopicsFromMessage(childMessage.content);
+    messageTopics.forEach((topic) => allTopics.add(topic));
+  }
+
+  return {
+    moodAnalysis: comprehensiveMoodAnalysis,
+    topics: Array.from(allTopics),
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { message, history, childId } = await request.json();
@@ -787,10 +640,6 @@ export async function POST(request: NextRequest) {
     // Crisis detection
     if (detectCrisis(message)) {
       console.log("🚨 CRISIS DETECTED - Message:", message.substring(0, 100));
-
-      // Log crisis for immediate parent notification (implement this)
-      // await notifyParentOfCrisis(message)
-
       return NextResponse.json({
         response: generateCrisisResponse(),
         crisis: true,
@@ -824,33 +673,25 @@ export async function POST(request: NextRequest) {
     }
 
     const childContext = await getChildContext(childId);
-
-    // Get therapeutic memory context from Pinecone
     let therapeuticContext = "";
     try {
       therapeuticContext = await therapeuticMemory.generateTherapeuticContext(
         childId,
         message
       );
-      if (therapeuticContext && therapeuticContext.length > 50) {
-        console.log("✅ Using therapeutic memory context from Pinecone");
-      }
     } catch (error) {
       console.error("Error accessing therapeutic memory:", error);
       therapeuticContext =
         "THERAPEUTIC MODE: Using child-specific background without historical memory context.";
     }
 
-    // Get child-specific knowledge base documents from Pinecone
+    // Get child-specific knowledge base documents
     let childKnowledgeContext = "";
     try {
       childKnowledgeContext = await getChildKnowledgeBaseContext(
         childId,
         message
       );
-      if (childKnowledgeContext && childKnowledgeContext.length > 50) {
-        console.log("📚 Using child-specific knowledge base documents");
-      }
     } catch (error) {
       console.error("Error accessing child knowledge base:", error);
       childKnowledgeContext = "";
@@ -859,26 +700,21 @@ export async function POST(request: NextRequest) {
     // Get child data for enhanced knowledge base context
     const childData = await getChildDataForKnowledge(childId);
 
-    // Get embedded therapeutic guidance automatically integrated into AI
+    // Get embedded therapeutic guidance
     let knowledgeGuidance = "";
     try {
-      // Ensure knowledge base is loaded
       await embeddedTherapeuticKnowledge.loadKnowledgeBase();
-
-      // Get therapeutic context for this specific interaction
+      const topics = await extractTopicsFromMessage(message);
       knowledgeGuidance = embeddedTherapeuticKnowledge.getTherapeuticContext(
         childData?.age,
-        childData?.concerns || extractTopicsFromMessage(message),
+        childData?.concerns || topics,
         message
       );
-      if (knowledgeGuidance && knowledgeGuidance.length > 50) {
-        console.log("🧠 Using embedded therapeutic knowledge base");
-      }
     } catch (error) {
       console.error("Error accessing embedded therapeutic knowledge:", error);
     }
 
-    // Create personalized system prompt with child's background, therapeutic memory, and knowledge base
+    // Create personalized system prompt
     const personalizedSystemPrompt = `${SYSTEM_PROMPT}
 
 CHILD-SPECIFIC CONTEXT:
@@ -888,36 +724,7 @@ ${therapeuticContext}
 
 ${childKnowledgeContext}
 
-${knowledgeGuidance}
-
-CRITICAL INSTRUCTION: If knowledge base documents are provided above, you MUST reference and use the specific techniques, exercises, and strategies from those documents in your response. Do not make up new techniques - use the ones provided in the knowledge base context.
-
-IMPORTANT: Use the child's actual name from the CHILD-SPECIFIC CONTEXT above in your responses when appropriate. Do not use any other names.
-
-THERAPEUTIC FOCUS FOR THIS CHILD:
-- PROACTIVELY check in about family dynamics and sibling relationships
-- Ask gentle questions about school situations and friendships
-- Guide conversations toward emotional awareness before anger builds up
-- When child shows frustration, explore the feelings underneath
-- Normalize their big feelings while teaching regulation techniques
-- Help them identify their triggers in a developmentally appropriate way
-- Practice coping strategies through natural conversation (breathing, counting, etc.)
-- Build self-esteem and confidence around their strengths
-
-SESSION LEADERSHIP FOR THIS CHILD:
-- Start with a warm, personalized greeting using the child's name from the context
-- Check in about recent experiences: "What's been happening with your family lately?"
-- Notice emotional cues: "I can tell you might be feeling frustrated about that..."
-- Guide toward insight: "What do you think was going on inside when that happened?"
-- Teach through experience: "Let's try something that might help when you feel that way..."
-
-PARENT GOALS TO WORK TOWARD:
-- Document behavioral patterns and emotional triggers for professional consultation
-- Help the child develop emotional vocabulary and self-awareness
-- Build practical coping skills they can use independently
-- Strengthen family communication and understanding
-
-Use this information to provide personalized, contextual therapy responses that address this specific child's needs, concerns, and background.`;
+${knowledgeGuidance}`;
 
     // Build conversation context
     const conversationHistory =
@@ -932,7 +739,7 @@ Use this information to provide personalized, contextual therapy responses that 
       { role: "user", content: message },
     ];
 
-    // Get AI response from OpenAI with GPT-4.1 for enhanced therapeutic capabilities
+    // Get AI response from OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-2025-04-14",
       messages: messages as any,
@@ -948,29 +755,106 @@ Use this information to provide personalized, contextual therapy responses that 
       throw new Error("No response from OpenAI");
     }
 
-    // Analyze mood based on conversation content
-    const moodAnalysis = analyzeMoodFromMessage(message, aiResponse);
+    // Initialize moodAnalysis as let instead of const
+    let moodAnalysis = await analyzeMoodFromMessage(message, aiResponse);
 
-    // Save therapy session to database
+    // Save or update therapy session
     let sessionId = "";
     try {
       const supabase = createServerSupabase();
-      const { data: sessionData, error: sessionError } = await supabase
-        .from("therapy_sessions")
-        .insert({
-          child_id: childId,
-          user_message: message,
-          ai_response: aiResponse,
-          session_duration: Math.floor(Math.random() * 30) + 15, // Simulated duration 15-45 min
-          mood_analysis: moodAnalysis,
-        })
-        .select()
-        .single();
 
-      if (sessionError) {
-        console.error("Error saving therapy session:", sessionError);
-      } else if (sessionData) {
-        sessionId = sessionData.id;
+      // Check for active session
+      const { data: activeSession, error: activeSessionError } = await supabase
+        .from("therapy_sessions")
+        .select("*")
+        .eq("child_id", childId)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (activeSessionError) {
+        console.error("Error checking active session:", activeSessionError);
+      }
+
+      if (activeSession) {
+        // Update existing active session
+        sessionId = activeSession.id;
+        const currentMessages = activeSession.messages || [];
+        const updatedMessages = [
+          ...currentMessages,
+          {
+            sender: "child",
+            content: message,
+            timestamp: new Date().toISOString(),
+          },
+          {
+            sender: "ai",
+            content: aiResponse,
+            timestamp: new Date().toISOString(),
+          },
+        ];
+
+        // Analyze all messages in the session
+        const { moodAnalysis: sessionMoodAnalysis, topics: sessionTopics } =
+          await analyzeAllMessages(updatedMessages);
+
+        const { error: updateError } = await supabase
+          .from("therapy_sessions")
+          .update({
+            messages: updatedMessages,
+            mood_analysis: sessionMoodAnalysis,
+            topics: sessionTopics,
+            status: "active",
+          })
+          .eq("id", sessionId)
+          .eq("status", "active");
+
+        if (updateError) {
+          console.error("Error updating therapy session:", updateError);
+        }
+
+        // Update moodAnalysis for response
+        moodAnalysis = sessionMoodAnalysis;
+      } else {
+        // Create new session
+        const initialMessages = [
+          {
+            sender: "child",
+            content: message,
+            timestamp: new Date().toISOString(),
+          },
+          {
+            sender: "ai",
+            content: aiResponse,
+            timestamp: new Date().toISOString(),
+          },
+        ];
+
+        // Analyze initial messages
+        const { moodAnalysis: initialMoodAnalysis, topics: initialTopics } =
+          await analyzeAllMessages(initialMessages);
+
+        const { data: sessionData, error: sessionError } = await supabase
+          .from("therapy_sessions")
+          .insert({
+            child_id: childId,
+            messages: initialMessages,
+            session_duration: Math.floor(Math.random() * 30) + 15,
+            mood_analysis: initialMoodAnalysis,
+            topics: initialTopics,
+            status: "active",
+            created_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (sessionError) {
+          console.error("Error saving therapy session:", sessionError);
+        } else if (sessionData) {
+          sessionId = sessionData.id;
+        }
+
+        // Update moodAnalysis for response
+        moodAnalysis = initialMoodAnalysis;
       }
 
       // Update child's last session time
@@ -985,54 +869,43 @@ Use this information to provide personalized, contextual therapy responses that 
     // Store conversation in Pinecone for therapeutic memory
     try {
       if (sessionId) {
+        const topics = await extractTopicsFromMessage(message);
         await therapeuticMemory.storeConversation({
           id: sessionId,
           child_id: childId,
-          user_message: message,
-          ai_response: aiResponse,
+          messages: [
+            {
+              sender: "child",
+              content: message,
+              timestamp: new Date().toISOString(),
+            },
+            {
+              sender: "ai",
+              content: aiResponse,
+              timestamp: new Date().toISOString(),
+            },
+          ],
           mood_analysis: moodAnalysis,
-          topics: extractTopicsFromMessage(message),
+          topics: topics,
           session_date: new Date().toISOString(),
           therapeutic_insights:
             moodAnalysis.insights ||
             "Child engaged in therapeutic conversation",
         });
-        console.log("✅ Conversation stored in therapeutic memory");
       }
     } catch (error) {
       console.error("Error storing in therapeutic memory:", error);
     }
 
-    // Log conversation for analysis
-    console.log("💬 Child Message:", message.substring(0, 100));
-    console.log("🤖 AI Response:", aiResponse.substring(0, 100));
-    console.log("👶 Child ID:", childId);
-
     return NextResponse.json({
       response: aiResponse,
-      crisis: false,
+      moodAnalysis,
     });
   } catch (error) {
     console.error("Error in chat API:", error);
-
-    // Fallback to anxiety-supportive responses
-    const anxietyResponses = [
-      "I can hear that you're going through something difficult right now. It's okay to feel overwhelmed sometimes - that's completely normal. Can you tell me a little more about what's been on your mind? 💜",
-
-      "Thank you for sharing that with me. It sounds like you're dealing with some big feelings, and that can be really hard. You're being so brave by talking about it. What's one small thing that usually helps you feel a tiny bit better?",
-
-      "I understand this feels really tough right now. Sometimes when we're worried or stressed, it can feel like everything is too much. Let's take a moment together - can you take three slow, deep breaths with me?",
-
-      "It's really important that you shared this with me. Your feelings matter, and you deserve support. While I'm here to listen, I also want to make sure you have other people in your life who can help. Is there a trusted adult you feel comfortable talking to?",
-    ];
-
-    const fallbackResponse =
-      anxietyResponses[Math.floor(Math.random() * anxietyResponses.length)];
-
-    return NextResponse.json({
-      response: fallbackResponse,
-      crisis: false,
-      fallback: true,
-    });
+    return NextResponse.json(
+      { error: "Failed to process chat" },
+      { status: 500 }
+    );
   }
 }

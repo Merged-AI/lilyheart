@@ -12,21 +12,25 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 function getCachedAnalysis(childId: string, timeframeDays: number): any | null {
   const cacheKey = `${childId}_${timeframeDays}`;
   const cached = analysisCache.get(cacheKey);
-  
+
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
     return cached.analysis;
   }
-  
+
   return null;
 }
 
-function setCachedAnalysis(childId: string, timeframeDays: number, analysis: any): void {
+function setCachedAnalysis(
+  childId: string,
+  timeframeDays: number,
+  analysis: any
+): void {
   const cacheKey = `${childId}_${timeframeDays}`;
   analysisCache.set(cacheKey, {
     analysis,
-    timestamp: Date.now()
+    timestamp: Date.now(),
   });
-  
+
   // Clean up old entries
   if (analysisCache.size > 50) {
     const now = Date.now();
@@ -162,7 +166,9 @@ export async function GET(request: NextRequest) {
     // Get session data for additional insights (limit to essential fields)
     const { data: sessions } = await supabase
       .from("therapy_sessions")
-      .select("id, created_at, session_duration, topics, has_alert, alert_level, mood_analysis")
+      .select(
+        "id, created_at, session_duration, topics, has_alert, alert_level, mood_analysis"
+      )
       .eq("child_id", targetChildId)
       .gte(
         "created_at",
@@ -221,7 +227,7 @@ export async function GET(request: NextRequest) {
 // Group sessions by date for better analysis (optimized)
 function groupSessionsByDate(sessions: any[]): any[] {
   if (sessions.length === 0) return [];
-  
+
   const grouped: any[] = [];
   const sessionMap = new Map<string, any[]>();
 
@@ -251,8 +257,11 @@ function groupSessionsByDate(sessions: any[]): any[] {
 
     for (const session of daySessions) {
       totalDuration += session.session_duration || 0;
-      
-      if (session.mood_analysis && typeof session.mood_analysis.happiness === "number") {
+
+      if (
+        session.mood_analysis &&
+        typeof session.mood_analysis.happiness === "number"
+      ) {
         validMoodSessions++;
         totalHappiness += session.mood_analysis.happiness;
         totalAnxiety += session.mood_analysis.anxiety || 0;
@@ -260,13 +269,13 @@ function groupSessionsByDate(sessions: any[]): any[] {
         totalStress += session.mood_analysis.stress || 0;
         totalConfidence += session.mood_analysis.confidence || 0;
       }
-      
+
       if (session.topics) {
         for (const topic of session.topics) {
           topicsSet.add(topic);
         }
       }
-      
+
       if (session.has_alert) {
         hasAlert = true;
         if (session.alert_level === "high") {
@@ -277,14 +286,17 @@ function groupSessionsByDate(sessions: any[]): any[] {
       }
     }
 
-    const averageMood = validMoodSessions > 0 ? {
-      happiness: Math.round(totalHappiness / validMoodSessions),
-      anxiety: Math.round(totalAnxiety / validMoodSessions),
-      sadness: Math.round(totalSadness / validMoodSessions),
-      stress: Math.round(totalStress / validMoodSessions),
-      confidence: Math.round(totalConfidence / validMoodSessions),
-      insights: `Average mood from ${validMoodSessions} sessions`,
-    } : null;
+    const averageMood =
+      validMoodSessions > 0
+        ? {
+            happiness: Math.round(totalHappiness / validMoodSessions),
+            anxiety: Math.round(totalAnxiety / validMoodSessions),
+            sadness: Math.round(totalSadness / validMoodSessions),
+            stress: Math.round(totalStress / validMoodSessions),
+            confidence: Math.round(totalConfidence / validMoodSessions),
+            insights: `Average mood from ${validMoodSessions} sessions`,
+          }
+        : null;
 
     grouped.push({
       date,
@@ -343,7 +355,7 @@ function generateDailyInsights(groupedSessions: any[]): any {
   let totalHappiness = 0;
   let totalAnxiety = 0;
   let moodDaysCount = 0;
-  
+
   for (const day of groupedSessions) {
     if (day.averageMood) {
       totalHappiness += day.averageMood.happiness;
@@ -373,7 +385,7 @@ function generateDailyInsights(groupedSessions: any[]): any {
       alertDaysCount++;
     }
   }
-  
+
   if (alertDaysCount > 0) {
     patterns.push(
       `Alert days: ${alertDaysCount} days with concerning indicators`

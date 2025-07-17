@@ -11,7 +11,6 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { ChildMentalHealthDashboard } from "@/components/dashboard/child-mental-health-dashboard";
-import { ChildSelector } from "@/components/dashboard/child-selector";
 
 interface DashboardStats {
   todaysMood: {
@@ -47,27 +46,28 @@ export default function ParentDashboard() {
   const { family, selectedChildId, setSelectedChildId } = useAuth();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     todaysMood: {
-      status: "Loading...",
-      trend: "Analyzing data",
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
+      status: "No data yet",
+      trend: "Start first session",
+      color: "text-gray-600",
+      bgColor: "bg-gray-100",
     },
     sessionsThisWeek: {
       count: 0,
-      change: "Loading...",
+      change: "No sessions yet",
     },
     emotionalTrend: {
-      status: "Processing",
-      attention: "Gathering insights",
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
+      status: "No data",
+      attention: "Start your first session",
+      color: "text-gray-600",
+      bgColor: "bg-gray-100",
     },
     activeConcerns: {
       count: 0,
-      level: "Analyzing",
+      level: "No data yet",
     },
     hasAlert: false,
   });
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
 
   // Check if user has set up their PIN
   useEffect(() => {
@@ -88,7 +88,14 @@ export default function ParentDashboard() {
 
   useEffect(() => {
     if (family && selectedChildId) {
+      // Initial fetch
       fetchDashboardStats();
+
+      // Set up periodic refresh every 5 minutes
+      const refreshInterval = setInterval(fetchDashboardStats, 5 * 60 * 1000);
+
+      // Cleanup interval on unmount
+      return () => clearInterval(refreshInterval);
     }
   }, [family, selectedChildId]);
 
@@ -96,321 +103,187 @@ export default function ParentDashboard() {
     if (!selectedChildId) return;
 
     try {
-      // Fetch recent therapy sessions for selected child
-      const sessionsResponse = await fetch(
-        `/api/sessions?limit=50&childId=${selectedChildId}`
+      // Fetch analytics through our API
+      const response = await fetch(
+        `/api/analysis/dashboard-analytics?childId=${selectedChildId}`
       );
-      if (!sessionsResponse.ok) {
-        throw new Error("Failed to fetch sessions");
-      }
+      const { data: fetchedAnalyticsData, message } = await response.json();
 
-      const sessionsData = await sessionsResponse.json();
-      const sessions = sessionsData.sessions || [];
-
-      if (sessions.length === 0) {
+      if (response.status === 400) {
+        // Reset dashboard to "no data" state when no analytics are available
+        setAnalyticsData(null);
         setDashboardStats({
           todaysMood: {
             status: "No data yet",
             trend: "Start first session",
-            color: "text-blue-600",
-            bgColor: "bg-blue-100",
+            color: "text-gray-600",
+            bgColor: "bg-gray-100",
           },
           sessionsThisWeek: {
             count: 0,
-            change: "Ready to begin",
+            change: "No sessions yet",
           },
           emotionalTrend: {
-            status: "Baseline",
-            attention: "No sessions yet",
-            color: "text-blue-600",
-            bgColor: "bg-blue-100",
+            status: "No data",
+            attention: "Start your first session",
+            color: "text-gray-600",
+            bgColor: "bg-gray-100",
           },
           activeConcerns: {
             count: 0,
-            level: "None identified",
+            level: "No data yet",
           },
           hasAlert: false,
         });
         return;
       }
 
-      // Analyze recent data
-      const today = new Date();
-      const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const twoDaysAgo = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);
-
-      // Sessions this week
-      const sessionsThisWeek = sessions.filter(
-        (session: any) => new Date(session.created_at) >= oneWeekAgo
-      );
-
-      // Recent mood analysis (last 3 sessions)
-      const recentSessions = sessions.slice(0, 3);
-      const moodAnalysis = analyzeMoodTrends(recentSessions);
-
-      // Check for concerning patterns
-      const concerns = identifyConcerns(sessions);
-      const hasAlert = concerns.high > 0 || concerns.medium > 2;
-
-      // Generate alert if needed
-      let alertInfo = undefined;
-      if (hasAlert) {
-        alertInfo = generateAlert(recentSessions, concerns);
+      if (!response.ok) {
+        throw new Error(message || "Failed to fetch dashboard analytics");
       }
 
-      setDashboardStats({
-        todaysMood: moodAnalysis.todaysMood,
-        sessionsThisWeek: {
-          count: sessionsThisWeek.length,
-          change: generateSessionTrend(sessions, oneWeekAgo),
-        },
-        emotionalTrend: moodAnalysis.emotionalTrend,
-        activeConcerns: {
-          count: concerns.high + concerns.medium,
-          level:
-            concerns.high > 0
-              ? "High priority"
-              : concerns.medium > 0
-              ? "Monitoring"
-              : "Stable",
-        },
-        hasAlert,
-        alertInfo,
-      });
+      // Use the analytics data if available
+      if (fetchedAnalyticsData) {
+        setAnalyticsData(fetchedAnalyticsData);
+        updateDashboardUI(fetchedAnalyticsData);
+      }
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
-      // Keep loading state if there's an error
-    }
-  };
-
-  const analyzeMoodTrends = (recentSessions: any[]) => {
-    if (recentSessions.length === 0) {
-      return {
+      // Reset to no data state on error
+      setAnalyticsData(null);
+      setDashboardStats({
         todaysMood: {
           status: "No data yet",
           trend: "Start first session",
           color: "text-gray-600",
           bgColor: "bg-gray-100",
         },
+        sessionsThisWeek: {
+          count: 0,
+          change: "No sessions yet",
+        },
         emotionalTrend: {
-          status: "No sessions",
-          attention: "Begin tracking",
+          status: "No data",
+          attention: "Start your first session",
           color: "text-gray-600",
           bgColor: "bg-gray-100",
         },
-      };
-    }
-
-    // Analyze most recent session mood
-    const latestSession = recentSessions[0];
-    const mood = latestSession.mood_analysis;
-
-    if (!mood) {
-      return {
-        todaysMood: {
-          status: "Processing...",
-          trend: "Analysis in progress",
-          color: "text-blue-600",
-          bgColor: "bg-blue-100",
+        activeConcerns: {
+          count: 0,
+          level: "No data yet",
         },
-        emotionalTrend: {
-          status: "Processing",
-          attention: "Analyzing patterns",
-          color: "text-blue-600",
-          bgColor: "bg-blue-100",
-        },
-      };
+        hasAlert: false,
+      });
     }
+  };
 
-    // Determine current mood status with more nuanced logic
-    const avgAnxiety = mood.anxiety || 0;
-    const avgSadness = mood.sadness || 0;
-    const avgStress = mood.stress || 0;
-    const avgHappiness = mood.happiness || 0;
-
-    let currentMoodStatus = "Stable";
-    let moodColor = "text-green-600";
-    let moodBgColor = "bg-green-100";
-
-    // More nuanced mood assessment
-    if (avgAnxiety >= 8 || avgSadness >= 8 || avgStress >= 8) {
-      currentMoodStatus = "Needs attention";
-      moodColor = "text-red-600";
-      moodBgColor = "bg-red-100";
-    } else if (avgAnxiety >= 6 || avgSadness >= 6 || avgStress >= 6) {
-      currentMoodStatus = "Concerned";
-      moodColor = "text-orange-600";
-      moodBgColor = "bg-orange-100";
-    } else if (
-      avgHappiness >= 7 &&
-      avgAnxiety <= 4 &&
-      avgSadness <= 4 &&
-      avgStress <= 4
-    ) {
-      currentMoodStatus = "Positive";
-      moodColor = "text-green-600";
-      moodBgColor = "bg-green-100";
-    } else if (avgHappiness >= 6) {
-      currentMoodStatus = "Good";
-      moodColor = "text-blue-600";
-      moodBgColor = "bg-blue-100";
-    }
-
-    // Calculate trend (compare to previous sessions)
-    let trend = "";
-    if (recentSessions.length >= 2) {
-      // Calculate trend over the last 3 sessions for more accuracy
-      const sessionsToAnalyze = recentSessions.slice(
-        0,
-        Math.min(3, recentSessions.length)
-      );
-
-      // Calculate average emotional scores for each session
-      const emotionalScores = sessionsToAnalyze
-        .map((session) => {
-          const mood = session.mood_analysis;
-          if (!mood) return null;
-          // Weighted average: happiness positive, others negative
-          return (
-            (mood.happiness || 0) -
-            ((mood.anxiety || 0) + (mood.sadness || 0) + (mood.stress || 0)) / 3
-          );
-        })
-        .filter((score) => score !== null);
-
-      if (emotionalScores.length >= 2) {
-        const recentScore = emotionalScores[0];
-        const previousScore = emotionalScores[1];
-
-        if (recentScore > previousScore + 1) {
-          trend = "Improving";
-        } else if (recentScore < previousScore - 1) {
-          trend = "Declining";
-        } else {
-          trend = "Stable";
-        }
-      }
-    }
-
-    // Determine emotional trend status with better logic
-    let emotionalStatus = "Stable";
-    let emotionalColor = "text-green-600";
-    let emotionalBgColor = "bg-green-100";
-    let attention = "Continue monitoring";
-
-    if (currentMoodStatus === "Needs attention") {
-      emotionalStatus = "High concern";
-      emotionalColor = "text-red-600";
-      emotionalBgColor = "bg-red-100";
-      attention = "Immediate attention recommended";
-    } else if (currentMoodStatus === "Concerned") {
-      emotionalStatus = "Moderate concern";
-      emotionalColor = "text-orange-600";
-      emotionalBgColor = "bg-orange-100";
-      attention = "Increased monitoring advised";
-    } else if (trend === "Improving" || currentMoodStatus === "Positive") {
-      emotionalStatus = "Positive trend";
-      emotionalColor = "text-green-600";
-      emotionalBgColor = "bg-green-100";
-      attention = "Great progress!";
-    } else if (currentMoodStatus === "Good") {
-      emotionalStatus = "Good";
-      emotionalColor = "text-blue-600";
-      emotionalBgColor = "bg-blue-100";
-      attention = "Maintain current approach";
-    }
-
-    return {
+  const updateDashboardUI = (analyticsData: any) => {
+    setDashboardStats({
       todaysMood: {
-        status: currentMoodStatus,
-        trend,
-        color: moodColor,
-        bgColor: moodBgColor,
+        status: analyticsData.latest_mood?.status || "No data yet",
+        trend: analyticsData.latest_mood?.trend || "Start first session",
+        color: getMoodColor(analyticsData.latest_mood?.status),
+        bgColor: getMoodBgColor(analyticsData.latest_mood?.status),
+      },
+      sessionsThisWeek: {
+        count: analyticsData.sessions_analytics?.sessions_this_week || 0,
+        change: `${
+          analyticsData.sessions_analytics?.sessions_this_week || 0
+        } sessions this week`,
       },
       emotionalTrend: {
-        status: emotionalStatus,
-        attention,
-        color: emotionalColor,
-        bgColor: emotionalBgColor,
+        status: analyticsData.emotional_trend?.status || "Baseline",
+        attention: getEmotionalTrendAttention(
+          analyticsData.emotional_trend?.status
+        ),
+        color: getEmotionalTrendColor(analyticsData.emotional_trend?.status),
+        bgColor: getEmotionalTrendBgColor(
+          analyticsData.emotional_trend?.status
+        ),
       },
-    };
-  };
-
-  const identifyConcerns = (sessions: any[]) => {
-    const concerns = { high: 0, medium: 0, low: 0 };
-
-    sessions.forEach((session) => {
-      const mood = session.mood_analysis;
-      if (!mood) return;
-
-      const avgAnxiety = mood.anxiety || 0;
-      const avgSadness = mood.sadness || 0;
-      const avgStress = mood.stress || 0;
-
-      // More nuanced concern levels
-      if (avgAnxiety >= 8 || avgSadness >= 8 || avgStress >= 8) {
-        concerns.high++;
-      } else if (avgAnxiety >= 6 || avgSadness >= 6 || avgStress >= 6) {
-        concerns.medium++;
-      } else {
-        concerns.low++;
-      }
+      activeConcerns: {
+        count: analyticsData.active_concerns?.count || 0,
+        level: getConcernLevel(analyticsData.active_concerns?.count || 0),
+      },
+      hasAlert: analyticsData.alerts?.has_alert || false,
+      alertInfo: analyticsData.alerts?.has_alert
+        ? {
+            title: analyticsData.alerts.alert_title || "Alert",
+            description: analyticsData.alerts.alert_description || "",
+            level: analyticsData.alerts.alert_type || "warning",
+          }
+        : undefined,
     });
-
-    return concerns;
   };
 
-  const generateSessionTrend = (sessions: any[], oneWeekAgo: Date) => {
-    const twoWeeksAgo = new Date(
-      oneWeekAgo.getTime() - 7 * 24 * 60 * 60 * 1000
-    );
-
-    const thisWeek = sessions.filter(
-      (session) => new Date(session.created_at) >= oneWeekAgo
-    );
-    const lastWeek = sessions.filter(
-      (session) =>
-        new Date(session.created_at) >= twoWeeksAgo &&
-        new Date(session.created_at) < oneWeekAgo
-    );
-
-    if (lastWeek.length === 0) {
-      if (thisWeek.length === 0) {
-        return "No sessions yet";
-      } else if (thisWeek.length === 1) {
-        return "First session this week";
-      } else {
-        return `${thisWeek.length} sessions this week`;
-      }
-    }
-
-    const change = thisWeek.length - lastWeek.length;
-    if (change > 0) {
-      return `+${change} more than last week`;
-    } else if (change < 0) {
-      return `${Math.abs(change)} fewer than last week`;
-    } else {
-      return "Same as last week";
+  // Helper functions for UI colors and text
+  const getMoodColor = (mood: string) => {
+    switch (mood?.toLowerCase()) {
+      case "happy":
+        return "text-green-600";
+      case "sad":
+        return "text-blue-600";
+      case "angry":
+        return "text-red-600";
+      case "anxious":
+        return "text-yellow-600";
+      default:
+        return "text-gray-600";
     }
   };
 
-  const generateAlert = (recentSessions: any[], concerns: any) => {
-    if (concerns.high > 0) {
-      return {
-        title: "High Priority Alert",
-        description:
-          "Multiple concerning patterns detected. Consider professional consultation.",
-        level: "high",
-      };
-    } else if (concerns.medium > 2) {
-      return {
-        title: "Moderate Concern",
-        description:
-          "Several sessions show elevated stress levels. Monitor closely.",
-        level: "medium",
-      };
+  const getMoodBgColor = (mood: string) => {
+    switch (mood?.toLowerCase()) {
+      case "happy":
+        return "bg-green-100";
+      case "sad":
+        return "bg-blue-100";
+      case "angry":
+        return "bg-red-100";
+      case "anxious":
+        return "bg-yellow-100";
+      default:
+        return "bg-gray-100";
     }
-    return undefined;
+  };
+
+  const getEmotionalTrendColor = (trend: string) => {
+    switch (trend) {
+      case "Improving":
+        return "text-green-600";
+      case "Declining":
+        return "text-red-600";
+      default:
+        return "text-blue-600";
+    }
+  };
+
+  const getEmotionalTrendBgColor = (trend: string) => {
+    switch (trend) {
+      case "Improving":
+        return "bg-green-100";
+      case "Declining":
+        return "bg-red-100";
+      default:
+        return "bg-blue-100";
+    }
+  };
+
+  const getEmotionalTrendAttention = (trend: string) => {
+    switch (trend) {
+      case "Improving":
+        return "Positive progress";
+      case "Declining":
+        return "Needs attention";
+      default:
+        return "Maintaining stability";
+    }
+  };
+
+  const getConcernLevel = (count: number) => {
+    if (count > 3) return "High priority";
+    if (count > 1) return "Monitoring";
+    return "Stable";
   };
 
   return (
@@ -426,7 +299,7 @@ export default function ParentDashboard() {
                   Latest Mood
                 </p>
                 <p
-                  className={`text-xl font-semibold mt-1 ${dashboardStats.todaysMood.color}`}
+                  className={`text-xl font-semibold mt-1 capitalize ${dashboardStats.todaysMood.color}`}
                 >
                   {dashboardStats.todaysMood.status}
                 </p>
@@ -472,7 +345,7 @@ export default function ParentDashboard() {
                   Emotional Trend
                 </p>
                 <p
-                  className={`text-xl font-semibold mt-1 ${dashboardStats.emotionalTrend.color}`}
+                  className={`text-xl font-semibold mt-1 capitalize ${dashboardStats.emotionalTrend.color}`}
                 >
                   {dashboardStats.emotionalTrend.status}
                 </p>
@@ -594,7 +467,10 @@ export default function ParentDashboard() {
             </div>
           }
         >
-          <ChildMentalHealthDashboard selectedChildId={selectedChildId} />
+          <ChildMentalHealthDashboard
+            selectedChildId={selectedChildId}
+            analyticsData={analyticsData}
+          />
         </Suspense>
       </section>
     </>

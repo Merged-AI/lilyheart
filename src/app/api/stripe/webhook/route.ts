@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe'
 import Stripe from 'stripe'
+import { headers } from 'next/headers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,46 +11,70 @@ const supabase = createClient(
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
-export async function POST(request: NextRequest) {
-  const body = await request.text()
-  const sig = request.headers.get('stripe-signature')!
+// Route segment config
+export const dynamic = 'force-dynamic'
+export const runtime = 'edge'
 
-  let event: Stripe.Event
-
+// This is a public API, so we need to handle raw requests
+export async function POST(req: NextRequest) {
   try {
-    event = stripe.webhooks.constructEvent(body, sig, endpointSecret)
-  } catch (err: any) {
-    console.error(`Webhook signature verification failed.`, err.message)
-    return NextResponse.json({ error: 'Webhook signature verification failed' }, { status: 400 })
-  }
+    const rawBody = await req.text()
+    const headersList = headers()
+    const sig = headersList.get('stripe-signature')
 
-  try {
-    switch (event.type) {
-      case 'customer.subscription.created':
-        await handleSubscriptionCreated(event.data.object as Stripe.Subscription)
-        break
-        
-      case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
-        break
-        
-      case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
-        break
-        
-      case 'invoice.payment_succeeded':
-        await handlePaymentSucceeded(event.data.object as Stripe.Invoice)
-        break
-        
-      case 'invoice.payment_failed':
-        await handlePaymentFailed(event.data.object as Stripe.Invoice)
-        break
-        
-      default:
-        console.log(`Unhandled event type ${event.type}`)
+    if (!sig) {
+      return NextResponse.json(
+        { error: 'No signature found' },
+        { status: 400 }
+      )
     }
 
-    return NextResponse.json({ received: true })
+    let event: Stripe.Event
+
+    try {
+      event = await stripe.webhooks.constructEventAsync(rawBody, sig, endpointSecret)
+    } catch (err: any) {
+      console.error(`⚠️ Webhook signature verification failed:`, err.message)
+      return NextResponse.json(
+        { error: `Webhook Error: ${err.message}` },
+        { status: 400 }
+      )
+    }
+
+    console.log(`✅ Success: ${event.type}`)
+
+    // Handle the event
+    try {
+      switch (event.type) {
+        case 'customer.subscription.created':
+          await handleSubscriptionCreated(event.data.object as Stripe.Subscription)
+          break
+          
+        case 'customer.subscription.updated':
+          await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
+          break
+          
+        case 'customer.subscription.deleted':
+          await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
+          break
+          
+        case 'invoice.payment_succeeded':
+          await handlePaymentSucceeded(event.data.object as Stripe.Invoice)
+          break
+          
+        case 'invoice.payment_failed':
+          await handlePaymentFailed(event.data.object as Stripe.Invoice)
+          break
+          
+        default:
+          console.log(`Unhandled event type ${event.type}`)
+      }
+
+      return NextResponse.json({ received: true })
+    } catch (error) {
+      console.error('Webhook handler error:', error)
+      return NextResponse.json({ error: 'Webhook handler error' }, { status: 500 })
+    }
   } catch (error) {
     console.error('Webhook handler error:', error)
     return NextResponse.json({ error: 'Webhook handler error' }, { status: 500 })

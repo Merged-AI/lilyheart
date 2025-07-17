@@ -221,41 +221,46 @@ function extractConcernsFromConversations(conversations: any[]): string[] {
   const concerns = new Set<string>();
 
   conversations.forEach((conv) => {
-    const message = conv.user_message?.toLowerCase() || "";
+    // Get all child messages from the messages array
+    const childMessages = (conv.messages || [])
+      .filter((msg: any) => msg.sender === 'child')
+      .map((msg: any) => msg.content.toLowerCase())
+      .join(' ');
+
     const moodAnalysis = conv.mood_analysis || {};
 
     // Extract concerns based on conversation content
     if (
-      message.includes("anxious") ||
-      message.includes("worried") ||
+      childMessages.includes("anxious") ||
+      childMessages.includes("worried") ||
       moodAnalysis.anxiety > 6
     ) {
       concerns.add("Anxiety management");
     }
     if (
-      message.includes("sad") ||
-      message.includes("depressed") ||
+      childMessages.includes("sad") ||
+      childMessages.includes("depressed") ||
       moodAnalysis.sadness > 6
     ) {
       concerns.add("Mood regulation");
     }
     if (
-      message.includes("angry") ||
-      message.includes("mad") ||
+      childMessages.includes("angry") ||
+      childMessages.includes("mad") ||
       moodAnalysis.anger > 6
     ) {
       concerns.add("Anger management");
     }
-    if (message.includes("school") || message.includes("teacher")) {
+    if (childMessages.includes("school") || childMessages.includes("teacher")) {
       concerns.add("Academic stress");
     }
-    if (message.includes("friend") || message.includes("social")) {
+    if (childMessages.includes("friend") || childMessages.includes("social")) {
       concerns.add("Social relationships");
     }
-    if (message.includes("family") || message.includes("parent")) {
+    if (childMessages.includes("family") || childMessages.includes("parent")) {
       concerns.add("Family dynamics");
     }
-    if (message.includes("sleep") || message.includes("tired")) {
+    if (childMessages.includes("sleep") || childMessages.includes("tired")) {
       concerns.add("Sleep concerns");
     }
   });

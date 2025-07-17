@@ -6,6 +6,12 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
+type Message = {
+  sender: 'child' | 'ai';
+  content: string;
+  timestamp: string;
+}
+
 interface SessionData {
   userMessage: {
     content: string
@@ -278,19 +284,30 @@ export async function GET(request: NextRequest) {
   const processedSessions = await Promise.all((sessions || []).map(async (session) => {
     let moodAnalysis = session.mood_analysis
 
-    // Always re-analyze mood from the user message to ensure accuracy
-    // This is especially important for detecting concerning content that might have been missed
-    if (session.user_message) {
-      moodAnalysis = await analyzeMoodFromMessage(session.user_message, session.ai_response || '')
+    // Get all child messages from the messages array
+    const messages = session.messages || []
+    const childMessages = messages
+      .filter((msg: Message) => msg.sender === 'child')
+      .map((msg: Message) => msg.content)
+      .join('\n')
+
+    const aiMessages = messages
+      .filter((msg: Message) => msg.sender === 'ai')
+      .map((msg: Message) => msg.content)
+      .join('\n')
+
+    // Always re-analyze mood from the child messages to ensure accuracy
+    if (childMessages) {
+      moodAnalysis = await analyzeMoodFromMessage(childMessages, aiMessages)
     }
 
-    // Extract topics from the message
-    const topics = session.user_message ? await extractTopicsFromMessage(session.user_message) : ['General conversation']
+    // Extract topics from the messages
+    const topics = childMessages ? await extractTopicsFromMessage(childMessages) : ['General conversation']
 
     // Check for alerts
-    const hasAlert = moodAnalysis ? checkForAlert(moodAnalysis, session.user_message || '') : false
-    const alertLevel = hasAlert && moodAnalysis ? determineAlertLevel(moodAnalysis, session.user_message || '') : null
-    const alertMessage = hasAlert && moodAnalysis ? generateAlertMessage(moodAnalysis, session.user_message || '', alertLevel as 'high' | 'medium') : null
+    const hasAlert = moodAnalysis ? checkForAlert(moodAnalysis, childMessages) : false
+    const alertLevel = hasAlert && moodAnalysis ? determineAlertLevel(moodAnalysis, childMessages) : null
+    const alertMessage = hasAlert && moodAnalysis ? generateAlertMessage(moodAnalysis, childMessages, alertLevel as 'high' | 'medium') : null
 
     // Add date information for better analysis
     const sessionDate = new Date(session.created_at).toISOString().split('T')[0]
@@ -303,13 +320,13 @@ export async function GET(request: NextRequest) {
       has_alert: hasAlert,
       alert_level: alertLevel,
       alert_message: alertMessage,
-      session_duration: session.session_duration || calculateSessionDuration(session),
+      session_duration: session.session_duration || calculateSessionDuration(messages),
       session_date: sessionDate,
       session_time: sessionTime,
       // Enhanced analysis data
       analysis_metadata: {
-        word_count: session.user_message ? session.user_message.split(' ').length : 0,
-        response_length: session.ai_response ? session.ai_response.length : 0,
+        word_count: childMessages ? childMessages.split(' ').length : 0,
+        response_length: aiMessages.length,
         emotional_intensity: moodAnalysis ? Math.max(moodAnalysis.anxiety, moodAnalysis.sadness, moodAnalysis.stress) : 0,
         positive_indicators: moodAnalysis ? moodAnalysis.happiness + moodAnalysis.confidence : 0,
         concern_indicators: moodAnalysis ? moodAnalysis.anxiety + moodAnalysis.sadness + moodAnalysis.stress : 0
@@ -374,23 +391,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Extract user message and AI response from messages
-    const userMessage = messages.find((msg: any) => msg.sender === 'child' || msg.role === 'user')?.content || ''
-    const aiResponse = messages.find((msg: any) => msg.sender === 'ai' || msg.role === 'assistant')?.content || ''
+    // Get all child messages and AI responses
+    const childMessages = messages
+      .filter((msg: Message) => msg.sender === 'child')
+      .map((msg: Message) => msg.content)
+      .join('\n')
+
+    const aiMessages = messages
+      .filter((msg: Message) => msg.sender === 'ai')
+      .map((msg: Message) => msg.content)
+      .join('\n')
 
     // Analyze mood if not provided
     let finalMoodAnalysis = moodAnalysis
-    if (!finalMoodAnalysis && userMessage) {
-      finalMoodAnalysis = await analyzeMoodFromMessage(userMessage, aiResponse)
+    if (!finalMoodAnalysis && childMessages) {
+      finalMoodAnalysis = await analyzeMoodFromMessage(childMessages, aiMessages)
     }
 
     // Extract topics
-    const topics = userMessage ? await extractTopicsFromMessage(userMessage) : ['General conversation']
+    const topics = childMessages ? await extractTopicsFromMessage(childMessages) : ['General conversation']
 
     // Check for alerts
-    const hasAlert = finalMoodAnalysis ? checkForAlert(finalMoodAnalysis, userMessage) : false
-    const alertLevel = hasAlert && finalMoodAnalysis ? determineAlertLevel(finalMoodAnalysis, userMessage) : null
-    const alertMessage = hasAlert && finalMoodAnalysis ? generateAlertMessage(finalMoodAnalysis, userMessage, alertLevel as 'high' | 'medium') : null
+    const hasAlert = finalMoodAnalysis ? checkForAlert(finalMoodAnalysis, childMessages) : false
+    const alertLevel = hasAlert && finalMoodAnalysis ? determineAlertLevel(finalMoodAnalysis, childMessages) : null
+    const alertMessage = hasAlert && finalMoodAnalysis ? generateAlertMessage(finalMoodAnalysis, childMessages, alertLevel as 'high' | 'medium') : null
 
     // Create session record
     const { data: session, error: sessionError } = await supabase
@@ -398,8 +422,6 @@ export async function POST(request: NextRequest) {
       .insert({
         child_id: childId,
         messages: messages,
-        user_message: userMessage,
-        ai_response: aiResponse,
         mood_analysis: finalMoodAnalysis,
         session_summary: sessionSummary || null,
         session_duration: calculateSessionDuration(messages),
@@ -407,10 +429,11 @@ export async function POST(request: NextRequest) {
         has_alert: hasAlert,
         alert_level: alertLevel,
         alert_message: alertMessage,
+        status: 'active',
         created_at: new Date().toISOString()
       })
       .select()
-      .single()
+      .single();
 
     if (sessionError) {
       console.error('Error creating session:', sessionError)

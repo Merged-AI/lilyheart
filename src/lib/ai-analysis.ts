@@ -30,6 +30,12 @@ export interface InterventionRecommendation {
   follow_up_timeframe: string
 }
 
+interface Message {
+  sender: 'child' | 'ai'
+  content: string
+  timestamp: string
+}
+
 /**
  * Analyzes communication data for social health insights
  */
@@ -462,7 +468,8 @@ export class AdvancedChildAnalyzer {
     try {
       // Prepare conversation data for analysis
       const conversationText = conversations.map(conv => 
-        `Child: ${conv.user_message}\nAI Response: ${conv.ai_response}\nMood: ${JSON.stringify(conv.mood_analysis)}`
+        (conv.messages as Message[]).map(msg => `${msg.sender}: ${msg.content}`).join('\n') + 
+        `\nMood: ${JSON.stringify(conv.mood_analysis)}`
       ).join('\n\n---\n\n')
 
       const analysisPrompt = `

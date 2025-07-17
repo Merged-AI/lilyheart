@@ -353,6 +353,12 @@ function analyzeMoodStatus(moodEntries: any[]) {
   };
 }
 
+interface Message {
+  sender: 'child' | 'ai'
+  content: string
+  timestamp: string
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -406,7 +412,7 @@ export async function GET(request: NextRequest) {
     // Fetch therapy sessions with mood analysis for the specified date range
     const { data: sessions, error: sessionsError } = await supabase
       .from("therapy_sessions")
-      .select("id, created_at, mood_analysis, user_message, ai_response")
+      .select("id, created_at, mood_analysis, messages")
       .eq("child_id", requestedChildId)
       .gte("created_at", startDate.toISOString())
       .lte("created_at", endDate.toISOString())
@@ -458,13 +464,18 @@ export async function GET(request: NextRequest) {
             confidence: session.mood_analysis.confidence || 5,
             insights: session.mood_analysis.insights || "Existing analysis",
           });
-          dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Existing'}] ${session.user_message?.substring(0, 50) || 'No message'}...`);
-        } else if (session.user_message) {
+          dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Existing'}] ${
+            session.messages?.find((msg: Message) => msg.sender === 'child')?.content?.substring(0, 50) || 'No message'
+          }...`);
+        } else if (session.messages?.some((msg: Message) => msg.sender === 'child')) {
           // Only do AI analysis if no existing analysis or forcing refresh
           try {
+            // Get the child's message for analysis
+            const childMessage = session.messages.find((msg: Message) => msg.sender === 'child')?.content || '';
+            
             // Analyze mood from session content using the same approach as sessions API
             const aiMoodAnalysis = await analyzeMoodFromInput(
-              session.user_message,
+              childMessage,
               child.age
             );
 
@@ -477,7 +488,7 @@ export async function GET(request: NextRequest) {
               insights: aiMoodAnalysis.insights,
             });
 
-            dayNotes.push(`[Session ${session.id}: ${aiMoodAnalysis.insights}] ${session.user_message.substring(0, 50)}...`);
+            dayNotes.push(`[Session ${session.id}: ${aiMoodAnalysis.insights}] ${childMessage.substring(0, 50)}...`);
 
             // Update the session with the new mood analysis to cache it
             if (!session.mood_analysis || forceRefresh) {
@@ -501,7 +512,7 @@ export async function GET(request: NextRequest) {
                 confidence: session.mood_analysis.confidence || 5,
                 insights: session.mood_analysis.insights || "Fallback analysis",
               });
-              dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Fallback'}] ${session.user_message?.substring(0, 50) || 'No message'}...`);
+              dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Fallback'}] ${session.messages?.find((msg: Message) => msg.sender === 'child')?.content?.substring(0, 50) || 'No message'}...`);
             } else {
               // Use neutral scores if no analysis available
               dayMoodScores.push({
@@ -512,7 +523,7 @@ export async function GET(request: NextRequest) {
                 confidence: 5,
                 insights: "No analysis available",
               });
-              dayNotes.push(`[Session ${session.id}: No analysis] ${session.user_message?.substring(0, 50) || 'No message'}...`);
+              dayNotes.push(`[Session ${session.id}: No analysis] ${session.messages?.find((msg: Message) => msg.sender === 'child')?.content?.substring(0, 50) || 'No message'}...`);
             }
           }
         } else if (session.mood_analysis) {
@@ -525,7 +536,7 @@ export async function GET(request: NextRequest) {
             confidence: session.mood_analysis.confidence || 5,
             insights: session.mood_analysis.insights || "Existing analysis",
           });
-          dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Existing'}] ${session.user_message?.substring(0, 50) || 'No message'}...`);
+          dayNotes.push(`[Session ${session.id}: ${session.mood_analysis.insights || 'Existing'}] ${session.messages?.find((msg: Message) => msg.sender === 'child')?.content?.substring(0, 50) || 'No message'}...`);
         }
       }
 

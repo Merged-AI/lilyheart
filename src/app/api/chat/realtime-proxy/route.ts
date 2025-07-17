@@ -693,9 +693,16 @@ async function handleSendMessage(childId: string, data: any) {
           .from("therapy_sessions")
           .insert({
             child_id: childId,
-            user_message: message,
-            session_duration: Math.floor(Math.random() * 30) + 15, // Simulated duration 15-45 min
+            messages: [
+              {
+                sender: 'child',
+                content: message,
+                timestamp: new Date().toISOString()
+              }
+            ],
+            session_duration: Math.floor(Math.random() * 30) + 15,
             mood_analysis: moodAnalysis,
+            status: 'active'
           })
           .select()
           .single();
@@ -725,8 +732,13 @@ async function handleSendMessage(childId: string, data: any) {
           await therapeuticMemory.storeConversation({
             id: finalSessionId,
             child_id: childId,
-            user_message: message,
-            ai_response: "", // Empty string since response comes through WebRTC
+            messages: [
+              {
+                sender: 'child',
+                content: message,
+                timestamp: new Date().toISOString()
+              }
+            ],
             mood_analysis: moodAnalysis,
             topics: topics,
             session_date: new Date().toISOString(),
@@ -847,10 +859,22 @@ async function handleStoreAIResponse(childId: string, data: any) {
         .from("therapy_sessions")
         .insert({
           child_id: childId,
-          user_message: userMessage,
-          ai_response: content,
+          messages: [
+            {
+              sender: 'child',
+              content: userMessage,
+              timestamp: new Date().toISOString()
+            },
+            {
+              sender: 'ai',
+              content: content,
+              timestamp: new Date().toISOString()
+            }
+          ],
           session_duration: Math.floor(Math.random() * 30) + 15,
           mood_analysis: moodAnalysis,
+          topics: topics,
+          status: 'active'
         })
         .select()
         .single();
@@ -873,15 +897,25 @@ async function handleStoreAIResponse(childId: string, data: any) {
         console.error("Error updating last session time:", updateError);
       }
 
-      // Store conversation in Pinecone for therapeutic memory (if available)
+      // Store conversation in Pinecone for therapeutic memory
       try {
         const { therapeuticMemory } = await import("@/lib/pinecone");
 
         await therapeuticMemory.storeConversation({
           id: sessionData.id,
           child_id: childId,
-          user_message: userMessage,
-          ai_response: content,
+          messages: [
+            {
+              sender: 'child',
+              content: userMessage,
+              timestamp: new Date().toISOString()
+            },
+            {
+              sender: 'ai',
+              content: content,
+              timestamp: new Date().toISOString()
+            }
+          ],
           mood_analysis: moodAnalysis,
           topics: topics,
           session_date: new Date().toISOString(),

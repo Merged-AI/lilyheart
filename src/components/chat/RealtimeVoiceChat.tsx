@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Mic, MicOff, Loader2, AlertCircle } from "lucide-react";
+import { Mic, Loader2, AlertCircle } from "lucide-react";
 
 interface Message {
   id: string;
@@ -48,24 +48,24 @@ export default function RealtimeVoiceChat({
   const pendingUserMessage = useRef<string>("");
   const pendingSessionId = useRef<string>("");
   const isProcessingResponse = useRef<boolean>(false);
+  const [isInputCooldown, setIsInputCooldown] = useState(false);
+  const [isResponseCooldown, setIsResponseCooldown] = useState(false);
+  const COOLDOWN_DURATION = 5000; // 5 seconds
 
   // Cleanup function
   const cleanup = useCallback(() => {
-    // Set cleanup flag to prevent processing messages
     isCleaningUp.current = true;
+    setIsInputCooldown(false);
+    setIsResponseCooldown(false);
 
-    // Set states immediately to prevent further operations
     setIsConnected(false);
     setIsConnecting(false);
     setConnectionStatus("Disconnected");
     setError(null);
 
-    // Reset deduplication tracking
     processedResponseIds.current.clear();
     lastAIResponse.current = "";
     lastAIResponseTime.current = 0;
-    
-    // Clear transcript buffer and user message tracking
     transcriptBuffer.current.clear();
     processedUserMessages.current.clear();
     lastUserMessage.current = "";
@@ -73,60 +73,37 @@ export default function RealtimeVoiceChat({
     pendingUserMessage.current = "";
     pendingSessionId.current = "";
 
-    // Force cleanup of all media streams
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
-        stream.getTracks().forEach((track) => {
-          track.stop();
-        });
+        stream.getTracks().forEach((track) => track.stop());
       })
-      .catch(() => {
-        // Ignore errors if no media stream is active
-      });
+      .catch(() => {});
 
     if (dataChannel.current) {
-      try {
-        // Remove all event listeners first
-        dataChannel.current.onopen = null;
-        dataChannel.current.onclose = null;
-        dataChannel.current.onerror = null;
-        dataChannel.current.onmessage = null;
-
-        dataChannel.current.close();
-      } catch (error) {
-        // Error handling for closing data channel
-      }
+      dataChannel.current.onopen = null;
+      dataChannel.current.onclose = null;
+      dataChannel.current.onerror = null;
+      dataChannel.current.onmessage = null;
+      dataChannel.current.close();
       dataChannel.current = null;
     }
 
     if (peerConnection.current) {
-      try {
-        // Remove all event listeners first
-        peerConnection.current.onconnectionstatechange = null;
-        peerConnection.current.oniceconnectionstatechange = null;
-        peerConnection.current.ontrack = null;
-
-        peerConnection.current.getSenders().forEach((sender) => {
-          if (sender.track) {
-            sender.track.stop();
-          }
-        });
-        peerConnection.current.close();
-      } catch (error) {
-        // Error handling for closing peer connection
-      }
+      peerConnection.current.onconnectionstatechange = null;
+      peerConnection.current.oniceconnectionstatechange = null;
+      peerConnection.current.ontrack = null;
+      peerConnection.current.getSenders().forEach((sender) => {
+        if (sender.track) sender.track.stop();
+      });
+      peerConnection.current.close();
       peerConnection.current = null;
     }
 
     if (audioElement.current) {
-      try {
-        audioElement.current.srcObject = null;
-        if (document.body.contains(audioElement.current)) {
-          document.body.removeChild(audioElement.current);
-        }
-      } catch (error) {
-        // Error handling for cleaning up audio element
+      audioElement.current.srcObject = null;
+      if (document.body.contains(audioElement.current)) {
+        document.body.removeChild(audioElement.current);
       }
       audioElement.current = null;
     }
@@ -154,7 +131,6 @@ export default function RealtimeVoiceChat({
           const result = await response.json();
           if (result.sessionId) {
             pendingSessionId.current = result.sessionId;
-            console.log("User message stored with session ID:", result.sessionId);
           }
         }
       } catch (error) {
@@ -168,7 +144,9 @@ export default function RealtimeVoiceChat({
   const storeAIResponseInBackend = useCallback(
     async (content: string) => {
       if (!pendingSessionId.current || !pendingUserMessage.current) {
-        console.warn("Missing pending session ID or user message for AI response");
+        console.warn(
+          "Missing pending session ID or user message for AI response"
+        );
         return;
       }
 
@@ -191,7 +169,6 @@ export default function RealtimeVoiceChat({
 
         if (response.ok) {
           const result = await response.json();
-          console.log("Complete conversation stored with session:", result.sessionId);
           // Clear pending data after successful storage
           pendingSessionId.current = "";
           pendingUserMessage.current = "";
@@ -204,40 +181,39 @@ export default function RealtimeVoiceChat({
   );
 
   // Helper function to check if response is duplicate
-  const isDuplicateResponse = useCallback((responseText: string, responseId?: string) => {
-    // Check if we've already processed this exact response ID
-    if (responseId && processedResponseIds.current.has(responseId)) {
-      console.log("Duplicate response ID detected:", responseId);
-      return true;
-    }
-
-    // Check if we're still processing a response
-    if (isProcessingResponse.current) {
-      console.log("Still processing previous response");
-      return true;
-    }
-
-    // Check time-based cooldown
-    const now = Date.now();
-    if (now - lastAIResponseTime.current < processingCooldown) {
-      console.log("Response cooldown in effect");
-      return true;
-    }
-
-    // Check for similar content
-    const normalizedNew = responseText.toLowerCase().trim();
-    const normalizedLast = lastAIResponse.current.toLowerCase().trim();
-    
-    if (normalizedLast && normalizedNew) {
-      const similarity = calculateSimilarity(normalizedNew, normalizedLast);
-      if (similarity > 0.7) {
-        console.log("Similar response detected");
+  const isDuplicateResponse = useCallback(
+    (responseText: string, responseId?: string) => {
+      // Check if we've already processed this exact response ID
+      if (responseId && processedResponseIds.current.has(responseId)) {
         return true;
       }
-    }
 
-    return false;
-  }, []);
+      // Check if we're still processing a response
+      if (isProcessingResponse.current) {
+        return true;
+      }
+
+      // Check time-based cooldown
+      const now = Date.now();
+      if (now - lastAIResponseTime.current < processingCooldown) {
+        return true;
+      }
+
+      // Check for similar content
+      const normalizedNew = responseText.toLowerCase().trim();
+      const normalizedLast = lastAIResponse.current.toLowerCase().trim();
+
+      if (normalizedLast && normalizedNew) {
+        const similarity = calculateSimilarity(normalizedNew, normalizedLast);
+        if (similarity > 0.7) {
+          return true;
+        }
+      }
+
+      return false;
+    },
+    []
+  );
 
   // Helper function to calculate text similarity for AI responses
   const calculateSimilarity = (text1: string, text2: string) => {
@@ -254,53 +230,57 @@ export default function RealtimeVoiceChat({
 
   // Helper function to process user voice transcript
   const processUserVoiceTranscript = (transcript: string) => {
-  console.log('transcript :', transcript);
-    if (!transcript || transcript.trim() === "") {
+    if (!transcript || transcript.trim() === "" || isInputCooldown) {
       return;
     }
 
     // Normalize and clean the transcript
     const normalizedTranscript = transcript.toLowerCase().trim();
-    
+
     // Ignore very short or meaningless transcripts
-    if (normalizedTranscript.length < 3 || 
-        normalizedTranscript === "mm" || 
-        normalizedTranscript === "hmm" ||
-        normalizedTranscript === "um" ||
-        normalizedTranscript === "uh") {
-      console.log("Ignored too short or meaningless transcript:", transcript);
+    if (
+      normalizedTranscript.length < 3 ||
+      normalizedTranscript === "mm" ||
+      normalizedTranscript === "hmm" ||
+      normalizedTranscript === "um" ||
+      normalizedTranscript === "uh"
+    ) {
       return;
     }
+
+    // Start cooldown for voice input
+    setIsInputCooldown(true);
+    setTimeout(() => {
+      setIsInputCooldown(false);
+    }, COOLDOWN_DURATION);
 
     // Check cooldown period
     const now = Date.now();
     if (now - lastUserMessageTime.current < userMessageCooldown) {
-      console.log("Message ignored - too soon after last message");
       return;
     }
 
     // Check if we've processed this exact message
     if (processedUserMessages.current.has(normalizedTranscript)) {
-      console.log("Duplicate message ignored");
       return;
     }
 
     // Check similarity with last message
     if (lastUserMessage.current) {
-      const similarity = calculateTextSimilarity(normalizedTranscript, lastUserMessage.current.toLowerCase());
-      if (similarity > 0.7) { // 70% similarity threshold
-        console.log("Too similar to last message - ignored");
+      const similarity = calculateTextSimilarity(
+        normalizedTranscript,
+        lastUserMessage.current.toLowerCase()
+      );
+      if (similarity > 0.7) {
+        // 70% similarity threshold
         return;
       }
     }
 
     // Only process if it looks like a real message
-    if (transcript.split(' ').length < 2 && !transcript.endsWith('?')) {
-      console.log("Ignored single word that's not a question:", transcript);
+    if (transcript.split(" ").length < 2 && !transcript.endsWith("?")) {
       return;
     }
-
-    console.log("Processing valid voice transcript:", transcript);
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -310,7 +290,7 @@ export default function RealtimeVoiceChat({
     };
 
     onMessageReceived(userMessage);
-    
+
     // Store user message and get session ID for later AI response
     storeUserMessageInBackend(transcript);
 
@@ -324,73 +304,91 @@ export default function RealtimeVoiceChat({
     if (processedUserMessages.current.size > 5) {
       const messagesArray = Array.from(processedUserMessages.current);
       processedUserMessages.current.clear();
-      messagesArray.slice(-5).forEach(msg => processedUserMessages.current.add(msg));
+      messagesArray
+        .slice(-5)
+        .forEach((msg) => processedUserMessages.current.add(msg));
     }
 
     // Send therapeutic context on first user input
-    if (processedUserMessages.current.size === 1) {
+    if (processedUserMessages.current.size === 0) {
       sendTherapeuticContext();
     }
   };
 
   // Helper function to calculate text similarity
   const calculateTextSimilarity = (text1: string, text2: string): number => {
-    const words1 = text1.split(/\s+/).filter(word => word.length > 1);
-    const words2 = text2.split(/\s+/).filter(word => word.length > 1);
+    const words1 = text1.split(/\s+/).filter((word) => word.length > 1);
+    const words2 = text2.split(/\s+/).filter((word) => word.length > 1);
 
     if (words1.length === 0 || words2.length === 0) {
       return 0;
     }
 
-    const commonWords = words1.filter(word => words2.includes(word));
+    const commonWords = words1.filter((word) => words2.includes(word));
     return commonWords.length / Math.max(words1.length, words2.length);
   };
 
   // Helper function to process AI response
-  const processAIResponse = useCallback((responseText: string, responseId?: string) => {
-    if (!responseText || responseText.trim() === "") {
-      return;
-    }
-
-    // Skip if duplicate
-    if (isDuplicateResponse(responseText, responseId)) {
-      return;
-    }
-
-    // Set processing flag
-    isProcessingResponse.current = true;
-
-    try {
-      const aiMessage: Message = {
-        id: Date.now().toString(),
-        content: responseText,
-        sender: "ai",
-        timestamp: new Date(),
-      };
-
-      onMessageReceived(aiMessage);
-      storeAIResponseInBackend(responseText);
-
-      // Track this response
-      if (responseId) {
-        processedResponseIds.current.add(responseId);
+  const processAIResponse = useCallback(
+    (responseText: string, responseId?: string) => {
+      if (!responseText || responseText.trim() === "" || isResponseCooldown) {
+        return;
       }
-      lastAIResponse.current = responseText;
-      lastAIResponseTime.current = Date.now();
 
-      // Keep response history manageable
-      if (processedResponseIds.current.size > 10) {
-        const idsArray = Array.from(processedResponseIds.current);
-        processedResponseIds.current.clear();
-        idsArray.slice(-10).forEach(id => processedResponseIds.current.add(id));
+      // Skip if duplicate
+      if (isDuplicateResponse(responseText, responseId)) {
+        return;
       }
-    } finally {
-      // Clear processing flag after a short delay
+
+      // Start cooldown for AI responses
+      setIsResponseCooldown(true);
       setTimeout(() => {
-        isProcessingResponse.current = false;
-      }, processingCooldown);
-    }
-  }, [onMessageReceived, storeAIResponseInBackend, isDuplicateResponse]);
+        setIsResponseCooldown(false);
+      }, COOLDOWN_DURATION);
+
+      // Set processing flag
+      isProcessingResponse.current = true;
+
+      try {
+        const aiMessage: Message = {
+          id: Date.now().toString(),
+          content: responseText,
+          sender: "ai",
+          timestamp: new Date(),
+        };
+
+        onMessageReceived(aiMessage);
+        storeAIResponseInBackend(responseText);
+
+        // Track this response
+        if (responseId) {
+          processedResponseIds.current.add(responseId);
+        }
+        lastAIResponse.current = responseText;
+        lastAIResponseTime.current = Date.now();
+
+        // Keep response history manageable
+        if (processedResponseIds.current.size > 10) {
+          const idsArray = Array.from(processedResponseIds.current);
+          processedResponseIds.current.clear();
+          idsArray
+            .slice(-10)
+            .forEach((id) => processedResponseIds.current.add(id));
+        }
+      } finally {
+        // Clear processing flag after a short delay
+        setTimeout(() => {
+          isProcessingResponse.current = false;
+        }, processingCooldown);
+      }
+    },
+    [
+      onMessageReceived,
+      storeAIResponseInBackend,
+      isDuplicateResponse,
+      isResponseCooldown,
+    ]
+  );
 
   // Start realtime session
   const startSession = useCallback(async () => {
@@ -495,22 +493,15 @@ export default function RealtimeVoiceChat({
         setIsConnecting(false);
         setConnectionStatus("Connected");
         onSessionStart();
-        
-        // Test voice transcription setup
-        console.log("Data channel opened - voice transcription ready");
       });
 
       dc.addEventListener("message", (e) => {
-        // Ignore messages if cleanup is in progress
-        if (isCleaningUp.current) {
-          return;
-        }
-
+        if (isCleaningUp.current) return;
         try {
           const event = JSON.parse(e.data);
           handleServerEvent(event);
         } catch (error) {
-          // Error handling for parsing data channel message
+          // Ignore parsing errors
         }
       });
 
@@ -519,7 +510,7 @@ export default function RealtimeVoiceChat({
         onSessionEnd();
       });
 
-      dc.addEventListener("error", (error) => {
+      dc.addEventListener("error", () => {
         cleanup();
         onSessionEnd();
       });
@@ -648,177 +639,112 @@ export default function RealtimeVoiceChat({
   }, [isConnected, childId]);
 
   // Handle server events
-  const handleServerEvent = useCallback((event: any) => {
-    // Ignore events if cleanup is in progress
-    if (isCleaningUp.current) {
-      return;
-    }
+  const handleServerEvent = useCallback(
+    (event: any) => {
+      // Ignore events if cleanup is in progress
+      if (isCleaningUp.current) {
+        return;
+      }
 
-    console.log("Realtime Event:", event.type, event);
+      switch (event.type) {
+        case "conversation.item.created":
+          {
+            const item = event.item;
+            if (item.type === "message" && item.role === "user") {
+              const content = item.content?.[0];
 
-    switch (event.type) {
-      case "conversation.item.created":
-        {
-          const item = event.item;
-          if (item.type === "message" && item.role === "user") {
-            const content = item.content?.[0];
-            
-            // Handle voice input with transcript
-            if (content?.type === "input_audio" && content.transcript) {
-              console.log("Voice input created with transcript:", content.transcript);
-              processUserVoiceTranscript(content.transcript);
+              // Handle voice input with transcript
+              if (content?.type === "input_audio" && content.transcript) {
+                processUserVoiceTranscript(content.transcript);
+              }
+              // Handle text input
+              else if (content?.type === "input_text" && content.text) {
+                processUserVoiceTranscript(content.text);
+              }
             }
-            // Handle text input
-            else if (content?.type === "input_text" && content.text) {
-              console.log("Text input created:", content.text);
+          }
+          break;
+
+        case "conversation.item.completed": {
+          const item = event.item;
+
+          if (item.type === "message" && item.role === "assistant") {
+            const content = item.content?.[0];
+
+            // Only process text responses here
+            if (content?.type === "output_text" && content.text) {
+              processAIResponse(content.text, event.response_id);
+            }
+          } else if (item.type === "message" && item.role === "user") {
+            const content = item.content?.[0];
+
+            if (content?.type === "input_audio" && content.transcript) {
+              processUserVoiceTranscript(content.transcript);
+            } else if (content?.type === "input_text" && content.text) {
               processUserVoiceTranscript(content.text);
             }
-            // Handle voice input without transcript (transcription might come later)
-            else if (content?.type === "input_audio" && !content.transcript) {
-              console.log("Voice input created without transcript - waiting for transcription events");
+          }
+          break;
+        }
+
+        case "conversation.item.input_audio_transcription.delta":
+          {
+            // Handle incremental transcript deltas
+            if (event.item_id && event.delta) {
+              const currentTranscript =
+                transcriptBuffer.current.get(event.item_id) || "";
+              const updatedTranscript = currentTranscript + event.delta;
+              transcriptBuffer.current.set(event.item_id, updatedTranscript);
             }
           }
-        }
-        break;
+          break;
 
-      case "conversation.item.completed": {
-        const item = event.item;
-        
-        if (item.type === "message" && item.role === "assistant") {
-          const content = item.content?.[0];
-          
-          // Only process text responses here
-          if (content?.type === "output_text" && content.text) {
-            processAIResponse(content.text, event.response_id);
-          }
-        }
-        else if (item.type === "message" && item.role === "user") {
-          const content = item.content?.[0];
-          
-          if (content?.type === "input_audio" && content.transcript) {
-            processUserVoiceTranscript(content.transcript);
-          }
-          else if (content?.type === "input_text" && content.text) {
-            processUserVoiceTranscript(content.text);
-          }
-        }
-        break;
-      }
+        case "conversation.item.input_audio_transcription.completed":
+          {
+            let finalTranscript = event.transcript;
 
-      case "conversation.item.input_audio_transcription.delta":
-        {
-          // Handle incremental transcript deltas
-          if (event.item_id && event.delta) {
-            const currentTranscript = transcriptBuffer.current.get(event.item_id) || "";
-            const updatedTranscript = currentTranscript + event.delta;
-            transcriptBuffer.current.set(event.item_id, updatedTranscript);
-            console.log("Transcript delta for item", event.item_id, ":", event.delta);
-            console.log("Current transcript:", updatedTranscript);
-          }
-        }
-        break;
-
-      case "conversation.item.input_audio_transcription.completed":
-        {
-          // This is a key event for voice transcripts
-          let finalTranscript = event.transcript;
-          
-          // If the event transcript is empty, try to get from buffer
-          if (!finalTranscript && event.item_id) {
-            finalTranscript = transcriptBuffer.current.get(event.item_id) || "";
-          }
-          
-          console.log("Transcription completed for item", event.item_id, ":", finalTranscript);
-          
-          if (finalTranscript && finalTranscript.trim() !== "") {
-            processUserVoiceTranscript(finalTranscript);
-            // Clean up the buffer
-            if (event.item_id) {
-              transcriptBuffer.current.delete(event.item_id);
+            // If the event transcript is empty, try to get from buffer
+            if (!finalTranscript && event.item_id) {
+              finalTranscript =
+                transcriptBuffer.current.get(event.item_id) || "";
             }
-          } else {
-            console.warn("Empty transcript received for item", event.item_id);
-          }
-        }
-        break;
 
-      case "input_audio_buffer.committed":
-        {
-          // Handle when audio buffer is committed
+            if (finalTranscript && finalTranscript.trim() !== "") {
+              processUserVoiceTranscript(finalTranscript);
+              // Clean up the buffer
+              if (event.item_id) {
+                transcriptBuffer.current.delete(event.item_id);
+              }
+            }
+          }
+          break;
+
+        case "input_audio_buffer.committed":
           if (event.transcript) {
             processUserVoiceTranscript(event.transcript);
-          } else {
-            console.log("Audio buffer committed without transcript - waiting for transcription events");
           }
-        }
-        break;
+          break;
 
-      case "input_audio_buffer.speech_started":
-        {
-          console.log("User started speaking");
-        }
-        break;
-
-      case "input_audio_buffer.speech_stopped":
-        {
-          console.log("User stopped speaking");
-        }
-        break;
-
-      case "response.audio_transcript.delta":
-        {
-          // Handle AI response audio transcript deltas
+        case "response.audio_transcript.delta":
           if (event.delta) {
-            console.log("AI audio transcript delta:", event.delta);
+            // Skip empty delta handling
           }
+          break;
+
+        case "response.audio_transcript.done": {
+          if (event.transcript) {
+            processAIResponse(event.transcript, event.response_id);
+          }
+          break;
         }
-        break;
 
-      case "response.audio_transcript.done": {
-        // Handle completed AI audio transcript
-        if (event.transcript) {
-          processAIResponse(event.transcript, event.response_id);
-        }
-        break;
+        default:
+          // Skip unhandled events
+          break;
       }
-
-      case "response.done":
-        // Skip processing here as we already handle responses in conversation.item.completed
-        // and response.audio_transcript.done
-        console.log("Response completed:", event.response_id);
-        break;
-
-      case "response.output_item.added":
-        {
-          console.log("AI response output item added");
-        }
-        break;
-
-      case "response.output_item.done":
-        // Skip processing here as we already handle responses in other events
-        console.log("Output item completed:", event.response_id);
-        break;
-
-      case "output_audio_buffer.stopped": {
-        // Just log the event, no need to process response here
-        console.log("AI audio output stopped:", event.response_id);
-        break;
-      }
-
-      case "output_audio_buffer.started": {
-        console.log("AI audio output started:", event.response_id);
-        break;
-      }
-
-      default: {
-        // Log unhandled events for debugging (skip common ones we don't need)
-        if (!["session.created", "session.updated", "error"].includes(event.type)) {
-          console.log("Unhandled event type:", event.type);
-        }
-        break;
-      }
-    }
-  }, [processAIResponse, processUserVoiceTranscript]);
+    },
+    [processAIResponse, processUserVoiceTranscript]
+  );
 
   // Cleanup on unmount
   useEffect(() => {
@@ -892,43 +818,20 @@ export default function RealtimeVoiceChat({
   // Force cleanup when isActive becomes false
   useEffect(() => {
     if (!isActive) {
-      // Immediately set states to prevent further operations
       setIsConnected(false);
       setIsConnecting(false);
       setConnectionStatus("Disconnected");
-
-      // Force immediate cleanup
       cleanup();
       onSessionEnd();
 
-      // Multiple cleanup attempts to ensure it happens
-      const cleanupTimeout1 = setTimeout(() => {
-        if (!isActive) {
-          cleanup();
-          onSessionEnd();
-        }
-      }, 25);
-
-      const cleanupTimeout2 = setTimeout(() => {
+      const cleanupTimeout = setTimeout(() => {
         if (!isActive) {
           cleanup();
           onSessionEnd();
         }
       }, 100);
 
-      const cleanupTimeout3 = setTimeout(() => {
-        if (!isActive) {
-          cleanup();
-          onSessionEnd();
-        }
-      }, 500);
-
-      // Cleanup timeouts on unmount
-      return () => {
-        clearTimeout(cleanupTimeout1);
-        clearTimeout(cleanupTimeout2);
-        clearTimeout(cleanupTimeout3);
-      };
+      return () => clearTimeout(cleanupTimeout);
     }
   }, [isActive, cleanup, onSessionEnd]);
 

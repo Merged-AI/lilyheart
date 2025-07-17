@@ -398,80 +398,58 @@ function analyzeMoodFromMessage(userMessage: string, aiResponse: string): any {
   };
 }
 
-// Extract topics from a message for categorization
-function extractTopicsFromMessage(message: string): string[] {
+// Extract topics from a message for categorization using OpenAI
+async function extractTopicsFromMessage(message: string): Promise<string[]> {
   if (!message) return ["General conversation"];
 
-  const topics = [];
-  const lowerMessage = message.toLowerCase();
+  try {
+    const prompt = `Analyze this message from a child/teenager in therapy and identify the main therapeutic topics being discussed. Consider emotional themes, behavioral patterns, and therapeutic focus areas.
 
-  if (
-    lowerMessage.includes("school") ||
-    lowerMessage.includes("teacher") ||
-    lowerMessage.includes("homework")
-  ) {
-    topics.push("School stress");
-  }
-  if (
-    lowerMessage.includes("friend") ||
-    lowerMessage.includes("social") ||
-    lowerMessage.includes("peer")
-  ) {
-    topics.push("Social relationships");
-  }
-  if (
-    lowerMessage.includes("anxious") ||
-    lowerMessage.includes("worried") ||
-    lowerMessage.includes("nervous")
-  ) {
-    topics.push("Anxiety");
-  }
-  if (
-    lowerMessage.includes("family") ||
-    lowerMessage.includes("parent") ||
-    lowerMessage.includes("sibling") ||
-    lowerMessage.includes("brother") ||
-    lowerMessage.includes("sister")
-  ) {
-    topics.push("Family dynamics");
-  }
-  if (
-    lowerMessage.includes("sleep") ||
-    lowerMessage.includes("tired") ||
-    lowerMessage.includes("insomnia")
-  ) {
-    topics.push("Sleep issues");
-  }
-  if (
-    lowerMessage.includes("stressed") ||
-    lowerMessage.includes("pressure") ||
-    lowerMessage.includes("overwhelmed")
-  ) {
-    topics.push("Stress management");
-  }
-  if (
-    lowerMessage.includes("angry") ||
-    lowerMessage.includes("mad") ||
-    lowerMessage.includes("annoying")
-  ) {
-    topics.push("Anger management");
-  }
-  if (
-    lowerMessage.includes("bullying") ||
-    lowerMessage.includes("bully") ||
-    lowerMessage.includes("mean")
-  ) {
-    topics.push("Bullying concerns");
-  }
-  if (
-    lowerMessage.includes("calm") ||
-    lowerMessage.includes("breathing") ||
-    lowerMessage.includes("relax")
-  ) {
-    topics.push("Coping strategies");
-  }
+Message: "${message}"
 
-  return topics.length > 0 ? topics : ["General conversation"];
+Please identify 2-4 most relevant therapeutic topics from this message. Focus on clinical relevance and therapeutic categorization.
+
+Respond with a JSON array of topic strings only. Example: ["Anxiety management", "Family conflict", "School stress"]`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a child psychologist specializing in topic categorization and therapeutic assessment. Provide accurate, clinically-relevant topic categorization.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 150,
+      temperature: 0.3,
+    });
+
+    const response = completion.choices[0]?.message?.content;
+    if (!response) {
+      return ["General conversation"];
+    }
+
+    // Parse the JSON response
+    const topics = JSON.parse(response);
+
+    // Validate the response is an array of strings
+    if (
+      !Array.isArray(topics) ||
+      topics.length === 0 ||
+      !topics.every((topic) => typeof topic === "string")
+    ) {
+      return ["General conversation"];
+    }
+
+    return topics;
+  } catch (error) {
+    console.error("Error extracting topics with OpenAI:", error);
+    return ["General conversation"];
+  }
 }
 
 // Advanced pattern analysis for parent insights
@@ -1254,7 +1232,8 @@ export async function POST(request: NextRequest) {
       // Get therapeutic context for this specific interaction
       knowledgeGuidance = embeddedTherapeuticKnowledge.getTherapeuticContext(
         childData?.age,
-        childData?.concerns || extractTopicsFromMessage(transcribedText),
+        childData?.concerns ||
+          (await extractTopicsFromMessage(transcribedText)),
         transcribedText
       );
       if (knowledgeGuidance && knowledgeGuidance.length > 50) {
@@ -1360,10 +1339,21 @@ Use this information to provide personalized, contextual therapy responses that 
         .from("therapy_sessions")
         .insert({
           child_id: childId,
-          user_message: transcribedText,
-          ai_response: aiResponseText,
-          session_duration: Math.floor(Math.random() * 30) + 15, // Simulated duration 15-45 min
+          messages: [
+            {
+              sender: "child",
+              content: transcribedText,
+              timestamp: new Date().toISOString(),
+            },
+            {
+              sender: "ai",
+              content: aiResponseText,
+              timestamp: new Date().toISOString(),
+            },
+          ],
+          session_duration: Math.floor(Math.random() * 30) + 15,
           mood_analysis: moodAnalysis,
+          status: "active",
         })
         .select()
         .single();
@@ -1389,16 +1379,25 @@ Use this information to provide personalized, contextual therapy responses that 
         await therapeuticMemory.storeConversation({
           id: dbSessionId,
           child_id: childId,
-          user_message: transcribedText,
-          ai_response: aiResponseText,
+          messages: [
+            {
+              sender: "child",
+              content: transcribedText,
+              timestamp: new Date().toISOString(),
+            },
+            {
+              sender: "ai",
+              content: aiResponseText,
+              timestamp: new Date().toISOString(),
+            },
+          ],
           mood_analysis: moodAnalysis,
-          topics: extractTopicsFromMessage(transcribedText),
+          topics: await extractTopicsFromMessage(transcribedText),
           session_date: new Date().toISOString(),
           therapeutic_insights:
             moodAnalysis.insights ||
             "Child engaged in voice therapeutic conversation",
         });
-        console.log("✅ Voice conversation stored in therapeutic memory");
       }
     } catch (error) {
       console.error(

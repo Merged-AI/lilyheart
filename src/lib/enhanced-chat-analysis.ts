@@ -51,6 +51,12 @@ interface EnhancedAnalysisResult {
   };
 }
 
+interface ChatMessage {
+  sender: "child" | "ai";
+  content: string;
+  timestamp: string;
+}
+
 export class EnhancedChatAnalyzer {
   private supabase = createServerSupabase();
 
@@ -180,24 +186,14 @@ export class EnhancedChatAnalyzer {
     let moodCount = 0;
 
     daySessions.forEach((session) => {
-      // Collect all messages
+      // Add messages from the messages array
       if (session.messages && Array.isArray(session.messages)) {
-        allMessages.push(...session.messages);
-      }
-
-      // Add individual messages if they exist
-      if (session.user_message) {
-        allMessages.push({
-          role: "user",
-          content: session.user_message,
-          timestamp: session.created_at,
-        });
-      }
-      if (session.ai_response) {
-        allMessages.push({
-          role: "assistant",
-          content: session.ai_response,
-          timestamp: session.created_at,
+        session.messages.forEach((msg: ChatMessage) => {
+          allMessages.push({
+            role: msg.sender === "child" ? "user" : "assistant",
+            content: msg.content,
+            timestamp: msg.timestamp,
+          });
         });
       }
 
@@ -254,18 +250,14 @@ export class EnhancedChatAnalyzer {
     const uniqueTopics = Array.from(new Set(allTopics));
 
     // Create merged session
-    const mergedSession = {
+    return {
       id: `merged_${date}`,
       child_id: firstSession.child_id,
-      messages: allMessages,
-      user_message: allMessages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join(" "),
-      ai_response: allMessages
-        .filter((m) => m.role === "assistant")
-        .map((m) => m.content)
-        .join(" "),
+      messages: allMessages.map((msg) => ({
+        sender: msg.role === "user" ? "child" : "ai",
+        content: msg.content,
+        timestamp: msg.timestamp,
+      })),
       mood_analysis: averageMood,
       session_duration: totalDuration,
       topics: uniqueTopics,
@@ -278,8 +270,6 @@ export class EnhancedChatAnalyzer {
       _original_sessions: daySessions.length,
       _session_ids: daySessions.map((s) => s.id),
     };
-
-    return mergedSession;
   }
 
   private calculateConversationMetrics(sessions: any[]): ConversationMetrics {
@@ -369,8 +359,7 @@ export class EnhancedChatAnalyzer {
     metrics: ConversationMetrics
   ) {
     const sessionData = sessions.map((s) => ({
-      userMessage: s.user_message,
-      aiResponse: s.ai_response,
+      messages: s.messages,
       moodAnalysis: s.mood_analysis,
       topics: s.topics,
       sessionDuration: s.session_duration,
@@ -603,8 +592,7 @@ Respond with JSON only:
     metrics: ConversationMetrics
   ): Promise<FamilyBenefit[]> {
     const sessionData = sessions.map((s) => ({
-      userMessage: s.user_message,
-      aiResponse: s.ai_response,
+      messages: s.messages,
       moodAnalysis: s.mood_analysis,
       topics: s.topics,
       sessionDuration: s.session_duration,
@@ -706,8 +694,7 @@ Respond with JSON only:
     metrics: ConversationMetrics
   ) {
     const sessionData = sessions.map((s) => ({
-      userMessage: s.user_message,
-      aiResponse: s.ai_response,
+      messages: s.messages,
       moodAnalysis: s.mood_analysis,
       topics: s.topics,
       sessionDuration: s.session_duration,
@@ -795,7 +782,7 @@ Respond with JSON only:
   }
 
   // Helper methods for analysis
-  private containsEmotionalContent(message: string): boolean {
+  private containsEmotionalContent(messages: ChatMessage[]): boolean {
     const emotionalWords = [
       "feel",
       "feeling",
@@ -809,10 +796,17 @@ Respond with JSON only:
       "frustrated",
       "proud",
     ];
-    return emotionalWords.some((word) => message.toLowerCase().includes(word));
+    return messages.some(
+      (msg) =>
+        msg.sender === "child" &&
+        emotionalWords.some((word) => msg.content.toLowerCase().includes(word))
+    );
   }
 
-  private containsStressContent(message: string, moodAnalysis: any): boolean {
+  private containsStressContent(
+    messages: ChatMessage[],
+    moodAnalysis: any
+  ): boolean {
     const stressWords = [
       "stress",
       "pressure",
@@ -822,12 +816,15 @@ Respond with JSON only:
       "nervous",
     ];
     return (
-      stressWords.some((word) => message.toLowerCase().includes(word)) ||
-      moodAnalysis?.stress > 6
+      messages.some(
+        (msg) =>
+          msg.sender === "child" &&
+          stressWords.some((word) => msg.content.toLowerCase().includes(word))
+      ) || moodAnalysis?.stress > 6
     );
   }
 
-  private containsSocialContent(message: string): boolean {
+  private containsSocialContent(messages: ChatMessage[]): boolean {
     const socialWords = [
       "friend",
       "social",
@@ -838,10 +835,14 @@ Respond with JSON only:
       "group",
       "party",
     ];
-    return socialWords.some((word) => message.toLowerCase().includes(word));
+    return messages.some(
+      (msg) =>
+        msg.sender === "child" &&
+        socialWords.some((word) => msg.content.toLowerCase().includes(word))
+    );
   }
 
-  private containsFamilyContent(message: string): boolean {
+  private containsFamilyContent(messages: ChatMessage[]): boolean {
     const familyWords = [
       "family",
       "parent",
@@ -852,7 +853,11 @@ Respond with JSON only:
       "sister",
       "home",
     ];
-    return familyWords.some((word) => message.toLowerCase().includes(word));
+    return messages.some(
+      (msg) =>
+        msg.sender === "child" &&
+        familyWords.some((word) => msg.content.toLowerCase().includes(word))
+    );
   }
 
   private countUniqueEmotionWords(sessions: any[]): number {
@@ -873,11 +878,16 @@ Respond with JSON only:
     ];
 
     sessions.forEach((session) => {
-      const message = session.user_message?.toLowerCase() || "";
-      commonEmotions.forEach((emotion) => {
-        if (message.includes(emotion)) {
-          emotionWords.add(emotion);
-        }
+      const childMessages =
+        session.messages?.filter(
+          (msg: ChatMessage) => msg.sender === "child"
+        ) || [];
+      childMessages.forEach((msg: ChatMessage) => {
+        commonEmotions.forEach((emotion) => {
+          if (msg.content.toLowerCase().includes(emotion)) {
+            emotionWords.add(emotion);
+          }
+        });
       });
     });
 
@@ -889,8 +899,14 @@ Respond with JSON only:
     // For now, return a reasonable estimate based on engagement
     const avgEngagement =
       sessions.reduce((sum, s) => {
-        const messageLength = s.user_message?.length || 0;
-        return sum + (messageLength > 50 ? 1 : 0.5);
+        const childMessages =
+          s.messages?.filter((msg: ChatMessage) => msg.sender === "child") ||
+          [];
+        const totalLength = childMessages.reduce(
+          (len: number, msg: ChatMessage) => len + msg.content.length,
+          0
+        );
+        return sum + (totalLength > 50 ? 1 : 0.5);
       }, 0) / sessions.length;
 
     return Math.min(80, avgEngagement * 60);
@@ -909,8 +925,15 @@ Respond with JSON only:
   private analyzeResponseComplexity(sessions: any[]): number {
     const avgWordCount =
       sessions.reduce((sum, s) => {
-        const wordCount = (s.user_message || "").split(" ").length;
-        return sum + wordCount;
+        const childMessages =
+          s.messages?.filter((msg: ChatMessage) => msg.sender === "child") ||
+          [];
+        const totalWords = childMessages.reduce(
+          (count: number, msg: ChatMessage) =>
+            count + msg.content.split(" ").length,
+          0
+        );
+        return sum + totalWords;
       }, 0) / sessions.length;
 
     return Math.min(10, avgWordCount / 5);
@@ -921,8 +944,18 @@ Respond with JSON only:
       sessions.reduce((sum, s) => sum + (s.session_duration || 0), 0) /
       sessions.length;
     const avgMessageLength =
-      sessions.reduce((sum, s) => sum + (s.user_message?.length || 0), 0) /
-      sessions.length;
+      sessions.reduce((sum, s) => {
+        const childMessages =
+          s.messages?.filter((msg: ChatMessage) => msg.sender === "child") ||
+          [];
+        return (
+          sum +
+          childMessages.reduce(
+            (len: number, msg: ChatMessage) => len + msg.content.length,
+            0
+          )
+        );
+      }, 0) / sessions.length;
 
     return Math.min(10, avgDuration / 5 + avgMessageLength / 20);
   }
@@ -1067,10 +1100,10 @@ Respond with JSON only:
     const recentSessions = sessions.slice(half);
 
     const earlyEmotionalCount = earlySessions.filter((s) =>
-      this.containsEmotionalContent(s.user_message)
+      this.containsEmotionalContent(s.messages)
     ).length;
     const recentEmotionalCount = recentSessions.filter((s) =>
-      this.containsEmotionalContent(s.user_message)
+      this.containsEmotionalContent(s.messages)
     ).length;
 
     const earlyRate = earlyEmotionalCount / earlySessions.length;
@@ -1081,7 +1114,7 @@ Respond with JSON only:
 
   private calculateStressConsistency(sessions: any[]): number {
     const stressSessions = sessions.filter((s) =>
-      this.containsStressContent(s.user_message, s.mood_analysis)
+      this.containsStressContent(s.messages, s.mood_analysis)
     );
     if (stressSessions.length < 2) return 0.5;
 
@@ -1100,10 +1133,10 @@ Respond with JSON only:
     const recentSessions = sessions.slice(half);
 
     const earlyStressCount = earlySessions.filter((s) =>
-      this.containsStressContent(s.user_message, s.mood_analysis)
+      this.containsStressContent(s.messages, s.mood_analysis)
     ).length;
     const recentStressCount = recentSessions.filter((s) =>
-      this.containsStressContent(s.user_message, s.mood_analysis)
+      this.containsStressContent(s.messages, s.mood_analysis)
     ).length;
 
     const earlyRate = earlyStressCount / earlySessions.length;
@@ -1137,11 +1170,16 @@ Respond with JSON only:
     ];
 
     sessions.forEach((session) => {
-      const message = session.user_message?.toLowerCase() || "";
-      socialTerms.forEach((term) => {
-        if (message.includes(term)) {
-          socialWords.add(term);
-        }
+      const childMessages =
+        session.messages?.filter(
+          (msg: ChatMessage) => msg.sender === "child"
+        ) || [];
+      childMessages.forEach((msg: ChatMessage) => {
+        socialTerms.forEach((term) => {
+          if (msg.content.toLowerCase().includes(term)) {
+            socialWords.add(term);
+          }
+        });
       });
     });
 
@@ -1153,7 +1191,7 @@ Respond with JSON only:
 
     const recentSessions = sessions.slice(-3);
     const socialSessions = recentSessions.filter((s) =>
-      this.containsSocialContent(s.user_message)
+      this.containsSocialContent(s.messages)
     );
     return socialSessions.length / recentSessions.length;
   }
@@ -1174,11 +1212,16 @@ Respond with JSON only:
     ];
 
     sessions.forEach((session) => {
-      const message = session.user_message?.toLowerCase() || "";
-      familyTerms.forEach((term) => {
-        if (message.includes(term)) {
-          familyWords.add(term);
-        }
+      const childMessages =
+        session.messages?.filter(
+          (msg: ChatMessage) => msg.sender === "child"
+        ) || [];
+      childMessages.forEach((msg: ChatMessage) => {
+        familyTerms.forEach((term) => {
+          if (msg.content.toLowerCase().includes(term)) {
+            familyWords.add(term);
+          }
+        });
       });
     });
 
@@ -1194,16 +1237,6 @@ Respond with JSON only:
     return positiveFamily.length / familyMessages.length;
   }
 
-  private calculateRecentFamilyEngagement(sessions: any[]): number {
-    if (sessions.length < 3) return 0.5;
-
-    const recentSessions = sessions.slice(-3);
-    const familySessions = recentSessions.filter((s) =>
-      this.containsFamilyContent(s.user_message)
-    );
-    return familySessions.length / recentSessions.length;
-  }
-
   private calculateVariance(values: number[]): number {
     const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
     const squaredDiffs = values.map((val) => Math.pow(val - mean, 2));
@@ -1215,7 +1248,7 @@ Respond with JSON only:
 
     // Factor 1: Emotional content frequency (0-20 points)
     const emotionalMessages = sessions.filter((s) =>
-      this.containsEmotionalContent(s.user_message)
+      this.containsEmotionalContent(s.messages)
     );
     const emotionalFrequency = emotionalMessages.length / sessions.length;
     confidence += emotionalFrequency * 20;
@@ -1226,8 +1259,18 @@ Respond with JSON only:
 
     // Factor 3: Session engagement quality (0-15 points)
     const avgMessageLength =
-      sessions.reduce((sum, s) => sum + (s.user_message?.length || 0), 0) /
-      sessions.length;
+      sessions.reduce((sum, s) => {
+        const childMessages =
+          s.messages?.filter((msg: ChatMessage) => msg.sender === "child") ||
+          [];
+        return (
+          sum +
+          childMessages.reduce(
+            (len: number, msg: ChatMessage) => len + msg.content.length,
+            0
+          )
+        );
+      }, 0) / sessions.length;
     confidence += Math.min(15, avgMessageLength / 10);
 
     // Factor 4: Mood analysis consistency (0-10 points)
@@ -1242,7 +1285,7 @@ Respond with JSON only:
 
     // Factor 1: Stress frequency and intensity (0-25 points)
     const stressMessages = sessions.filter((s) =>
-      this.containsStressContent(s.user_message, s.mood_analysis)
+      this.containsStressContent(s.messages, s.mood_analysis)
     );
     const stressFrequency = stressMessages.length / sessions.length;
     confidence += stressFrequency * 25;
@@ -1270,7 +1313,7 @@ Respond with JSON only:
 
     // Factor 1: Social content frequency (0-25 points)
     const socialMessages = sessions.filter((s) =>
-      this.containsSocialContent(s.user_message)
+      this.containsSocialContent(s.messages)
     );
     const socialFrequency = socialMessages.length / sessions.length;
     confidence += socialFrequency * 25;
@@ -1303,7 +1346,7 @@ Respond with JSON only:
 
     // Factor 1: Family content frequency (0-25 points)
     const familyMessages = sessions.filter((s) =>
-      this.containsFamilyContent(s.user_message)
+      this.containsFamilyContent(s.messages)
     );
     const familyFrequency = familyMessages.length / sessions.length;
     confidence += familyFrequency * 25;

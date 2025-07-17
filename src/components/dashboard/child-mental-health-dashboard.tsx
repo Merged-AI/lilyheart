@@ -4,336 +4,92 @@ import { useState, useEffect } from "react";
 import { Brain, TrendingUp } from "lucide-react";
 import { formatSessionDuration } from "@/lib/utils";
 
-// Mock data for mental health analytics
-const moodData = [
-  {
-    date: "2024-01-15",
-    happiness: 7,
-    anxiety: 3,
-    sadness: 2,
-    anger: 1,
-    stress: 4,
-  },
-  {
-    date: "2024-01-16",
-    happiness: 6,
-    anxiety: 4,
-    sadness: 3,
-    anger: 2,
-    stress: 5,
-  },
-  {
-    date: "2024-01-17",
-    happiness: 5,
-    anxiety: 6,
-    sadness: 4,
-    anger: 3,
-    stress: 7,
-  },
-  {
-    date: "2024-01-18",
-    happiness: 4,
-    anxiety: 7,
-    sadness: 6,
-    anger: 2,
-    stress: 8,
-  },
-  {
-    date: "2024-01-19",
-    happiness: 3,
-    anxiety: 8,
-    sadness: 7,
-    anger: 4,
-    stress: 9,
-  },
-  {
-    date: "2024-01-20",
-    happiness: 4,
-    anxiety: 7,
-    sadness: 6,
-    anger: 3,
-    stress: 8,
-  },
-  {
-    date: "2024-01-21",
-    happiness: 5,
-    anxiety: 6,
-    sadness: 5,
-    anger: 2,
-    stress: 7,
-  },
-];
+interface Session {
+  id: string;
+  childId: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  moodAnalysis: {
+    happiness: number;
+    anxiety: number;
+    sadness: number;
+    stress: number;
+    confidence: number;
+    insights: string;
+  };
+  keyTopics: string[];
+  summary: string;
+}
 
-const therapySessions = [
-  {
-    id: 1,
-    date: "2024-01-21",
-    time: "4:30 PM",
-    duration: 45,
-    mood: "Anxious",
-    topics: ["School stress", "Friend conflicts", "Sleep problems"],
-    insights:
-      "Child expressed significant worry about upcoming tests and peer relationships.",
-    recommendations: [
-      "Practice relaxation techniques",
-      "Schedule teacher conference",
-      "Establish bedtime routine",
-    ],
-  },
-  {
-    id: 2,
-    date: "2024-01-20",
-    time: "4:15 PM",
-    duration: 38,
-    mood: "Sad",
-    topics: ["Bullying", "Self-esteem", "Family dynamics"],
-    insights:
-      "Reported bullying incidents at school affecting self-confidence.",
-    recommendations: [
-      "Contact school counselor",
-      "Build confidence activities",
-      "Family communication session",
-    ],
-  },
-  {
-    id: 3,
-    date: "2024-01-19",
-    time: "4:45 PM",
-    duration: 52,
-    mood: "Overwhelmed",
-    topics: ["Academic pressure", "Time management", "Social anxiety"],
-    insights:
-      "Struggling with workload and social situations causing significant stress.",
-    recommendations: [
-      "Study schedule planning",
-      "Social skills practice",
-      "Stress management techniques",
-    ],
-  },
-];
-
-const alertsData = [
-  {
-    id: 1,
-    type: "high",
-    title: "Elevated Anxiety Levels",
-    description: "Consistent anxiety scores above 7/10 for 3 consecutive days",
-    timestamp: "2 hours ago",
-    action: "Consider scheduling in-person therapy session",
-  },
-  {
-    id: 2,
-    type: "medium",
-    title: "Social Withdrawal Pattern",
-    description:
-      "Decreased discussion of peer interactions and social activities",
-    timestamp: "1 day ago",
-    action: "Encourage social activities and check with teachers",
-  },
-];
+function getMoodFromAnalysis(moodAnalysis: Session["moodAnalysis"]): string {
+  if (moodAnalysis.anxiety >= 7) return "Anxious";
+  if (moodAnalysis.sadness >= 7) return "Sad";
+  if (moodAnalysis.happiness >= 7) return "Happy";
+  if (moodAnalysis.stress >= 7) return "Stressed";
+  return "Neutral";
+}
 
 export function ChildMentalHealthDashboard({
   selectedChildId,
+  analyticsData,
 }: {
   selectedChildId?: string;
+  analyticsData?: any;
 }) {
-  const [showDetailedPattern, setShowDetailedPattern] = useState<string | null>(
-    null
-  );
-  const [realTimeData, setRealTimeData] = useState({
-    sessions: therapySessions,
-    moodData: moodData,
-    alerts: alertsData,
-  });
-  const [enhancedAnalysis, setEnhancedAnalysis] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [expandedPatterns, setExpandedPatterns] = useState<
+    Record<string, boolean>
+  >({});
+  const [recentSessions, setRecentSessions] = useState<Session[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+
+  const togglePattern = (topic: string) => {
+    setExpandedPatterns((prev) => {
+      // If this pattern is already expanded, close it
+      if (prev[topic]) {
+        return {
+          ...prev,
+          [topic]: false,
+        };
+      }
+      // If another pattern is expanded, close it and open this one
+      return {
+        // Reset all patterns to false
+        ...Object.keys(prev).reduce(
+          (acc, key) => ({ ...acc, [key]: false }),
+          {}
+        ),
+        // Set the clicked pattern to true
+        [topic]: true,
+      };
+    });
+  };
 
   useEffect(() => {
-    if (selectedChildId) {
-      setIsLoading(true);
-      Promise.all([fetchRealTimeData(), fetchEnhancedAnalysis()]).finally(() =>
-        setIsLoading(false)
-      );
+    async function fetchSessions() {
+      if (!selectedChildId) return;
+
+      setIsLoadingSessions(true);
+      try {
+        const response = await fetch(
+          `/api/chat/sessions?childId=${selectedChildId}`
+        );
+        if (!response.ok) throw new Error("Failed to fetch sessions");
+
+        const data = await response.json();
+        setRecentSessions(data.sessions);
+      } catch (error) {
+        console.error("Error fetching sessions:", error);
+      } finally {
+        setIsLoadingSessions(false);
+      }
     }
+
+    fetchSessions();
   }, [selectedChildId]);
 
-  const fetchRealTimeData = async () => {
-    try {
-      // Fetch recent therapy sessions for selected child
-      const sessionsUrl = `/api/sessions?limit=10&childId=${selectedChildId}`;
-
-      const sessionsResponse = await fetch(sessionsUrl);
-      if (sessionsResponse.ok) {
-        const sessionsData = await sessionsResponse.json();
-
-        // Transform database sessions to component format
-        const transformedSessions = sessionsData.sessions.map(
-          (session: any, index: number) => ({
-            id: session.id || index + 1,
-            date: new Date(session.created_at).toLocaleDateString(),
-            time: new Date(session.created_at).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            duration: session.session_duration || 0,
-            mood: getMoodFromAnalysis(session.mood_analysis),
-            topics: session.topics || ["General conversation"],
-            insights:
-              session.ai_response?.substring(0, 200) + "..." ||
-              "AI provided supportive guidance.",
-            recommendations: getRecommendationsFromMood(session.mood_analysis),
-          })
-        );
-
-        setRealTimeData((prev) => ({
-          ...prev,
-          sessions: transformedSessions,
-        }));
-      }
-
-      // Update mood data based on recent sessions for selected child
-      if (selectedChildId) {
-        const moodUrl = `/api/mood-tracking?days=7&childId=${selectedChildId}`;
-        const moodResponse = await fetch(moodUrl);
-        if (moodResponse.ok) {
-          const moodDataResponse = await moodResponse.json();
-          setRealTimeData((prev) => ({
-            ...prev,
-            moodData: moodDataResponse.moodData || moodData,
-          }));
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching real-time data:", error);
-    }
-  };
-
-  const fetchEnhancedAnalysis = async () => {
-    try {
-      const url = new URL("/api/enhanced-analysis", window.location.origin);
-      url.searchParams.set("days", "30");
-      if (selectedChildId) {
-        url.searchParams.set("childId", selectedChildId);
-      }
-
-      const response = await fetch(url.toString());
-      if (response.ok) {
-        const analysisData = await response.json();
-        // The API returns the analysis nested under .analysis property
-        setEnhancedAnalysis(analysisData.analysis || null);
-      }
-    } catch (error) {
-      console.error("Error fetching enhanced analysis:", error);
-    }
-  };
-
-  // Get mood label from AI analysis
-  const getMoodFromAnalysis = (moodAnalysis: any) => {
-    if (!moodAnalysis) return "Neutral";
-
-    const {
-      anxiety = 5,
-      sadness = 5,
-      happiness = 5,
-      stress = 5,
-    } = moodAnalysis;
-
-    // Use AI insights if available
-    if (moodAnalysis.insights) {
-      const insights = moodAnalysis.insights.toLowerCase();
-      if (insights.includes("anxious") || insights.includes("anxiety"))
-        return "Anxious";
-      if (
-        insights.includes("sad") ||
-        insights.includes("sadness") ||
-        insights.includes("depressive")
-      )
-        return "Sad";
-      if (insights.includes("stress") || insights.includes("overwhelmed"))
-        return "Stressed";
-      if (insights.includes("happy") || insights.includes("positive"))
-        return "Happy";
-      if (insights.includes("crisis") || insights.includes("concerning"))
-        return "Concerning";
-    }
-
-    // Fallback to score-based analysis
-    if (anxiety >= 7) return "Anxious";
-    if (sadness >= 7) return "Sad";
-    if (stress >= 7) return "Stressed";
-    if (happiness >= 7) return "Happy";
-    if (anxiety >= 6 || sadness >= 6 || stress >= 6) return "Mixed";
-
-    return "Neutral";
-  };
-
-  // Get recommendations from AI analysis
-  const getRecommendationsFromMood = (moodAnalysis: any) => {
-    if (!moodAnalysis) return ["Continue regular check-ins"];
-
-    const recommendations = [];
-    const {
-      anxiety = 5,
-      sadness = 5,
-      stress = 5,
-      confidence = 5,
-    } = moodAnalysis;
-
-    // Use AI insights if available
-    if (moodAnalysis.insights) {
-      const insights = moodAnalysis.insights.toLowerCase();
-
-      if (insights.includes("anxiety") || insights.includes("worried")) {
-        recommendations.push("Practice breathing exercises together");
-        recommendations.push("Consider anxiety management techniques");
-      }
-
-      if (insights.includes("sad") || insights.includes("depressive")) {
-        recommendations.push("Schedule quality time together");
-        recommendations.push("Encourage expression of feelings");
-      }
-
-      if (insights.includes("stress") || insights.includes("overwhelmed")) {
-        recommendations.push("Review daily schedule and reduce pressure");
-        recommendations.push("Introduce stress-relief activities");
-      }
-
-      if (insights.includes("confidence") || insights.includes("self-esteem")) {
-        recommendations.push("Focus on building self-esteem");
-        recommendations.push("Celebrate small achievements");
-      }
-
-      if (insights.includes("crisis") || insights.includes("professional")) {
-        recommendations.push("Consider professional mental health support");
-        recommendations.push("Contact mental health professional");
-      }
-    }
-
-    // Fallback to score-based recommendations
-    if (anxiety >= 6) {
-      recommendations.push("Practice breathing exercises together");
-      recommendations.push("Consider anxiety management techniques");
-    }
-    if (sadness >= 6) {
-      recommendations.push("Schedule quality time together");
-      recommendations.push("Encourage expression of feelings");
-    }
-    if (stress >= 6) {
-      recommendations.push("Review daily schedule and reduce pressure");
-      recommendations.push("Introduce stress-relief activities");
-    }
-    if (confidence <= 3) {
-      recommendations.push("Focus on building self-esteem");
-      recommendations.push("Celebrate small achievements");
-    }
-
-    return recommendations.length > 0
-      ? recommendations
-      : ["Continue supportive conversations"];
-  };
-
   // Loading state
-  if (isLoading) {
+  if (isLoadingSessions) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Analysis Area Loading */}
@@ -504,55 +260,51 @@ export function ChildMentalHealthDashboard({
               Family Communication Insights & Patterns
             </h2>
             <div className="text-sm text-gray-500">
-              Based on{" "}
-              {enhancedAnalysis?.totalSessions || realTimeData.sessions.length}{" "}
+              Based on {analyticsData?.sessions_analytics?.total_sessions || 0}{" "}
               therapy sessions
             </div>
           </div>
 
           <div className="space-y-6">
-            {enhancedAnalysis &&
-            enhancedAnalysis.communicationPatterns &&
-            enhancedAnalysis.communicationPatterns.length > 0 ? (
-              enhancedAnalysis.communicationPatterns.map((pattern: any) => (
+            {analyticsData?.communication_insights &&
+            analyticsData?.communication_insights.length > 0 ? (
+              analyticsData?.communication_insights.map((pattern: any) => (
                 <div
-                  key={pattern.id}
+                  key={pattern.topic}
                   className="border border-gray-200 rounded-lg p-6 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <h3 className="text-lg font-medium text-gray-900">
-                        {pattern.title}
+                        {pattern.topic}
                       </h3>
                       <div className="flex items-center space-x-4 mt-2">
                         <div className="flex items-center space-x-2">
                           <div className="w-full bg-gray-200 rounded-full h-2 max-w-32">
                             <div
                               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${pattern.confidence}%` }}
+                              style={{
+                                width: `${pattern.confidence_score}%`,
+                              }}
                             ></div>
                           </div>
                           <span className="text-sm font-medium text-gray-700">
-                            {pattern.confidence}% confidence
+                            {pattern.confidence_score}% confidence
                           </span>
                         </div>
                       </div>
                     </div>
                     <button
-                      onClick={() =>
-                        setShowDetailedPattern(
-                          showDetailedPattern === pattern.id ? null : pattern.id
-                        )
-                      }
+                      onClick={() => togglePattern(pattern.topic)}
                       className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                     >
-                      {showDetailedPattern === pattern.id
+                      {expandedPatterns[pattern.topic]
                         ? "Hide Details"
                         : "View Details"}
                     </button>
                   </div>
 
-                  {showDetailedPattern === pattern.id && (
+                  {expandedPatterns[pattern.topic] && (
                     <div className="space-y-4 pt-4 border-t border-gray-200">
                       <div>
                         <h4 className="font-medium text-gray-900 mb-2">
@@ -565,7 +317,7 @@ export function ChildMentalHealthDashboard({
                                 key={index}
                                 className="text-sm text-gray-600 flex items-start space-x-2"
                               >
-                                <span className="text-blue-500 mt-1">•</span>
+                                <span className="text-blue-500">•</span>
                                 <span>{observation}</span>
                               </li>
                             )
@@ -578,13 +330,13 @@ export function ChildMentalHealthDashboard({
                           Parent Insights:
                         </h4>
                         <ul className="space-y-1">
-                          {pattern.parentInsights?.map(
+                          {pattern.parent_insights?.map(
                             (insight: string, index: number) => (
                               <li
                                 key={index}
                                 className="text-sm text-purple-700 flex items-start space-x-2"
                               >
-                                <span className="text-purple-500 mt-1">?</span>
+                                <span className="text-purple-500">?</span>
                                 <span>{insight}</span>
                               </li>
                             )
@@ -597,16 +349,16 @@ export function ChildMentalHealthDashboard({
                           Communication Tips:
                         </h4>
                         <div className="text-sm text-blue-800">
-                          {Array.isArray(pattern.communicationTips) ? (
+                          {Array.isArray(pattern.communication_tips) ? (
                             <ul className="space-y-1">
-                              {pattern.communicationTips.map(
+                              {pattern.communication_tips.map(
                                 (tip: string, index: number) => (
                                   <li key={index}>• {tip}</li>
                                 )
                               )}
                             </ul>
                           ) : (
-                            <p>{pattern.communicationTips}</p>
+                            <p>{pattern.communication_tips}</p>
                           )}
                         </div>
                       </div>
@@ -616,7 +368,7 @@ export function ChildMentalHealthDashboard({
                           Recommended Next Step:
                         </h4>
                         <p className="text-sm text-green-800">
-                          {pattern.recommendedNextStep || pattern.nextSteps}
+                          {pattern.recommended_next_step || pattern.next_steps}
                         </p>
                       </div>
                     </div>
@@ -650,10 +402,9 @@ export function ChildMentalHealthDashboard({
           </h2>
 
           <div className="space-y-6">
-            {enhancedAnalysis &&
-            enhancedAnalysis.familyBenefits &&
-            enhancedAnalysis.familyBenefits.length > 0 ? (
-              enhancedAnalysis.familyBenefits.map(
+            {analyticsData?.growth_development_insights &&
+            analyticsData?.growth_development_insights.length > 0 ? (
+              analyticsData?.growth_development_insights.map(
                 (benefit: any, index: number) => (
                   <div
                     key={index}
@@ -661,23 +412,17 @@ export function ChildMentalHealthDashboard({
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-medium text-gray-900">
-                        {benefit.area}
+                        {benefit.category}
                       </h3>
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          benefit.currentProgress === "Growing Confidence"
-                            ? "bg-green-100 text-green-700"
-                            : benefit.currentProgress === "Developing Awareness"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700`}
                       >
-                        {benefit.currentProgress}
+                        {benefit.insight_detail}
                       </span>
                     </div>
 
                     <p className="text-sm text-gray-600 mb-3">
-                      {benefit.benefit}
+                      {benefit.insight_summary}
                     </p>
 
                     <div className="space-y-2">
@@ -686,16 +431,16 @@ export function ChildMentalHealthDashboard({
                           Suggested Actions:
                         </p>
                         <div className="text-sm text-green-800">
-                          {Array.isArray(benefit.suggestedActions) ? (
+                          {Array.isArray(benefit.suggested_actions) ? (
                             <ul className="space-y-1">
-                              {benefit.suggestedActions.map(
+                              {benefit.suggested_actions.map(
                                 (action: string, actionIndex: number) => (
                                   <li key={actionIndex}>• {action}</li>
                                 )
                               )}
                             </ul>
                           ) : (
-                            <p>{benefit.suggestedActions}</p>
+                            <p>{benefit.suggested_actions}</p>
                           )}
                         </div>
                       </div>
@@ -730,61 +475,111 @@ export function ChildMentalHealthDashboard({
           </h2>
 
           <div className="space-y-4">
-            {realTimeData.sessions.slice(0, 5).map((session, index) => (
-              <div
-                key={session.id}
-                className="border border-gray-200 rounded-lg p-4"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-sm text-gray-600">
-                      {session.date} at {session.time}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {formatSessionDuration(session.duration)}
-                    </div>
-                  </div>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      session.mood === "Anxious"
-                        ? "bg-red-100 text-red-700"
-                        : session.mood === "Sad"
-                        ? "bg-blue-100 text-blue-700"
-                        : session.mood === "Happy"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-orange-100 text-orange-700"
-                    }`}
+            {isLoadingSessions ? (
+              // Loading skeleton
+              Array(3)
+                .fill(null)
+                .map((_, index) => (
+                  <div
+                    key={`loading-${index}`}
+                    className="border border-gray-200 rounded-lg p-4"
                   >
-                    {session.mood}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Key Themes:
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {session.topics.map((topic, topicIndex) => (
-                        <span
-                          key={topicIndex}
-                          className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs"
-                        >
-                          {topic}
-                        </span>
-                      ))}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-4">
+                        <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                        <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                      </div>
+                      <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="h-4 bg-gray-200 rounded w-20 mb-2 animate-pulse"></div>
+                        <div className="flex gap-1">
+                          <div className="h-6 bg-gray-200 rounded w-16 animate-pulse"></div>
+                          <div className="h-6 bg-gray-200 rounded w-16 animate-pulse"></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+                        <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
+                      </div>
                     </div>
                   </div>
+                ))
+            ) : recentSessions.length > 0 ? (
+              recentSessions.slice(0, 5).map((session) => {
+                const startDate = new Date(session.startTime);
+                const mood = getMoodFromAnalysis(session.moodAnalysis);
 
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Clinical Notes:
-                    </p>
-                    <p className="text-xs text-gray-600">{session.insights}</p>
+                return (
+                  <div
+                    key={session.id}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-sm text-gray-600">
+                          {startDate.toLocaleDateString()} at{" "}
+                          {startDate.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {formatSessionDuration(session.duration)}
+                        </div>
+                      </div>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          mood === "Anxious"
+                            ? "bg-red-100 text-red-700"
+                            : mood === "Sad"
+                            ? "bg-blue-100 text-blue-700"
+                            : mood === "Happy"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-orange-100 text-orange-700"
+                        }`}
+                      >
+                        {mood}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Key Themes:
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {session.keyTopics.map(
+                            (topic: string, topicIndex: number) => (
+                              <span
+                                key={topicIndex}
+                                className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs"
+                              >
+                                {topic}
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Clinical Notes:
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {session.moodAnalysis.insights}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No recent conversations found.</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -801,14 +596,14 @@ export function ChildMentalHealthDashboard({
           </h3>
 
           <div className="space-y-4">
-            {enhancedAnalysis && enhancedAnalysis.overallInsights ? (
+            {analyticsData?.family_communication_summary ? (
               <>
                 <div>
                   <h4 className="font-medium text-green-800 mb-2">
                     Communication Strengths:
                   </h4>
                   <ul className="space-y-1">
-                    {enhancedAnalysis.overallInsights.strengths?.map(
+                    {analyticsData?.family_communication_summary.strengths?.map(
                       (strength: string, index: number) => (
                         <li
                           key={index}
@@ -827,7 +622,7 @@ export function ChildMentalHealthDashboard({
                     Areas for Family Growth:
                   </h4>
                   <ul className="space-y-1">
-                    {enhancedAnalysis.overallInsights.growthAreas?.map(
+                    {analyticsData?.family_communication_summary.growth_areas?.map(
                       (area: string, index: number) => (
                         <li
                           key={index}
@@ -846,7 +641,7 @@ export function ChildMentalHealthDashboard({
                     Recommendations:
                   </h4>
                   <ul className="space-y-1">
-                    {enhancedAnalysis.overallInsights.recommendations?.map(
+                    {analyticsData?.family_communication_summary.recommendations?.map(
                       (rec: string, index: number) => (
                         <li
                           key={index}
@@ -880,37 +675,48 @@ export function ChildMentalHealthDashboard({
           </h3>
 
           <div className="space-y-4">
-            <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <h4 className="font-medium text-purple-800 mb-2">
-                Key Conversation Topics:
-              </h4>
-              <ol className="text-sm text-purple-700 space-y-1 list-decimal list-inside">
-                <li>Communication patterns and family dynamics</li>
-                <li>Emotional wellness and stress management</li>
-                <li>Social relationships and friendship development</li>
-                <li>School experiences and learning environment</li>
-              </ol>
-            </div>
+            {analyticsData?.conversation_organization ? (
+              <>
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <h4 className="font-medium text-purple-800 mb-2">
+                    Key Conversation Topics:
+                  </h4>
+                  <ol className="text-sm text-purple-700 space-y-1 list-decimal list-inside">
+                    {analyticsData?.conversation_organization?.key_topics?.map(
+                      (topic: string, index: number) => (
+                        <li key={index}>{topic}</li>
+                      )
+                    )}
+                  </ol>
+                </div>
 
-            <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <h4 className="font-medium text-purple-800 mb-2">
-                Questions to Consider:
-              </h4>
-              <ul className="text-sm text-purple-700 space-y-1">
-                <li>
-                  • How can we better support our child's emotional needs?
-                </li>
-                <li>
-                  • What communication strategies work best for our family?
-                </li>
-                <li>• Are there resources to help with stress management?</li>
-                <li>• How can we strengthen family relationships?</li>
-              </ul>
-            </div>
-
-            <button className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors">
-              Organize Family Conversation Notes
-            </button>
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <h4 className="font-medium text-purple-800 mb-2">
+                    Questions to Consider:
+                  </h4>
+                  <ul className="text-sm text-purple-700 space-y-1">
+                    {analyticsData?.conversation_organization?.questions_to_consider?.map(
+                      (question: string, index: number) => (
+                        <li key={index}>• {question}</li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
+                  <Brain size={48} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-lg font-medium">
+                    Conversation Planning Coming Soon
+                  </p>
+                  <p className="text-sm">
+                    Complete more therapy sessions to receive professional
+                    conversation guidance.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -924,35 +730,43 @@ export function ChildMentalHealthDashboard({
           </h3>
 
           <div className="space-y-3">
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <h4 className="font-medium text-blue-800 text-sm">
-                Building Trust in Conversations
-              </h4>
-              <p className="text-xs text-blue-700 mt-1">
-                Regular check-ins without pressure create safe spaces for
-                children to share their feelings naturally.
-              </p>
-            </div>
-
-            <div className="bg-green-50 p-3 rounded-lg">
-              <h4 className="font-medium text-green-800 text-sm">
-                Understanding Emotional Expression
-              </h4>
-              <p className="text-xs text-green-700 mt-1">
-                Children often express stress through physical complaints or
-                behavior changes rather than words.
-              </p>
-            </div>
-
-            <div className="bg-orange-50 p-3 rounded-lg">
-              <h4 className="font-medium text-orange-800 text-sm">
-                Family Communication Growth
-              </h4>
-              <p className="text-xs text-orange-700 mt-1">
-                Every family develops at their own pace. Focus on progress, not
-                perfection, in communication skills.
-              </p>
-            </div>
+            {analyticsData?.family_wellness_tips &&
+            analyticsData?.family_wellness_tips.length > 0 ? (
+              analyticsData?.family_wellness_tips?.map(
+                (tip: any, index: number) => (
+                  <div
+                    key={index}
+                    className={`bg-${tip.color || "blue"}-50 p-3 rounded-lg`}
+                  >
+                    <h4
+                      className={`font-medium text-${
+                        tip.color || "blue"
+                      }-800 text-sm`}
+                    >
+                      {tip.title}
+                    </h4>
+                    <p
+                      className={`text-xs text-${tip.color || "blue"}-700 mt-1`}
+                    >
+                      {tip.description}
+                    </p>
+                  </div>
+                )
+              )
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
+                  <TrendingUp size={48} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-lg font-medium">
+                    Wellness Tips Coming Soon
+                  </p>
+                  <p className="text-sm">
+                    Continue your therapy journey to receive personalized
+                    wellness tips.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -966,37 +780,54 @@ export function ChildMentalHealthDashboard({
           </h3>
 
           <div className="space-y-3">
-            <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
-              <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-              <div>
-                <p className="font-medium text-green-800 text-sm">This Week</p>
-                <p className="text-green-700 text-xs">
-                  Practice daily emotional check-ins with your child
-                </p>
+            {analyticsData?.family_communication_goals &&
+            analyticsData?.family_communication_goals.length > 0 ? (
+              analyticsData?.family_communication_goals?.map(
+                (goal: any, index: number) => (
+                  <div
+                    key={index}
+                    className={`flex items-start space-x-3 p-3 bg-${
+                      goal.color || "green"
+                    }-50 rounded-lg border-l-4 border-${
+                      goal.color || "green"
+                    }-400`}
+                  >
+                    <div
+                      className={`flex-shrink-0 w-2 h-2 bg-${
+                        goal.color || "green"
+                      }-500 rounded-full mt-2`}
+                    ></div>
+                    <div>
+                      <p
+                        className={`font-medium text-${
+                          goal.color || "green"
+                        }-800 text-sm`}
+                      >
+                        {goal.goal_type}
+                      </p>
+                      <p
+                        className={`text-${goal.color || "green"}-700 text-xs`}
+                      >
+                        {goal.description}
+                      </p>
+                    </div>
+                  </div>
+                )
+              )
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
+                  <Brain size={48} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-lg font-medium">
+                    Communication Goals Pending
+                  </p>
+                  <p className="text-sm">
+                    Complete more sessions to receive personalized family
+                    communication goals.
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-              <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-              <div>
-                <p className="font-medium text-blue-800 text-sm">Ongoing</p>
-                <p className="text-blue-700 text-xs">
-                  Create consistent family conversation time without
-                  distractions
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-400">
-              <div className="flex-shrink-0 w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
-              <div>
-                <p className="font-medium text-purple-800 text-sm">If Needed</p>
-                <p className="text-purple-700 text-xs">
-                  Consider family communication support resources if challenges
-                  persist
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

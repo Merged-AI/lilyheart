@@ -8,7 +8,6 @@ import {
   Users,
   Star,
   Lock,
-  Award,
   Shield,
   AlertTriangle,
 } from "lucide-react";

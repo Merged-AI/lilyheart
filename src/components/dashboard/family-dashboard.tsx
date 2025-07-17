@@ -12,6 +12,7 @@ import {
   Clock,
   ArrowLeft,
 } from "lucide-react";
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 // Simple card components
 const Card = ({
@@ -135,7 +136,7 @@ export function FamilyDashboard({ familyId }: FamilyDashboardProps) {
       if (childrenError) throw childrenError;
 
       // Load recent analyses for all children
-      const childIds = children?.map((child) => child.id) || [];
+      const childIds = children?.map((child: Child) => child.id) || [];
       const { data: analyses, error: analysesError } = await supabase
         .from("social_health_analyses")
         .select("*")
@@ -181,8 +182,7 @@ export function FamilyDashboard({ familyId }: FamilyDashboardProps) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "social_health_analyses" },
-        (payload) => {
-          console.log("New analysis received:", payload.new);
+        (payload: RealtimePostgresChangesPayload<SocialHealthAnalysis>) => {
           setData((prev) => ({
             ...prev,
             recentAnalyses: [
@@ -199,8 +199,7 @@ export function FamilyDashboard({ familyId }: FamilyDashboardProps) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "crisis_alerts" },
-        (payload) => {
-          console.log("New alert received:", payload.new);
+        (payload: RealtimePostgresChangesPayload<CrisisAlert>) => {
           setData((prev) => ({
             ...prev,
             activeAlerts: [payload.new as CrisisAlert, ...prev.activeAlerts],
@@ -211,7 +210,6 @@ export function FamilyDashboard({ familyId }: FamilyDashboardProps) {
 
     // Return cleanup function
     return () => {
-      console.log("Cleaning up subscriptions for family:", familyId);
       analysesChannel.unsubscribe();
       alertsChannel.unsubscribe();
     };
@@ -604,7 +602,7 @@ export function FamilyDashboard({ familyId }: FamilyDashboardProps) {
                                   key={index}
                                   className="flex items-start gap-2"
                                 >
-                                  <span className="text-blue-500 mt-1">•</span>
+                                  <span className="text-blue-500">•</span>
                                   {concern}
                                 </li>
                               )

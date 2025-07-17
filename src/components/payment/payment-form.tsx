@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import {
   Elements,
@@ -48,17 +48,21 @@ function PaymentFormContent({ familyData, onSuccess, onError }: PaymentFormProps
   const [error, setError] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
-  const [hasStarted, setHasStarted] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const hasCreatedSubscription = useRef(false)
 
   useEffect(() => {
-    if (!hasStarted) {
-      setHasStarted(true)
+    // Only create subscription once
+    if (!hasCreatedSubscription.current) {
+      hasCreatedSubscription.current = true
       createSubscription()
     }
-  }, [hasStarted])
+  }, []) // Empty dependency array means this runs once on mount
 
   const createSubscription = async () => {
+    // Prevent multiple calls
+    if (isLoading || subscriptionId) return
+    
     setIsLoading(true)
     setError(null)
 

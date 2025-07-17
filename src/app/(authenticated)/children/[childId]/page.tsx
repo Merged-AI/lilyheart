@@ -71,8 +71,6 @@ interface Session {
     insights?: string;
   };
   topics: string[];
-  user_message: string;
-  ai_response: string;
   session_summary?: string;
   has_alert: boolean;
   alert_level?: string;
@@ -178,10 +176,8 @@ export default function ViewChildPage() {
           .map((session: Session) => ({
             id: session.id,
             created_at: session.created_at,
-            mood_score: session.mood_analysis.happiness, // Use happiness as primary mood score
-            notes:
-              session.mood_analysis.insights ||
-              `Session: ${session.user_message?.substring(0, 100)}...`,
+            mood_score: session.mood_analysis.happiness,
+            notes: session.mood_analysis.insights,
             happiness: session.mood_analysis.happiness,
             anxiety: session.mood_analysis.anxiety,
             sadness: session.mood_analysis.sadness,
