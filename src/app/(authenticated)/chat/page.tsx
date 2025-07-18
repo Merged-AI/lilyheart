@@ -659,6 +659,7 @@ function ChatContent() {
           },
           body: JSON.stringify({
             childId: selectedChildId,
+            sessionDuration: sessionDuration,
           }),
         });
 
@@ -669,8 +670,8 @@ function ChatContent() {
           );
         }
 
-        // Update dashboard analytics
-        await fetch(`/api/analysis/dashboard-analytics`, {
+        // Trigger dashboard analytics update asynchronously (don't await)
+        fetch(`/api/analysis/dashboard-analytics`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -678,6 +679,9 @@ function ChatContent() {
           body: JSON.stringify({
             childId: selectedChildId,
           }),
+        }).catch((error) => {
+          console.error("Background analytics update failed:", error);
+          // Don't block session end if analytics fail
         });
       }
     } catch (error) {

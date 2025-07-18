@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import { MessageCircle, Brain, User } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
+interface Message {
+  sender: 'child' | 'ai';
+  content: string;
+  timestamp: string;
+}
+
 interface ChatSession {
   id: string;
   childId: string;
-  userMessage: string;
-  aiResponse: string;
-  keyTopics: string[];
+  messages: Message[];
 }
 
 export default function ChatSessionsPage() {
@@ -18,32 +22,65 @@ export default function ChatSessionsPage() {
   const { selectedChildId } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Load chat sessions
-  useEffect(() => {
-    const loadSessions = async () => {
-      if (!selectedChildId) {
-        return;
-      }
+  const loadSessions = async (page: number, isLoadMore: boolean = false) => {
+    if (!selectedChildId) {
+      return;
+    }
 
-      try {
+    try {
+      if (!isLoadMore) {
         setIsLoading(true);
-        const response = await fetch(
-          `/api/chat/sessions?childId=${selectedChildId}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setSessions(data.sessions || []);
-        }
-      } catch (error) {
-        console.error("Error loading chat sessions:", error);
-      } finally {
-        setIsLoading(false);
+      } else {
+        setIsLoadingMore(true);
       }
-    };
 
-    loadSessions();
+      const response = await fetch(
+        `/api/chat/sessions?childId=${selectedChildId}&page=${page}&pageSize=5`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (isLoadMore) {
+          setSessions(prev => [...prev, ...data.sessions]);
+        } else {
+          setSessions(data.sessions);
+        }
+        setHasMore(data.hasMore);
+      }
+    } catch (error) {
+      console.error("Error loading chat sessions:", error);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    setCurrentPage(1);
+    loadSessions(1);
   }, [selectedChildId]);
+
+  const handleLoadMore = () => {
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    loadSessions(nextPage, true);
+  };
+
+  const formatDate = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true
+    });
+  };
 
   if (!selectedChildId && !isLoading) {
     return (
@@ -110,45 +147,59 @@ export default function ChatSessionsPage() {
                   className="p-6 hover:bg-gray-50 transition-colors"
                 >
                   <div className="space-y-4">
-                    {/* Child's Message */}
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">
-                        Child's Message:
-                      </h4>
-                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
-                        {session.userMessage}
-                      </p>
+                    {/* Session Date */}
+                    <div className="text-sm text-gray-500 mb-4">
+                      Session from {formatDate(session.messages[0]?.timestamp)}
                     </div>
 
-                    {/* AI Response */}
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">
-                        Dr. Emma's Response:
-                      </h4>
-                      <div className="text-gray-700 bg-purple-50 p-3 rounded-lg whitespace-pre-wrap">
-                        {session.aiResponse}
-                      </div>
-                    </div>
-
-                    {/* Topics */}
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">
-                        Topics Discussed:
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {session.keyTopics.map((topic, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full"
+                    {/* Messages */}
+                    <div className="space-y-4">
+                      {session.messages.map((message, index) => (
+                        <div
+                          key={index}
+                          className={`flex ${
+                            message.sender === 'child' ? 'justify-end' : 'justify-start'
+                          }`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg p-4 ${
+                              message.sender === 'child'
+                                ? 'bg-purple-100 text-purple-900'
+                                : 'bg-gray-100 text-gray-900'
+                            }`}
                           >
-                            {topic}
-                          </span>
-                        ))}
-                      </div>
+                            <div className="text-sm font-medium mb-1">
+                              {message.sender === 'child' ? 'Child' : 'Dr. Emma'}
+                            </div>
+                            <div className="whitespace-pre-wrap">{message.content}</div>
+                            <div className="text-xs text-gray-500 mt-2">
+                              {formatDate(message.timestamp)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {sessions.length > 0 && hasMore && (
+            <div className="p-4 text-center">
+              <button
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="bg-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
+              >
+                {isLoadingMore ? (
+                  <span className="flex items-center justify-center">
+                    <MessageCircle className="h-5 w-5 animate-spin mr-2" />
+                    Loading...
+                  </span>
+                ) : (
+                  'Load More Sessions'
+                )}
+              </button>
             </div>
           )}
         </div>

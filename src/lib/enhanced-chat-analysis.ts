@@ -963,22 +963,26 @@ Respond with JSON only:
   private identifyStressTriggers(stressMessages: any[]): string {
     const triggers = new Map<string, number>();
 
-    stressMessages.forEach((msg) => {
-      const message = msg.user_message?.toLowerCase() || "";
-      if (message.includes("school"))
-        triggers.set("school", (triggers.get("school") || 0) + 1);
-      if (message.includes("test") || message.includes("exam"))
-        triggers.set("tests", (triggers.get("tests") || 0) + 1);
-      if (message.includes("friend"))
-        triggers.set(
-          "social situations",
-          (triggers.get("social situations") || 0) + 1
-        );
-      if (message.includes("family"))
-        triggers.set(
-          "family dynamics",
-          (triggers.get("family dynamics") || 0) + 1
-        );
+    stressMessages.forEach((s) => {
+      const childMessages =
+        s.messages?.filter((msg: ChatMessage) => msg.sender === "child") || [];
+      childMessages.forEach((msg: ChatMessage) => {
+        const message = msg.content.toLowerCase();
+        if (message.includes("school"))
+          triggers.set("school", (triggers.get("school") || 0) + 1);
+        if (message.includes("test") || message.includes("exam"))
+          triggers.set("tests", (triggers.get("tests") || 0) + 1);
+        if (message.includes("friend"))
+          triggers.set(
+            "social situations",
+            (triggers.get("social situations") || 0) + 1
+          );
+        if (message.includes("family"))
+          triggers.set(
+            "family dynamics",
+            (triggers.get("family dynamics") || 0) + 1
+          );
+      });
     });
 
     const topTrigger = Array.from(triggers.entries()).sort(
@@ -991,13 +995,17 @@ Respond with JSON only:
 
   private assessCopingStrategies(sessions: any[]): string {
     const copingMentions = sessions.filter((s) => {
-      const message = s.user_message?.toLowerCase() || "";
-      return (
-        message.includes("breath") ||
-        message.includes("calm") ||
-        message.includes("relax") ||
-        message.includes("better")
-      );
+      const childMessages =
+        s.messages?.filter((msg: ChatMessage) => msg.sender === "child") || [];
+      return childMessages.some((msg: ChatMessage) => {
+        const message = msg.content.toLowerCase();
+        return (
+          message.includes("breath") ||
+          message.includes("calm") ||
+          message.includes("relax") ||
+          message.includes("better")
+        );
+      });
     });
 
     return copingMentions.length > 0
@@ -1007,24 +1015,41 @@ Respond with JSON only:
 
   private analyzeFriendshipDynamics(socialMessages: any[]) {
     return {
-      misunderstood: socialMessages.filter((s) =>
-        s.user_message?.toLowerCase().includes("understand")
-      ).length,
-      excitement: socialMessages.filter(
-        (s) =>
-          s.user_message?.toLowerCase().includes("fun") ||
-          s.user_message?.toLowerCase().includes("excited")
-      ).length,
-      groupChallenges: socialMessages.filter(
-        (s) =>
-          s.user_message?.toLowerCase().includes("group") &&
-          s.user_message?.toLowerCase().includes("hard")
-      ).length,
-      oneOnOneSuccess: socialMessages.filter(
-        (s) =>
-          s.user_message?.toLowerCase().includes("friend") &&
-          s.user_message?.toLowerCase().includes("good")
-      ).length,
+      misunderstood: socialMessages.filter((s) => {
+        const childMessages =
+          s.messages?.filter((msg: ChatMessage) => msg.sender === "child") ||
+          [];
+        return childMessages.some((msg: ChatMessage) =>
+          msg.content.toLowerCase().includes("understand")
+        );
+      }).length,
+      excitement: socialMessages.filter((s) => {
+        const childMessages =
+          s.messages?.filter((msg: ChatMessage) => msg.sender === "child") ||
+          [];
+        return childMessages.some((msg: ChatMessage) => {
+          const content = msg.content.toLowerCase();
+          return content.includes("fun") || content.includes("excited");
+        });
+      }).length,
+      groupChallenges: socialMessages.filter((s) => {
+        const childMessages =
+          s.messages?.filter((msg: ChatMessage) => msg.sender === "child") ||
+          [];
+        return childMessages.some((msg: ChatMessage) => {
+          const content = msg.content.toLowerCase();
+          return content.includes("group") && content.includes("hard");
+        });
+      }).length,
+      oneOnOneSuccess: socialMessages.filter((s) => {
+        const childMessages =
+          s.messages?.filter((msg: ChatMessage) => msg.sender === "child") ||
+          [];
+        return childMessages.some((msg: ChatMessage) => {
+          const content = msg.content.toLowerCase();
+          return content.includes("friend") && content.includes("good");
+        });
+      }).length,
       positive: socialMessages.filter(
         (s) => (s.mood_analysis?.happiness || 0) > 6
       ).length,
@@ -1036,23 +1061,31 @@ Respond with JSON only:
 
   private analyzeFamilyTone(familyMessages: any[]) {
     const positiveFamily = familyMessages.filter((s) => {
-      const message = s.user_message?.toLowerCase() || "";
-      return (
-        message.includes("help") ||
-        message.includes("support") ||
-        message.includes("better") ||
-        message.includes("trust")
-      );
+      const childMessages =
+        s.messages?.filter((msg: ChatMessage) => msg.sender === "child") || [];
+      return childMessages.some((msg: ChatMessage) => {
+        const message = msg.content.toLowerCase();
+        return (
+          message.includes("help") ||
+          message.includes("support") ||
+          message.includes("better") ||
+          message.includes("trust")
+        );
+      });
     });
 
     return {
       trustBuilding: positiveFamily.length > familyMessages.length * 0.3,
       conflictResolution:
-        familyMessages.filter(
-          (s) =>
-            s.user_message?.toLowerCase().includes("problem") ||
-            s.user_message?.toLowerCase().includes("solve")
-        ).length > 0,
+        familyMessages.filter((s) => {
+          const childMessages =
+            s.messages?.filter((msg: ChatMessage) => msg.sender === "child") ||
+            [];
+          return childMessages.some((msg: ChatMessage) => {
+            const message = msg.content.toLowerCase();
+            return message.includes("problem") || message.includes("solve");
+          });
+        }).length > 0,
       positive: positiveFamily.length,
     };
   }

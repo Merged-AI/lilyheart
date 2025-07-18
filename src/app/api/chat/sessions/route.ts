@@ -20,6 +20,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const childId = searchParams.get("childId");
+    const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
+    const pageSize = searchParams.get("pageSize") ? parseInt(searchParams.get("pageSize")!) : 5;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
     if (!childId) {
       return NextResponse.json(
@@ -77,7 +81,22 @@ export async function GET(request: NextRequest) {
       `
       )
       .eq("child_id", childId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    // Get total count of sessions
+    const { count: totalSessions, error: countError } = await supabase
+      .from("therapy_sessions")
+      .select("*", { count: 'exact', head: true })
+      .eq("child_id", childId);
+
+    if (countError) {
+      console.error("Error getting total count:", countError);
+      return NextResponse.json(
+        { error: "Failed to get total count" },
+        { status: 500 }
+      );
+    }
 
     if (sessionsError) {
       console.error("Error fetching sessions:", sessionsError);
@@ -165,7 +184,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       sessions: transformedSessions,
-      total: transformedSessions.length,
+      total: totalSessions || 0,
+      currentPage: page,
+      totalPages: Math.ceil((totalSessions || 0) / pageSize),
+      hasMore: from + pageSize < (totalSessions || 0)
     });
   } catch (error) {
     console.error("Error in chat sessions API:", error);

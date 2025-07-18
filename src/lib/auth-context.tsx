@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface Family {
   parent_name: string;
@@ -23,6 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [family, setFamily] = useState<Family | null>(null);
@@ -43,13 +44,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setIsAuthenticated(false);
         setFamily(null);
-        router.push("/auth/register");
+        // Only redirect to register if user is on a protected route
+        if (!pathname.startsWith("/auth/") && pathname !== "/" && pathname !== "/pricing" && pathname !== "/terms-of-use") {
+          router.push("/auth/register");
+        }
       }
     } catch (error) {
       console.error("Auth check failed:", error);
       setIsAuthenticated(false);
       setFamily(null);
-      router.push("/auth/register");
+      // Only redirect to register if user is on a protected route
+      if (!pathname.startsWith("/auth/") && pathname !== "/" && pathname !== "/pricing" && pathname !== "/terms-of-use") {
+        router.push("/auth/register");
+      }
     } finally {
       setIsLoading(false);
     }

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedFamilyFromToken, createServerSupabase } from "@/lib/supabase-auth";
+import {
+  getAuthenticatedFamilyFromToken,
+  createServerSupabase,
+} from "@/lib/supabase-auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const { childId } = await request.json();
+    const { childId, sessionDuration } = await request.json();
 
     if (!childId) {
       return NextResponse.json(
@@ -41,9 +44,10 @@ export async function POST(request: NextRequest) {
     // Mark any active sessions for this child as completed
     const { error: updateError } = await supabase
       .from("therapy_sessions")
-      .update({ 
+      .update({
         status: "completed",
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        session_duration: sessionDuration,
       })
       .eq("child_id", childId)
       .eq("status", "active");
@@ -57,7 +61,6 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-
   } catch (error) {
     console.error("Error in complete session API:", error);
     return NextResponse.json(
@@ -65,4 +68,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

@@ -639,9 +639,92 @@ export async function POST(request: NextRequest) {
 
     // Crisis detection
     if (detectCrisis(message)) {
-      console.log("🚨 CRISIS DETECTED - Message:", message.substring(0, 100));
+      const crisisResponse = generateCrisisResponse();
+
+      // Store crisis session
+      try {
+        const supabase = createServerSupabase();
+
+        // Check for active session
+        const { data: activeSession, error: activeSessionError } =
+          await supabase
+            .from("therapy_sessions")
+            .select("*")
+            .eq("child_id", childId)
+            .eq("status", "active")
+            .maybeSingle();
+
+        if (activeSessionError) {
+          console.error("Error checking active session:", activeSessionError);
+        }
+
+        const crisisMessages = [
+          {
+            sender: "child",
+            content: message,
+            timestamp: new Date().toISOString(),
+          },
+          {
+            sender: "ai",
+            content: crisisResponse,
+            timestamp: new Date().toISOString(),
+          },
+        ];
+
+        // Analyze crisis messages
+        const { moodAnalysis: crisisMoodAnalysis, topics: crisisTopics } =
+          await analyzeAllMessages(crisisMessages);
+
+        if (activeSession) {
+          // Update existing active session
+          const currentMessages = activeSession.messages || [];
+          const updatedMessages = [...currentMessages, ...crisisMessages];
+
+          const { error: updateError } = await supabase
+            .from("therapy_sessions")
+            .update({
+              messages: updatedMessages,
+              mood_analysis: crisisMoodAnalysis,
+              topics: crisisTopics,
+              status: "active",
+            })
+            .eq("id", activeSession.id)
+            .eq("status", "active");
+
+          if (updateError) {
+            console.error("Error updating crisis session:", updateError);
+          }
+        } else {
+          // Create new crisis session
+          const { error: sessionError } = await supabase
+            .from("therapy_sessions")
+            .insert({
+              child_id: childId,
+              messages: crisisMessages,
+              session_duration: Math.floor(Math.random() * 30) + 15,
+              mood_analysis: crisisMoodAnalysis,
+              topics: crisisTopics,
+              status: "active",
+              crisis_detected: true,
+              created_at: new Date().toISOString(),
+            });
+
+          if (sessionError) {
+            console.error("Error saving crisis session:", sessionError);
+          }
+        }
+
+        // Update child's last session time
+        await supabase
+          .from("children")
+          .update({ last_session_at: new Date().toISOString() })
+          .eq("id", childId);
+      } catch (error) {
+        console.error("Error logging crisis session:", error);
+      }
+
       return NextResponse.json({
-        response: generateCrisisResponse(),
+        response: crisisResponse,
         crisis: true,
       });
     }

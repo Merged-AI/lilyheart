@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -13,6 +17,62 @@ import {
 } from "lucide-react";
 
 export default function HomePage() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        if (response.ok) {
+          // User is authenticated, redirect to dashboard
+          setIsAuthenticated(true);
+          router.replace("/dashboard");
+        } else {
+          // User is not authenticated, show landing page
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        // Error or no auth, show landing page
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Brain className="h-4 w-4 text-white" />
+          </div>
+          <p className="text-purple-700">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If authenticated, show redirecting message
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Brain className="h-4 w-4 text-white" />
+          </div>
+          <p className="text-purple-700">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render landing page content for unauthenticated users
   return (
     <div className="min-h-screen bg-white overflow-hidden">
       {/* Header */}

@@ -687,8 +687,47 @@ async function handleSendMessage(childId: string, data: any) {
     try {
       const supabase = createServerSupabase();
 
-      // Only store if we don't have a session ID yet
-      if (!finalSessionId) {
+      // Check for active session first (same as text chat)
+      const { data: activeSession, error: activeSessionError } = await supabase
+        .from("therapy_sessions")
+        .select("*")
+        .eq("child_id", childId)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (activeSessionError) {
+        console.error("Error checking active session:", activeSessionError);
+      }
+
+      if (activeSession) {
+        // Update existing active session (same as text chat)
+        finalSessionId = activeSession.id;
+        const currentMessages = activeSession.messages || [];
+        const updatedMessages = [
+          ...currentMessages,
+          {
+            sender: 'child',
+            content: message,
+            timestamp: new Date().toISOString()
+          }
+        ];
+
+        const { error: updateError } = await supabase
+          .from("therapy_sessions")
+          .update({
+            messages: updatedMessages,
+            mood_analysis: moodAnalysis,
+            topics: topics,
+            status: "active",
+          })
+          .eq("id", finalSessionId)
+          .eq("status", "active");
+
+        if (updateError) {
+          console.error("Error updating therapy session:", updateError);
+        }
+      } else {
+        // Create new session only if no active session exists
         const { data: sessionData, error: sessionError } = await supabase
           .from("therapy_sessions")
           .insert({
@@ -702,6 +741,7 @@ async function handleSendMessage(childId: string, data: any) {
             ],
             session_duration: Math.floor(Math.random() * 30) + 15,
             mood_analysis: moodAnalysis,
+            topics: topics,
             status: 'active'
           })
           .select()
@@ -712,16 +752,16 @@ async function handleSendMessage(childId: string, data: any) {
         } else if (sessionData) {
           finalSessionId = sessionData.id;
         }
+      }
 
-        // Update child's last session time
-        const { error: updateError } = await supabase
-          .from("children")
-          .update({ last_session_at: new Date().toISOString() })
-          .eq("id", childId);
+      // Update child's last session time
+      const { error: updateError } = await supabase
+        .from("children")
+        .update({ last_session_at: new Date().toISOString() })
+        .eq("id", childId);
 
-        if (updateError) {
-          console.error("Error updating last session time:", updateError);
-        }
+      if (updateError) {
+        console.error("Error updating last session time:", updateError);
       }
 
       // Store in Pinecone if we have a session ID
@@ -830,19 +870,11 @@ async function handleStoreAIResponse(childId: string, data: any) {
   try {
     const { sessionId, content, userMessage } = data;
 
-    if (!sessionId || !content || !userMessage) {
+    if (!content || !userMessage) {
       return NextResponse.json(
-        { error: "Session ID, user message, and AI response content are required" },
+        { error: "User message and AI response content are required" },
         { status: 400 }
       );
-    }
-
-    // Only store if this is a temporary session ID (not already stored)
-    if (!sessionId.startsWith('temp_')) {
-      return NextResponse.json({
-        success: false,
-        message: "Session already stored",
-      });
     }
 
     try {
@@ -854,37 +886,91 @@ async function handleStoreAIResponse(childId: string, data: any) {
       // Extract topics from the conversation
       const topics = await extractTopicsFromMessage(userMessage);
 
-      // Create a new session with both user message and AI response
-      const { data: sessionData, error: sessionError } = await supabase
+      // Check for active session first (same as text chat)
+      const { data: activeSession, error: activeSessionError } = await supabase
         .from("therapy_sessions")
-        .insert({
-          child_id: childId,
-          messages: [
-            {
-              sender: 'child',
-              content: userMessage,
-              timestamp: new Date().toISOString()
-            },
-            {
-              sender: 'ai',
-              content: content,
-              timestamp: new Date().toISOString()
-            }
-          ],
-          session_duration: Math.floor(Math.random() * 30) + 15,
-          mood_analysis: moodAnalysis,
-          topics: topics,
-          status: 'active'
-        })
-        .select()
-        .single();
+        .select("*")
+        .eq("child_id", childId)
+        .eq("status", "active")
+        .maybeSingle();
 
-      if (sessionError) {
-        console.error("Error storing complete session:", sessionError);
-        return NextResponse.json(
-          { error: "Failed to store session" },
-          { status: 500 }
-        );
+      if (activeSessionError) {
+        console.error("Error checking active session:", activeSessionError);
+      }
+
+      let finalSessionId = sessionId;
+
+      if (activeSession) {
+        // Update existing active session (add both user message and AI response)
+        finalSessionId = activeSession.id;
+        const currentMessages = activeSession.messages || [];
+        const updatedMessages = [
+          ...currentMessages,
+          {
+            sender: 'child',
+            content: userMessage,
+            timestamp: new Date().toISOString()
+          },
+          {
+            sender: 'ai',
+            content: content,
+            timestamp: new Date().toISOString()
+          }
+        ];
+
+        const { error: updateError } = await supabase
+          .from("therapy_sessions")
+          .update({
+            messages: updatedMessages,
+            mood_analysis: moodAnalysis,
+            topics: topics,
+            status: "active",
+          })
+          .eq("id", finalSessionId)
+          .eq("status", "active");
+
+        if (updateError) {
+          console.error("Error updating therapy session:", updateError);
+          return NextResponse.json(
+            { error: "Failed to update session" },
+            { status: 500 }
+          );
+        }
+      } else {
+        // Create new session only if no active session exists
+        const { data: sessionData, error: sessionError } = await supabase
+          .from("therapy_sessions")
+          .insert({
+            child_id: childId,
+            messages: [
+              {
+                sender: 'child',
+                content: userMessage,
+                timestamp: new Date().toISOString()
+              },
+              {
+                sender: 'ai',
+                content: content,
+                timestamp: new Date().toISOString()
+              }
+            ],
+            session_duration: Math.floor(Math.random() * 30) + 15,
+            mood_analysis: moodAnalysis,
+            topics: topics,
+            status: 'active'
+          })
+          .select()
+          .single();
+
+        if (sessionError) {
+          console.error("Error storing complete session:", sessionError);
+          return NextResponse.json(
+            { error: "Failed to store session" },
+            { status: 500 }
+          );
+        }
+
+        finalSessionId = sessionData.id;
       }
 
       // Update child's last session time
@@ -902,7 +988,7 @@ async function handleStoreAIResponse(childId: string, data: any) {
         const { therapeuticMemory } = await import("@/lib/pinecone");
 
         await therapeuticMemory.storeConversation({
-          id: sessionData.id,
+          id: finalSessionId,
           child_id: childId,
           messages: [
             {
@@ -929,7 +1015,7 @@ async function handleStoreAIResponse(childId: string, data: any) {
 
       return NextResponse.json({
         success: true,
-        sessionId: sessionData.id,
+        sessionId: finalSessionId,
         message: "Complete conversation stored successfully",
         moodAnalysis: moodAnalysis,
       });

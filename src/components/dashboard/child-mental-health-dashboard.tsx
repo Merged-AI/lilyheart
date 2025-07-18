@@ -72,7 +72,7 @@ export function ChildMentalHealthDashboard({
       setIsLoadingSessions(true);
       try {
         const response = await fetch(
-          `/api/chat/sessions?childId=${selectedChildId}`
+          `/api/chat/sessions?childId=${selectedChildId}&pageSize=5`
         );
         if (!response.ok) throw new Error("Failed to fetch sessions");
 
@@ -259,10 +259,6 @@ export function ChildMentalHealthDashboard({
             >
               Family Communication Insights & Patterns
             </h2>
-            <div className="text-sm text-gray-500">
-              Based on {analyticsData?.sessions_analytics?.total_sessions || 0}{" "}
-              therapy sessions
-            </div>
           </div>
 
           <div className="space-y-6">
@@ -417,12 +413,12 @@ export function ChildMentalHealthDashboard({
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700`}
                       >
-                        {benefit.insight_detail}
+                        {benefit.insight_summary}
                       </span>
                     </div>
 
                     <p className="text-sm text-gray-600 mb-3">
-                      {benefit.insight_summary}
+                      {benefit.insight_detail}
                     </p>
 
                     <div className="space-y-2">
@@ -507,7 +503,7 @@ export function ChildMentalHealthDashboard({
                   </div>
                 ))
             ) : recentSessions.length > 0 ? (
-              recentSessions.slice(0, 5).map((session) => {
+              recentSessions.map((session) => {
                 const startDate = new Date(session.startTime);
                 const mood = getMoodFromAnalysis(session.moodAnalysis);
 
@@ -544,7 +540,7 @@ export function ChildMentalHealthDashboard({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
                       <div>
                         <p className="text-sm font-medium text-gray-700 mb-2">
                           Key Themes:
@@ -567,7 +563,7 @@ export function ChildMentalHealthDashboard({
                         <p className="text-sm font-medium text-gray-700 mb-2">
                           Clinical Notes:
                         </p>
-                        <p className="text-xs text-gray-600">
+                        <p className="text-sm text-gray-600 leading-relaxed">
                           {session.moodAnalysis.insights}
                         </p>
                       </div>
