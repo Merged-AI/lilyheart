@@ -8,6 +8,14 @@ const openai = new OpenAI({
 
 type AnalyticsCalculationResult = Omit<DashboardAnalytics, "id" | "created_at">;
 
+// Utility function to get the start of the current week (Sunday) - matches route.ts logic
+function getStartOfWeek(date: Date = new Date()): Date {
+  const startOfWeek = new Date(date);
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(date.getDate() - date.getDay());
+  return startOfWeek;
+}
+
 export async function calculateAndStoreDashboardAnalytics(
   childId: string,
   latestSession: TherapySession,
@@ -16,11 +24,9 @@ export async function calculateAndStoreDashboardAnalytics(
   const supabase = createServerSupabase();
 
   try {
-    // Get current date and start of week
+    // Get current date and start of week using consistent logic
     const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setHours(0, 0, 0, 0);
-    startOfWeek.setDate(now.getDate() - now.getDay());
+    const startOfWeek = getStartOfWeek(now);
 
     // Fetch sessions count for this week
     const { count: weeklySessionCount, error: weeklyCountError } =
@@ -104,11 +110,12 @@ async function calculateAnalytics(
   latestSession: TherapySession
 ): Promise<AnalyticsCalculationResult> {
   const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  // Use consistent week calculation logic
+  const startOfWeek = getStartOfWeek(now);
 
-  // Basic session statistics
+  // Basic session statistics using the consistent week logic
   const sessionsThisWeek = sessions.filter(
-    (s) => new Date(s.created_at) > weekAgo
+    (s) => new Date(s.created_at) >= startOfWeek
   ).length;
 
   const totalSessions = sessions.length;

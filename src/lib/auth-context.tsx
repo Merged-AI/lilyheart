@@ -4,9 +4,20 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useRouter, usePathname } from 'next/navigation';
 
 interface Family {
+  id: string;
   parent_name: string;
   family_name: string;
-  children?: Array<{ id: string; name: string }>;
+  parent_email: string;
+  created_at?: string;
+  subscription_plan?: string;
+  subscription_status?: string;
+  trial_ends_at?: string;
+  children?: Array<{ 
+    id: string; 
+    name: string; 
+    age: number; 
+    current_concerns?: string; 
+  }>;
 }
 
 interface AuthContextType {
@@ -34,12 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch("/api/auth/me");
       if (response.ok) {
         const data = await response.json();
-        setFamily(data.family);
+        // Merge children into family object
+        const familyWithChildren = {
+          ...data.family,
+          children: data.children || []
+        };
+        setFamily(familyWithChildren);
         setIsAuthenticated(true);
 
         // Auto-select first child if available and no child is selected
-        if (data.family?.children && data.family.children.length > 0 && !selectedChildId) {
-          setSelectedChildId(data.family.children[0].id);
+        if (data.children && data.children.length > 0 && !selectedChildId) {
+          setSelectedChildId(data.children[0].id);
         }
       } else {
         setIsAuthenticated(false);

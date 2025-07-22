@@ -2,6 +2,23 @@ import { NextResponse } from "next/server";
 import { calculateAndStoreDashboardAnalytics } from "@/lib/dashboard-analytics";
 import { createServerSupabase } from "@/lib/supabase-auth";
 
+// Utility function to get the start of the current week (Sunday)
+function getStartOfWeek(date: Date = new Date()): Date {
+  const startOfWeek = new Date(date);
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(date.getDate() - date.getDay());
+  return startOfWeek;
+}
+
+// Utility function to check if analytics data is from the current week
+function isAnalyticsDataCurrent(updatedAt: string): boolean {
+  const analyticsDate = new Date(updatedAt);
+  const currentWeekStart = getStartOfWeek();
+  const analyticsWeekStart = getStartOfWeek(analyticsDate);
+  
+  return analyticsWeekStart.getTime() === currentWeekStart.getTime();
+}
+
 export async function GET(request: Request) {
   const supabase = createServerSupabase(); // Use server-side client
 
@@ -34,6 +51,60 @@ export async function GET(request: Request) {
 
     if (error) {
       throw error;
+    }
+
+    // Check if analytics data is from the current week
+    if (analytics && !isAnalyticsDataCurrent(analytics.updated_at)) {
+      console.log("Analytics data is from a previous week, triggering auto-refresh...");
+      
+      try {
+        // Get child data for family_id
+        const { data: child, error: childError } = await supabase
+          .from("children")
+          .select("id, family_id")
+          .eq("id", childId)
+          .single();
+
+        if (childError || !child?.family_id) {
+          console.warn("Could not get child data for auto-refresh, returning stale data");
+          return NextResponse.json({ data: analytics });
+        }
+
+        // Get the latest session for recalculation
+        const { data: session, error: sessionError } = await supabase
+          .from("therapy_sessions")
+          .select("*")
+          .eq("child_id", childId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (sessionError || !session) {
+          console.warn("Could not get latest session for auto-refresh, returning stale data");
+          return NextResponse.json({ data: analytics });
+        }
+
+        // Trigger analytics recalculation
+        await calculateAndStoreDashboardAnalytics(
+          childId,
+          session,
+          child.family_id
+        );
+
+        // Fetch the updated analytics
+        const { data: updatedAnalytics, error: updatedError } = await supabase
+          .from("dashboard_analytics")
+          .select("*")
+          .eq("child_id", childId)
+          .single();
+
+        if (!updatedError && updatedAnalytics) {
+          console.log("Analytics auto-refreshed successfully for new week");
+          return NextResponse.json({ data: updatedAnalytics });
+        }
+      } catch (refreshError) {
+        console.warn("Failed to auto-refresh analytics, returning stale data:", refreshError);
+      }
     }
 
     return NextResponse.json({ data: analytics });

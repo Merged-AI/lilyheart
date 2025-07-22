@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useRef,
-  useEffect,
-  useMemo,
-  useCallback,
-  Suspense,
-} from "react";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Send,
@@ -17,9 +10,7 @@ import {
   Shield,
   Phone,
   LogOut,
-  AlertTriangle,
   UserPlus,
-  AlertCircle,
   Loader2,
   Lock,
 } from "lucide-react";
@@ -94,9 +85,9 @@ function ChatContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCrisisHelp, setShowCrisisHelp] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
-  const [profileCheckComplete, setProfileCheckComplete] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [sessionStarted, setSessionStarted] = useState(false);
   const { lockSession } = useSessionLock();
 
   // Voice chat state
@@ -121,7 +112,7 @@ function ChatContent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const startTime = useRef(new Date());
+  const startTime = useRef<Date | null>(null);
   const [modalConfig, setModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -219,16 +210,24 @@ function ChatContent() {
     };
   }, [audioRecordingBuffer, audioContext, mediaStream]);
 
-  // Session timer
+  // Session timer - only runs when session has actually started
   useEffect(() => {
+    if (!sessionStarted || !startTime.current) {
+      return; // Don't start timer until session begins
+    }
+
     const timer = setInterval(() => {
-      setSessionDuration(
-        Math.floor((new Date().getTime() - startTime.current.getTime()) / 1000)
-      );
+      if (startTime.current) {
+        setSessionDuration(
+          Math.floor(
+            (new Date().getTime() - startTime.current.getTime()) / 1000
+          )
+        );
+      }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [sessionStarted]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -257,19 +256,13 @@ function ChatContent() {
     router.push("/children/add");
   };
 
-  const handleLogin = useCallback(() => {
-    handleModalClose();
-    router.push("/auth/login");
-  }, [handleModalClose, router]);
-
-  const handleGoToDashboard = useCallback(() => {
-    handleModalClose();
-    router.push("/dashboard");
-  }, [handleModalClose, router]);
-
   const handleOnboardingComplete = useCallback(() => {
     setShowOnboarding(false);
     setOnboardingComplete(true);
+
+    // Start the session timer when user is ready to chat
+    startTime.current = new Date();
+    setSessionStarted(true);
 
     // Auto-start real-time voice chat if in voice mode
     if (chatMode === "voice") {
@@ -314,142 +307,25 @@ function ChatContent() {
     setIsEndingSession(true);
   }, []);
 
-  // Memoize modal config
-  const getModalConfig = useCallback(
-    (
-      type: "profile" | "child" | "auth" | "error" | "connection",
-      data?: any
-    ) => {
-      const configs = {
-        profile: {
-          isOpen: true,
-          title: "Complete Profile Required",
-          message:
-            "Please complete your child's therapeutic profile before starting therapy sessions. This helps Dr. Emma provide personalized support.",
-          type: "warning" as const,
-          icon: <AlertTriangle className="h-6 w-6" />,
-          primaryButton: {
-            text: "Complete Profile",
-            onClick: () => handleProfileCompletion(data.childId),
-          },
-          secondaryButton: {
-            text: "Back to Dashboard",
-            onClick: handleGoToDashboard,
-          },
-        },
-        child: {
-          isOpen: true,
-          title: "Add Child Profile",
-          message:
-            "Please add a child profile first before accessing therapy sessions.",
-          type: "info" as const,
-          icon: <UserPlus className="h-6 w-6" />,
-          primaryButton: {
-            text: "Add Child",
-            onClick: handleAddChild,
-          },
-        },
-        auth: {
-          isOpen: true,
-          title: "Authentication Required",
-          message: "Please log in to access therapy sessions.",
-          type: "error" as const,
-          icon: <AlertCircle className="h-6 w-6" />,
-          primaryButton: {
-            text: "Log In",
-            onClick: handleLogin,
-          },
-        },
-        error: {
-          isOpen: true,
-          title: "Profile Check Failed",
-          message:
-            "Unable to verify your child's profile. Please check your connection and try again.",
-          type: "error" as const,
-          icon: <AlertCircle className="h-6 w-6" />,
-          primaryButton: {
-            text: "Go to Dashboard",
-            onClick: handleGoToDashboard,
-          },
-        },
-        connection: {
-          isOpen: true,
-          title: "Connection Error",
-          message:
-            "Connection error. Please check your internet connection and try again.",
-          type: "error" as const,
-          icon: <AlertCircle className="h-6 w-6" />,
-          primaryButton: {
-            text: "Go to Dashboard",
-            onClick: handleGoToDashboard,
-          },
-        },
-      };
-      return configs[type];
-    },
-    [handleProfileCompletion, handleAddChild, handleLogin, handleGoToDashboard]
-  );
-
-  // Check profile completeness on page load and auto-start voice chat
+  // Auto-start voice chat and onboarding if needed
   useEffect(() => {
-    const checkProfileCompleteness = async () => {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const childId = urlParams.get("childId");
+    // Show onboarding for both text and voice modes if not completed yet
+    if (!onboardingComplete) {
+      setShowOnboarding(true);
+      return;
+    }
 
-        const response = await fetch(
-          `/api/profile-check${childId ? `?childId=${childId}` : ""}`,
-          {
-            method: "GET",
-          }
-        );
-
-        if (response.status === 422) {
-          const data = await response.json();
-          if (data.requiresProfileCompletion) {
-            setModalConfig(
-              getModalConfig("profile", { childId: data.childId })
-            );
-            return;
-          }
-        }
-
-        if (response.status === 404) {
-          const data = await response.json();
-          if (data.requiresChildRegistration) {
-            setModalConfig(getModalConfig("child"));
-            return;
-          }
-        }
-
-        if (response.status === 401) {
-          setModalConfig(getModalConfig("auth"));
-          return;
-        }
-
-        if (response.ok) {
-          setProfileCheckComplete(true);
-
-          // Show onboarding if not completed yet
-          if (!onboardingComplete) {
-            setShowOnboarding(true);
-          } else {
-            // Auto-start real-time voice chat if in voice mode
-            if (chatMode === "voice") {
-              // Use OpenAI Realtime API for better performance
-              setUseOpenAIRealtime(true);
-            }
-          }
-        } else {
-          setModalConfig(getModalConfig("error"));
-        }
-      } catch (error) {
-        setModalConfig(getModalConfig("connection"));
+    if (chatMode === "voice") {
+      // Auto-start real-time voice chat if in voice mode
+      setUseOpenAIRealtime(true);
+    } else {
+      // For text mode, start session immediately after onboarding
+      if (!sessionStarted) {
+        startTime.current = new Date();
+        setSessionStarted(true);
       }
-    };
-
-    checkProfileCompleteness();
-  }, [chatMode]);
+    }
+  }, [chatMode, onboardingComplete, sessionStarted]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -521,6 +397,20 @@ function ChatContent() {
           router.push(`/children/add?childId=${selectedChildId}`);
           return {
             response: "Redirecting you to complete the therapeutic profile...",
+            sessionId: null,
+          };
+        }
+      }
+
+      if (response.status === 403) {
+        // Subscription required
+        const data = await response.json();
+        if (data.requiresSubscription) {
+          // Redirect to subscription page or show subscription modal
+          router.push("/pricing");
+          return {
+            response:
+              data.error || "Subscription required to continue chatting.",
             sessionId: null,
           };
         }
@@ -1246,45 +1136,6 @@ function ChatContent() {
       setIsProcessingVoice(false);
     }
   };
-
-  // Memoize the loading state JSX
-  const loadingState = useMemo(
-    () => (
-      <>
-        <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-50 to-indigo-100 flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 shadow-xl text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-              <Brain className="h-8 w-8 text-white" />
-            </div>
-            <h2 className="text-xl font-bold text-purple-900 mb-2">
-              Preparing Dr. Emma...
-            </h2>
-            <p className="text-purple-600">Checking your therapeutic profile</p>
-          </div>
-        </div>
-        {modalConfig.isOpen && (
-          <Modal
-            isOpen={modalConfig.isOpen}
-            onClose={handleModalClose}
-            title={modalConfig.title}
-            type={modalConfig.type}
-            icon={modalConfig.icon}
-            primaryButton={modalConfig.primaryButton}
-            secondaryButton={modalConfig.secondaryButton}
-            hideCloseButton={true}
-          >
-            {modalConfig.message}
-          </Modal>
-        )}
-      </>
-    ),
-    [modalConfig, handleModalClose]
-  );
-
-  // Show loading state while checking profile completeness
-  if (!profileCheckComplete) {
-    return loadingState;
-  }
 
   return (
     <>

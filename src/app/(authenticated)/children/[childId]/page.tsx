@@ -5,7 +5,6 @@ import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
   Edit,
-  User,
   Calendar,
   Heart,
   MessageCircle,
@@ -124,7 +123,7 @@ export default function ViewChildPage() {
   const childId = params.childId as string;
 
   const [child, setChild] = useState<Child | null>(null);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [recentSessions, setRecentSessions] = useState<Session[]>([]);
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
   const [moodAnalysis, setMoodAnalysis] = useState<MoodAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -133,12 +132,27 @@ export default function ViewChildPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [showChatModeModal, setShowChatModeModal] = useState(false);
+  // Track what data has been loaded to avoid unnecessary refetches
+  const [loadedTabs, setLoadedTabs] = useState<string[]>(["overview"]);
 
   useEffect(() => {
     if (childId) {
       fetchChildData();
     }
   }, [childId]);
+
+  // Handle tab changes with lazy loading
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+
+    // Only load data if we haven't loaded it before
+    if (!loadedTabs.includes(tabId)) {
+      if (tabId === "mood" && moodEntries.length === 0) {
+        fetchMoodData();
+      }
+      setLoadedTabs((prev) => [...prev, tabId]);
+    }
+  };
 
   const fetchChildData = async () => {
     try {
@@ -164,14 +178,16 @@ export default function ViewChildPage() {
         }
       }
 
-      // Fetch sessions
-      const sessionsResponse = await fetch(`/api/sessions?childId=${childId}`);
-      if (sessionsResponse.ok) {
-        const sessionsData = await sessionsResponse.json();
-        setSessions(sessionsData.sessions || []);
+      // Only fetch recent sessions for overview (limit to 5)
+      const recentSessionsResponse = await fetch(
+        `/api/sessions?childId=${childId}&limit=5`
+      );
+      if (recentSessionsResponse.ok) {
+        const recentSessionsData = await recentSessionsResponse.json();
+        setRecentSessions(recentSessionsData.sessions || []);
 
-        // Create mood entries from sessions
-        const moodEntriesFromSessions = (sessionsData.sessions || [])
+        // Create mood entries from recent sessions only for overview
+        const recentMoodEntries = (recentSessionsData.sessions || [])
           .filter((session: Session) => session.mood_analysis)
           .map((session: Session) => ({
             id: session.id,
@@ -185,10 +201,19 @@ export default function ViewChildPage() {
             confidence: session.mood_analysis.confidence,
           }));
 
-        setMoodEntries(moodEntriesFromSessions);
+        setMoodEntries(recentMoodEntries);
       }
+    } catch (error) {
+      console.error("Error fetching child data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      // Fetch mood entries from mood-tracking API as well
+  // Separate function to fetch comprehensive mood data when mood tab is accessed
+  const fetchMoodData = async () => {
+    try {
+      // Fetch mood entries from mood-tracking API
       const moodResponse = await fetch(`/api/mood-tracking?childId=${childId}`);
       if (moodResponse.ok) {
         const moodData = await moodResponse.json();
@@ -202,8 +227,8 @@ export default function ViewChildPage() {
         if (moodData.moodData && moodData.moodData.length > 0) {
           const moodEntriesFromAPI = moodData.moodData.map((entry: any) => ({
             id: entry.session_id || `mood-${entry.date}`,
-            created_at: `${entry.date}T00:00:00.000Z`, // Convert date to ISO string
-            mood_score: entry.happiness, // Use happiness as primary mood score
+            created_at: `${entry.date}T00:00:00.000Z`,
+            mood_score: entry.happiness,
             notes: entry.notes || "",
             happiness: entry.happiness,
             anxiety: entry.anxiety,
@@ -212,32 +237,50 @@ export default function ViewChildPage() {
             confidence: entry.confidence,
           }));
 
+          // Create mood entries from recent sessions
+          const sessionsToUse = recentSessions;
+          const moodEntriesFromSessions = sessionsToUse
+            .filter((session: Session) => session.mood_analysis)
+            .map((session: Session) => ({
+              id: session.id,
+              created_at: session.created_at,
+              mood_score: session.mood_analysis.happiness,
+              notes: session.mood_analysis.insights || "",
+              happiness: session.mood_analysis.happiness,
+              anxiety: session.mood_analysis.anxiety,
+              sadness: session.mood_analysis.sadness,
+              stress: session.mood_analysis.stress,
+              confidence: session.mood_analysis.confidence,
+            }));
+
           // Combine with session-based mood entries, avoiding duplicates
-          setMoodEntries((prev) => {
-            const combined = [...prev];
-            moodEntriesFromAPI.forEach((apiEntry: MoodEntry) => {
-              const exists = combined.find(
-                (existing) =>
-                  existing.id === apiEntry.id ||
-                  existing.created_at.split("T")[0] ===
-                    apiEntry.created_at.split("T")[0]
-              );
-              if (!exists) {
-                combined.push(apiEntry);
-              }
-            });
-            return combined.sort(
+          const combined = [...moodEntriesFromSessions];
+          moodEntriesFromAPI.forEach((apiEntry: any) => {
+            const exists = combined.find(
+              (existing) =>
+                existing.id === apiEntry.id ||
+                existing.created_at.split("T")[0] ===
+                  apiEntry.created_at.split("T")[0]
+            );
+            if (!exists) {
+              combined.push({
+                ...apiEntry,
+                notes: apiEntry.notes || "",
+              });
+            }
+          });
+
+          setMoodEntries(
+            combined.sort(
               (a, b) =>
                 new Date(b.created_at).getTime() -
                 new Date(a.created_at).getTime()
-            );
-          });
+            )
+          );
         }
       }
     } catch (error) {
-      console.error("Error fetching child data:", error);
-    } finally {
-      setIsLoading(false);
+      console.error("Error fetching mood data:", error);
     }
   };
 
@@ -411,7 +454,6 @@ export default function ViewChildPage() {
     );
   }
 
-  const recentSessions = sessions.slice(0, 5);
   const recentMoodEntries = moodEntries.slice(0, 7);
   const averageMood =
     moodEntries.length > 0
@@ -476,7 +518,7 @@ export default function ViewChildPage() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
                     ? "border-purple-500 text-purple-600"
@@ -628,88 +670,6 @@ export default function ViewChildPage() {
                 )}
               </div>
             </div>
-
-            {/* Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Sessions */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  Recent Sessions
-                </h3>
-                {recentSessions.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    No sessions yet
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {recentSessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {new Date(session.created_at).toLocaleDateString()}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatSessionDuration(session.session_duration)}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-gray-500">
-                            Mood: {session.mood_analysis.happiness}/10
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Recent Mood Entries */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  Recent Mood
-                </h3>
-                {recentMoodEntries.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    No mood entries yet
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {recentMoodEntries.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <span className="text-xl">
-                            {getMoodEmoji(getMoodScore(entry))}
-                          </span>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {new Date(entry.created_at).toLocaleDateString()}
-                            </p>
-                            {entry.notes && (
-                              <p className="text-xs text-gray-500">
-                                {entry.notes}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <span
-                          className={`text-sm font-medium ${getMoodColor(
-                            getMoodScore(entry)
-                          )}`}
-                        >
-                          {getMoodScore(entry)}/10
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
@@ -717,10 +677,10 @@ export default function ViewChildPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">
-                All Sessions
+                Recent Sessions
               </h3>
             </div>
-            {sessions.length === 0 ? (
+            {recentSessions.length === 0 ? (
               <div className="p-8 text-center">
                 <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -739,7 +699,7 @@ export default function ViewChildPage() {
             ) : (
               <div className="p-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {sessions.map((session) => (
+                  {recentSessions.map((session) => (
                     <div
                       key={session.id}
                       className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -1300,81 +1260,6 @@ export default function ViewChildPage() {
                       )}
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Recommendations */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Recommendations
-              </h3>
-              <div className="space-y-4">
-                {/* API-based recommendations */}
-                {moodAnalysis && moodAnalysis.recommendations.length > 0 && (
-                  <div className="space-y-3">
-                    {moodAnalysis.recommendations.map((rec, index) => (
-                      <div
-                        key={index}
-                        className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg"
-                      >
-                        <BookOpen className="h-5 w-5 text-blue-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            Professional Recommendation
-                          </p>
-                          <p className="text-sm text-gray-600">{rec}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* General recommendations */}
-                {(!child.sessions_count || child.sessions_count < 3) && (
-                  <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg">
-                    <BookOpen className="h-5 w-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        Start Regular Sessions
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Consider scheduling regular sessions to build
-                        consistency and track progress over time.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {averageMood < 6 && (
-                  <div className="flex items-start space-x-3 p-4 bg-orange-50 rounded-lg">
-                    <Heart className="h-5 w-5 text-orange-600 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        Focus on Mood Improvement
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Consider discussing mood management strategies in
-                        upcoming sessions.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {(!child.last_session_at ||
-                  new Date().getTime() -
-                    new Date(child.last_session_at).getTime() >
-                    7 * 24 * 60 * 60 * 1000) && (
-                  <div className="flex items-start space-x-3 p-4 bg-purple-50 rounded-lg">
-                    <Clock className="h-5 w-5 text-purple-600 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        Schedule Next Session
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        It's been a while since the last session. Consider
-                        scheduling a new one to maintain progress.
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>

@@ -4,6 +4,7 @@ import {
   getAuthenticatedFamilyFromToken,
   createServerSupabase,
 } from "@/lib/supabase-auth";
+import { requireSubscriptionAccess, FEATURE_LEVELS } from "@/lib/subscription-access";
 import { therapeuticMemory } from "@/lib/pinecone";
 import { embeddedTherapeuticKnowledge } from "@/lib/embedded-therapeutic-knowledge";
 import { Pinecone } from "@pinecone-database/pinecone";
@@ -634,6 +635,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
+      );
+    }
+
+    // Check subscription access for chat sessions
+    try {
+      await requireSubscriptionAccess(FEATURE_LEVELS.CHAT_SESSIONS);
+    } catch (error: any) {
+      return NextResponse.json(
+        { 
+          error: error.message,
+          requiresSubscription: true,
+          feature: 'chat_sessions'
+        },
+        { status: 403 }
       );
     }
 

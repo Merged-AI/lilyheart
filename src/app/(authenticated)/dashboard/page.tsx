@@ -11,6 +11,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { ChildMentalHealthDashboard } from "@/components/dashboard/child-mental-health-dashboard";
+import { createClient } from "@/lib/supabase";
 
 interface DashboardStats {
   todaysMood: {
@@ -43,7 +44,7 @@ interface DashboardStats {
 
 export default function ParentDashboard() {
   const router = useRouter();
-  const { family, selectedChildId, setSelectedChildId } = useAuth();
+  const { family, selectedChildId } = useAuth();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     todaysMood: {
       status: "No data yet",
@@ -91,11 +92,17 @@ export default function ParentDashboard() {
       // Initial fetch
       fetchDashboardStats();
 
-      // Set up periodic refresh every 5 minutes
+      // Set up real-time subscription for dashboard analytics updates
+      const cleanup = setupRealTimeAnalyticsSubscription();
+
+      // Set up periodic refresh every 5 minutes as fallback
       const refreshInterval = setInterval(fetchDashboardStats, 5 * 60 * 1000);
 
-      // Cleanup interval on unmount
-      return () => clearInterval(refreshInterval);
+      // Cleanup both subscription and interval on unmount
+      return () => {
+        cleanup();
+        clearInterval(refreshInterval);
+      };
     }
   }, [family, selectedChildId]);
 
@@ -175,6 +182,104 @@ export default function ParentDashboard() {
         hasAlert: false,
       });
     }
+  };
+
+  const setupRealTimeAnalyticsSubscription = () => {
+    const supabase = createClient();
+
+    // Create unique channel name to prevent conflicts
+    const channelId = `dashboard-analytics-${selectedChildId}-${Date.now()}`;
+
+    const analyticsChannel = supabase
+      .channel(channelId)
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen for INSERT, UPDATE, DELETE
+          schema: "public",
+          table: "dashboard_analytics",
+          filter: `child_id=eq.${selectedChildId}`,
+        },
+        (payload) => {
+          if (
+            payload.eventType === "INSERT" ||
+            payload.eventType === "UPDATE"
+          ) {
+            const newAnalyticsData = payload.new;
+
+            // Format confidence scores as percentages for dashboard display
+            if (newAnalyticsData) {
+              // Convert confidence_score to percentage if it exists
+              if (
+                newAnalyticsData.confidence_score !== null &&
+                newAnalyticsData.confidence_score !== undefined
+              ) {
+                newAnalyticsData.confidence_score_percentage = Math.round(
+                  newAnalyticsData.confidence_score * 100
+                );
+              }
+
+              // Also convert any other confidence scores in nested objects
+              if (
+                newAnalyticsData.emotional_trend &&
+                newAnalyticsData.emotional_trend.confidence_score
+              ) {
+                newAnalyticsData.emotional_trend.confidence_score_percentage =
+                  Math.round(
+                    newAnalyticsData.emotional_trend.confidence_score * 100
+                  );
+              }
+
+              // Convert mood confidence scores
+              if (
+                newAnalyticsData.latest_mood &&
+                newAnalyticsData.latest_mood.confidence_score
+              ) {
+                newAnalyticsData.latest_mood.confidence_score_percentage =
+                  Math.round(
+                    newAnalyticsData.latest_mood.confidence_score * 100
+                  );
+              }
+            }
+
+            // Update the dashboard UI with fresh data
+            setAnalyticsData(newAnalyticsData);
+            updateDashboardUI(newAnalyticsData);
+          } else if (payload.eventType === "DELETE") {
+            // Handle deletion by resetting to no data state
+            setAnalyticsData(null);
+            setDashboardStats({
+              todaysMood: {
+                status: "No data yet",
+                trend: "Start first session",
+                color: "text-gray-600",
+                bgColor: "bg-gray-100",
+              },
+              sessionsThisWeek: {
+                count: 0,
+                change: "No sessions yet",
+              },
+              emotionalTrend: {
+                status: "No data",
+                attention: "Start your first session",
+                color: "text-gray-600",
+                bgColor: "bg-gray-100",
+              },
+              activeConcerns: {
+                count: 0,
+                level: "No data yet",
+              },
+              hasAlert: false,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Return cleanup function
+    return () => {
+      analyticsChannel.unsubscribe();
+    };
   };
 
   const updateDashboardUI = (analyticsData: any) => {

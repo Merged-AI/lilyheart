@@ -8,7 +8,7 @@ Heart Harbour provides personalized AI therapy sessions with Dr. Emma, sophistic
 
 ### Core Capabilities
 - **AI Therapy Sessions**: GPT-4 powered therapeutic conversations with Dr. Emma
-- **Enhanced Analytics**: Real-time insights into communication patterns and emotional growth
+- **Dashboard Analytics**: Real-time insights into communication patterns and emotional growth
 - **Family Dashboard**: Live monitoring of children's emotional states and therapy progress
 - **Therapeutic Memory**: Persistent conversation context using Pinecone vector database
 - **Crisis Detection**: Automated alerts for concerning behavioral patterns
@@ -17,7 +17,7 @@ Heart Harbour provides personalized AI therapy sessions with Dr. Emma, sophistic
 
 ### The Competitive Moat
 - **Advanced AI Therapy**: Sophisticated therapeutic conversations beyond basic chatbots
-- **Enhanced Analysis System**: Confidence scoring, pattern recognition, and family insights
+- **Dashboard Analytics System**: Real-time monitoring, mood tracking, and family insights
 - **Pinecone RAG**: Instant access to 10,000+ therapeutic interventions
 - **Supabase Real-time**: Live family dashboard with instant updates
 - **Stripe Integration**: Complete payment processing for subscription management
@@ -110,7 +110,7 @@ Heart Harbour provides personalized AI therapy sessions with Dr. Emma, sophistic
 Child Message → Therapeutic Context (Pinecone) → GPT-4 Analysis → Dr. Emma Response → Memory Storage
 ```
 
-### Enhanced Analytics
+### Dashboard Analytics
 - Communication pattern analysis
 - Confidence scoring and growth metrics
 - Family benefit tracking
@@ -120,14 +120,14 @@ Child Message → Therapeutic Context (Pinecone) → GPT-4 Analysis → Dr. Emma
 1. **Authentication**: User login and family verification
 2. **Profile Validation**: Comprehensive child questionnaires required
 3. **Therapy Sessions**: AI-powered conversations with Dr. Emma
-4. **Analysis**: Enhanced pattern recognition and insight generation
+4. **Analysis**: Real-time dashboard analytics and insight generation
 5. **Dashboard**: Real-time family communication insights
 
 ## 💰 Business Model
 
 ### Subscription Tiers
 - **Free Trial**: 3 therapy sessions, basic insights
-- **Family Plan ($29/month)**: Unlimited sessions, enhanced analytics
+- **Family Plan ($29/month)**: Unlimited sessions, dashboard analytics
 - **Premium Family ($49/month)**: Multiple children, advanced insights
 - **Professional ($99/month)**: School/clinic integration, reporting tools
 
@@ -155,7 +155,7 @@ Child Message → Therapeutic Context (Pinecone) → GPT-4 Analysis → Dr. Emma
 
 ### Family Dashboard (`/src/components/dashboard/child-mental-health-dashboard.tsx`)
 - Real-time therapy session monitoring
-- Enhanced communication pattern analysis
+- Real-time communication pattern analysis
 - Family growth insights and recommendations
 - Professional conversation organization tools
 
@@ -165,11 +165,11 @@ Child Message → Therapeutic Context (Pinecone) → GPT-4 Analysis → Dr. Emma
 - Mood analysis and tracking
 - Crisis detection and response
 
-### Enhanced Analytics (`/src/lib/enhanced-chat-analysis.ts`)
-- Confidence scoring algorithms
-- Communication pattern recognition
-- Family benefit analysis
-- Progress tracking metrics
+### Dashboard Analytics (`/src/lib/dashboard-analytics.ts`)
+- Real-time session monitoring
+- Weekly progress tracking
+- Mood analysis and trends
+- Family communication insights
 
 ## 🚦 Getting Started
 
@@ -182,7 +182,7 @@ The application includes demo family data for testing therapeutic features and a
 3. Register a family account
 4. Complete child profile questionnaire
 5. Begin therapy sessions with Dr. Emma
-6. Explore enhanced analytics dashboard
+6. Monitor progress through family dashboard
 
 ### Production Deployment
 - Deploy to Vercel or similar platform
@@ -212,7 +212,7 @@ src/
 
 ### Phase 1: Core Platform ✅
 - ✅ AI therapy sessions with Dr. Emma
-- ✅ Enhanced analytics system
+- ✅ Dashboard analytics system
 - ✅ Family dashboard and insights
 - ✅ Stripe payment integration
 - ✅ Profile validation system

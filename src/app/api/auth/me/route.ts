@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
         parent_email: family.parent_email,
         subscription_plan: family.subscription_plan,
         subscription_status: family.subscription_status,
-        trial_ends_at: family.trial_ends_at
+        trial_ends_at: family.trial_ends_at,
+        created_at: family.created_at
       },
       children: children || []
     })

@@ -639,7 +639,9 @@ function AddChildContent() {
                   )}
                   <span>
                     {isSubmitting
-                      ? "Adding Child..."
+                      ? childId
+                        ? "Updating Child..."
+                        : "Adding Child..."
                       : childId
                       ? "Update Child & Continue"
                       : "Add Child & Start Therapy"}

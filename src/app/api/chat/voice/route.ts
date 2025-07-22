@@ -4,6 +4,10 @@ import {
   getAuthenticatedFamilyFromToken,
   createServerSupabase,
 } from "@/lib/supabase-auth";
+import {
+  requireSubscriptionAccess,
+  FEATURE_LEVELS,
+} from "@/lib/subscription-access";
 import { therapeuticMemory } from "@/lib/pinecone";
 import { embeddedTherapeuticKnowledge } from "@/lib/embedded-therapeutic-knowledge";
 import { Pinecone } from "@pinecone-database/pinecone";
@@ -931,9 +935,6 @@ async function transcribeAudio(audioData: string): Promise<string> {
 
     // Clean up the temporary file
     fs.unlinkSync(tempFile);
-    console.log("Temporary file cleaned up");
-
-    console.log("Transcription completed:", transcription);
 
     // Clean up the transcription text
     const cleanedTranscription =
@@ -971,9 +972,6 @@ async function transcribeAudio(audioData: string): Promise<string> {
       "oh",
     ];
     if (artifacts.includes(validatedTranscription.toLowerCase())) {
-      console.log(
-        "Validated transcription appears to be artifact/filler word, ignoring"
-      );
       return "";
     }
 
@@ -1026,7 +1024,6 @@ async function textToSpeech(text: string): Promise<string | null> {
     const arrayBuffer = await speech.arrayBuffer();
     const base64Audio = Buffer.from(arrayBuffer).toString("base64");
 
-    console.log("TTS conversion completed");
     return base64Audio;
   } catch (error: any) {
     console.error("Error converting text to speech with OpenAI:", error);
@@ -1069,6 +1066,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
+      );
+    }
+
+    // Check subscription access for voice chat
+    try {
+      await requireSubscriptionAccess(FEATURE_LEVELS.VOICE_CHAT);
+    } catch (error: any) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          requiresSubscription: true,
+          feature: "voice_chat",
+        },
+        { status: 403 }
       );
     }
 
@@ -1144,7 +1155,6 @@ export async function POST(request: NextRequest) {
 
     // If transcription is empty (silence, noise, or error), return gracefully for real-time mode
     if (!transcribedText || transcribedText.trim().length === 0) {
-      console.log("No transcribable content found, returning empty response");
       return NextResponse.json({
         success: true,
         transcribedText: "",
@@ -1325,7 +1335,6 @@ Use this information to provide personalized, contextual therapy responses that 
 
       // Use AI-powered mood analysis (same function as mood-tracking API)
       moodAnalysis = await analyzeMoodFromInput(transcribedText, childAge);
-      console.log("✅ Voice mood analysis completed using AI:", moodAnalysis);
     } catch (error) {
       console.error("Error in AI mood analysis, using fallback:", error);
       moodAnalysis = analyzeMoodFromMessage(transcribedText, aiResponseText);

@@ -10,6 +10,10 @@ export interface Database {
           subscription_status: "active" | "inactive" | "trial";
           trial_ends_at?: string;
           parent_pin?: string;
+          subscription_canceled_at?: string;
+          subscription_current_period_start?: string;
+          subscription_current_period_end?: string;
+          last_payment_at?: string;
         };
         Insert: {
           id?: string;
@@ -19,6 +23,10 @@ export interface Database {
           subscription_status?: "active" | "inactive" | "trial";
           trial_ends_at?: string;
           parent_pin?: string;
+          subscription_canceled_at?: string;
+          subscription_current_period_start?: string;
+          subscription_current_period_end?: string;
+          last_payment_at?: string;
         };
         Update: {
           id?: string;
@@ -28,6 +36,10 @@ export interface Database {
           subscription_status?: "active" | "inactive" | "trial";
           trial_ends_at?: string;
           parent_pin?: string;
+          subscription_canceled_at?: string;
+          subscription_current_period_start?: string;
+          subscription_current_period_end?: string;
+          last_payment_at?: string;
         };
       };
       children: {
@@ -220,111 +232,6 @@ export interface Database {
           alert_level?: "high" | "medium";
           alert_message?: string;
           status?: "active" | "completed";
-        };
-      };
-      social_health_analyses: {
-        Row: {
-          id: string;
-          created_at: string;
-          child_id: string;
-          analysis_date: string;
-          mood_score: number;
-          social_score: number;
-          emotional_state: string;
-          friendship_dynamics: Record<string, any>;
-          intervention_recommendations: string[];
-          ai_insights: Record<string, any>;
-          data_sources: string[];
-        };
-        Insert: {
-          id?: string;
-          created_at?: string;
-          child_id: string;
-          analysis_date: string;
-          mood_score: number;
-          social_score: number;
-          emotional_state: string;
-          friendship_dynamics?: Record<string, any>;
-          intervention_recommendations?: string[];
-          ai_insights?: Record<string, any>;
-          data_sources?: string[];
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          child_id?: string;
-          analysis_date?: string;
-          mood_score?: number;
-          social_score?: number;
-          emotional_state?: string;
-          friendship_dynamics?: Record<string, any>;
-          intervention_recommendations?: string[];
-          ai_insights?: Record<string, any>;
-          data_sources?: string[];
-        };
-      };
-      intervention_history: {
-        Row: {
-          id: string;
-          created_at: string;
-          child_id: string;
-          intervention_type: string;
-          intervention_content: string;
-          effectiveness_rating?: number;
-          parent_feedback?: string;
-          follow_up_date?: string;
-        };
-        Insert: {
-          id?: string;
-          created_at?: string;
-          child_id: string;
-          intervention_type: string;
-          intervention_content: string;
-          effectiveness_rating?: number;
-          parent_feedback?: string;
-          follow_up_date?: string;
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          child_id?: string;
-          intervention_type?: string;
-          intervention_content?: string;
-          effectiveness_rating?: number;
-          parent_feedback?: string;
-          follow_up_date?: string;
-        };
-      };
-      crisis_alerts: {
-        Row: {
-          id: string;
-          created_at: string;
-          child_id: string;
-          alert_type: "mild" | "moderate" | "severe" | "crisis";
-          alert_message: string;
-          is_resolved: boolean;
-          resolved_at?: string;
-          action_taken?: string;
-        };
-        Insert: {
-          id?: string;
-          created_at?: string;
-          child_id: string;
-          alert_type: "mild" | "moderate" | "severe" | "crisis";
-          alert_message: string;
-          is_resolved?: boolean;
-          resolved_at?: string;
-          action_taken?: string;
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          child_id?: string;
-          alert_type?: "mild" | "moderate" | "severe" | "crisis";
-          alert_message?: string;
-          is_resolved?: boolean;
-          resolved_at?: string;
-          action_taken?: string;
         };
       };
       dashboard_analytics: {
@@ -548,35 +455,6 @@ export interface Database {
           updated_at?: string;
         };
       };
-      chat_messages: {
-        Row: {
-          id: string;
-          created_at: string;
-          session_id: string;
-          child_id: string;
-          sender: "child" | "ai";
-          content: string;
-          message_index: number;
-        };
-        Insert: {
-          id?: string;
-          created_at?: string;
-          session_id: string;
-          child_id: string;
-          sender: "child" | "ai";
-          content: string;
-          message_index: number;
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          session_id?: string;
-          child_id?: string;
-          sender?: "child" | "ai";
-          content?: string;
-          message_index?: number;
-        };
-      };
     };
     Views: {
       [_ in never]: never;
@@ -601,8 +479,3 @@ export type Child = Database["public"]["Tables"]["children"]["Row"];
 export type MoodTracking = Database["public"]["Tables"]["mood_tracking"]["Row"];
 export type TherapySession =
   Database["public"]["Tables"]["therapy_sessions"]["Row"];
-export type SocialHealthAnalysis =
-  Database["public"]["Tables"]["social_health_analyses"]["Row"];
-export type InterventionHistory =
-  Database["public"]["Tables"]["intervention_history"]["Row"];
-export type CrisisAlert = Database["public"]["Tables"]["crisis_alerts"]["Row"];

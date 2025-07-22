@@ -3,6 +3,16 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import toast from "react-hot-toast";
+import SubscriptionManagement from "@/components/payment/subscription-management";
+import {
+  User,
+  Users,
+  Mail,
+  Calendar,
+  Settings,
+  Save,
+  RefreshCw,
+} from "lucide-react";
 
 export default function ProfilePage() {
   const { family, checkAuthentication } = useAuth();
@@ -97,102 +107,184 @@ export default function ProfilePage() {
 
   if (!family) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-6"></div>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            Loading your profile
+          </h3>
+          <p className="text-gray-500">
+            Please wait while we fetch your information...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-100px)] bg-gradient-to-br from-purple-50 to-blue-50">
-      <div className="max-w-xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Profile Settings
-                </h2>
-                <p className="text-gray-600">
-                  Update your personal and family information
+    <div className="min-h-[calc(100vh-100px)] bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* Profile Information Section */}
+          <div className="xl:col-span-2 space-y-8">
+            {/* Account Information Card */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-8 py-6">
+                <div className="flex items-center space-x-3">
+                  <Settings className="h-6 w-6 text-gray-600" />
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Account Information
+                  </h2>
+                </div>
+                <p className="text-gray-600 mt-2">
+                  Update your personal and family details
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Account Information */}
-                <div className="border-b border-gray-200 pb-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
-                    Account Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Your Name
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.parentName}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            parentName: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="Enter your full name"
-                      />
-                      {errors.parentName && (
-                        <p className="text-red-600 text-sm mt-1">
-                          {errors.parentName}
-                        </p>
-                      )}
-                    </div>
+              <div className="p-8">
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {/* Personal Details */}
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-6 flex items-center space-x-2">
+                      <User className="h-5 w-5 text-gray-500" />
+                      <span>Personal Details</span>
+                    </h3>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Family Name
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.familyName}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            familyName: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="The Smith Family"
-                      />
-                      {errors.familyName && (
-                        <p className="text-red-600 text-sm mt-1">
-                          {errors.familyName}
-                        </p>
-                      )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Your Name
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={formData.parentName}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                parentName: e.target.value,
+                              })
+                            }
+                            className={`w-full px-4 py-3 pl-11 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${
+                              errors.parentName
+                                ? "border-red-300 bg-red-50"
+                                : "border-gray-300 bg-white hover:border-gray-400"
+                            }`}
+                            placeholder="Enter your full name"
+                          />
+                          <User className="h-5 w-5 text-gray-400 absolute left-3 top-3.5" />
+                        </div>
+                        {errors.parentName && (
+                          <p className="text-red-600 text-sm flex items-center space-x-1">
+                            <span>⚠️</span>
+                            <span>{errors.parentName}</span>
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Family Name
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={formData.familyName}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                familyName: e.target.value,
+                              })
+                            }
+                            className={`w-full px-4 py-3 pl-11 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${
+                              errors.familyName
+                                ? "border-red-300 bg-red-50"
+                                : "border-gray-300 bg-white hover:border-gray-400"
+                            }`}
+                            placeholder="The Smith Family"
+                          />
+                          <Users className="h-5 w-5 text-gray-400 absolute left-3 top-3.5" />
+                        </div>
+                        {errors.familyName && (
+                          <p className="text-red-600 text-sm flex items-center space-x-1">
+                            <span>⚠️</span>
+                            <span>{errors.familyName}</span>
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isLoading || !hasChanges()}
-                  className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Updating...</span>
-                    </>
-                  ) : (
-                    <span>Update Profile</span>
-                  )}
-                </button>
-              </form>
+                  {/* Account Summary */}
+                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center space-x-2">
+                      <Mail className="h-5 w-5 text-gray-500" />
+                      <span>Account Summary</span>
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white rounded-lg p-4 border border-gray-200">
+                        <p className="text-sm text-gray-500 mb-1">
+                          Email Address
+                        </p>
+                        <p className="font-medium text-gray-900">
+                          {family.parent_email}
+                        </p>
+                      </div>
+
+                      <div className="bg-white rounded-lg p-4 border border-gray-200">
+                        <p className="text-sm text-gray-500 mb-1">
+                          Member Since
+                        </p>
+                        <p className="font-medium text-gray-900 flex items-center space-x-2">
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                          <span>
+                            {family.created_at
+                              ? new Date(family.created_at).toLocaleDateString(
+                                  "en-US",
+                                  { year: "numeric", month: "long" }
+                                )
+                              : "N/A"}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={isLoading || !hasChanges()}
+                      className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 flex items-center space-x-2 ${
+                        hasChanges() && !isLoading
+                          ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                          : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                      }`}
+                    >
+                      {isLoading ? (
+                        <>
+                          <RefreshCw className="h-5 w-5 animate-spin" />
+                          <span>Updating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-5 w-5" />
+                          <span>Save Changes</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          {/* Subscription Management Section */}
+          <div className="xl:col-span-1">
+            <div className="sticky top-8">
+              <SubscriptionManagement />
             </div>
           </div>
         </div>

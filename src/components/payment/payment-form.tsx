@@ -1,34 +1,40 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useRef } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
+import { useState, useEffect, useRef } from "react";
+import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
   CardElement,
   useStripe,
-  useElements
-} from '@stripe/react-stripe-js'
-import { CreditCard, Lock, AlertCircle, CheckCircle } from 'lucide-react'
+  useElements,
+} from "@stripe/react-stripe-js";
+import { CreditCard, Lock, AlertCircle, CheckCircle } from "lucide-react";
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+);
 
 interface PaymentFormProps {
   familyData: {
-    parentName: string
-    email: string
-    password: string
-    familyName: string
+    parentName: string;
+    email: string;
+    password: string;
+    familyName: string;
     children: Array<{
-      name: string
-      age: string
-      concerns: string
-    }>
-  }
-  onSuccess: (result: any) => void
-  onError: (error: string) => void
+      name: string;
+      age: string;
+      concerns: string;
+    }>;
+  };
+  onSuccess: (result: any) => void;
+  onError: (error: string) => void;
 }
 
-export default function PaymentForm({ familyData, onSuccess, onError }: PaymentFormProps) {
+export default function PaymentForm({
+  familyData,
+  onSuccess,
+  onError,
+}: PaymentFormProps) {
   return (
     <Elements stripe={stripePromise}>
       <PaymentFormContent
@@ -37,176 +43,170 @@ export default function PaymentForm({ familyData, onSuccess, onError }: PaymentF
         onError={onError}
       />
     </Elements>
-  )
+  );
 }
 
-function PaymentFormContent({ familyData, onSuccess, onError }: PaymentFormProps) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [isLoading, setIsLoading] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [clientSecret, setClientSecret] = useState<string | null>(null)
-  const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const hasCreatedSubscription = useRef(false)
+function PaymentFormContent({
+  familyData,
+  onSuccess,
+  onError,
+}: PaymentFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const hasCreatedSubscription = useRef(false);
 
   useEffect(() => {
-    // Only create subscription once
     if (!hasCreatedSubscription.current) {
-      hasCreatedSubscription.current = true
-      createSubscription()
+      hasCreatedSubscription.current = true;
+      createSubscription();
     }
-  }, []) // Empty dependency array means this runs once on mount
+  }, []);
 
   const createSubscription = async () => {
     // Prevent multiple calls
-    if (isLoading || subscriptionId) return
-    
-    setIsLoading(true)
-    setError(null)
+    if (isLoading || subscriptionId) return;
+
+    setIsLoading(true);
+    setError(null);
 
     try {
-      // Create Stripe subscription first - webhook will create user
-      console.log('Creating Stripe subscription first for:', familyData.email)
-      const subscriptionResponse = await fetch('/api/stripe/create-subscription-first', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(familyData)
-      })
-
-      console.log('Stripe subscription response status:', subscriptionResponse.status)
+      const subscriptionResponse = await fetch(
+        "/api/stripe/create-subscription-first",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(familyData),
+        }
+      );
 
       if (!subscriptionResponse.ok) {
-        const errorData = await subscriptionResponse.json()
-        console.error('Stripe subscription creation failed:', errorData)
-        throw new Error(errorData.error || 'Failed to create subscription')
+        const errorData = await subscriptionResponse.json();
+        console.error("Stripe subscription creation failed:", errorData);
+        throw new Error(errorData.error || "Failed to create subscription");
       }
 
-      const data = await subscriptionResponse.json()
-      console.log('Stripe subscription created:', { 
-        subscriptionId: data.subscriptionId,
-        customerId: data.customerId,
-        hasClientSecret: !!data.clientSecret 
-      })
+      const data = await subscriptionResponse.json();
 
       // Clear any previous errors since subscription creation succeeded
-      setError(null)
+      setError(null);
 
-      setClientSecret(data.clientSecret)
-      setSubscriptionId(data.subscriptionId)
+      setClientSecret(data.clientSecret);
+      setSubscriptionId(data.subscriptionId);
 
       // Store email for later user polling
-      setUserEmail(data.email)
+      setUserEmail(data.email);
 
       // If no client secret, the trial started successfully without payment
       if (!data.clientSecret) {
-        console.log('Trial started without payment method required')
         // Wait for webhook to create user, then login
-        await waitForUserCreation(data.email)
+        await waitForUserCreation(data.email);
       }
     } catch (err: any) {
-      console.error('Subscription creation error:', err)
-      setError(err.message)
-      onError(err.message)
+      console.error("Subscription creation error:", err);
+      setError(err.message);
+      onError(err.message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const waitForUserCreation = async (email: string) => {
-    console.log('Waiting for webhook to create user:', email)
-    const maxAttempts = 30 // 30 seconds max
-    let attempts = 0
+    const maxAttempts = 30; // 30 seconds max
+    let attempts = 0;
 
     while (attempts < maxAttempts) {
       try {
-        const response = await fetch('/api/auth/check-user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+        const response = await fetch("/api/auth/check-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             email,
             password: familyData.password,
             familyData: {
               parentName: familyData.parentName,
               familyName: familyData.familyName,
-              children: familyData.children
-            }
-          })
-        })
+              children: familyData.children,
+            },
+          }),
+        });
 
         if (response.ok) {
-          const userData = await response.json()
-          console.log('User created by webhook! Authenticating...')
-          
+          const userData = await response.json();
+
           // Auto-login the user
-          const loginResponse = await fetch('/api/auth/auto-login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              email: email, 
-              password: familyData.password 
-            })
-          })
+          const loginResponse = await fetch("/api/auth/auto-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: email,
+              password: familyData.password,
+            }),
+          });
 
           if (loginResponse.ok) {
-            console.log('User authenticated successfully!')
             onSuccess({
               subscriptionId: subscriptionId,
               email: email,
-              status: 'trialing',
-              userId: userData.userId,
-              familyId: userData.familyId
-            })
-          } else {
-            console.error('Auto-login failed, but user was created')
-            onSuccess({
-              subscriptionId: subscriptionId,
-              email: email,
-              status: 'trialing',
+              status: "trialing",
               userId: userData.userId,
               familyId: userData.familyId,
-              requiresManualLogin: true
-            })
+            });
+          } else {
+            console.error("Auto-login failed, but user was created");
+            onSuccess({
+              subscriptionId: subscriptionId,
+              email: email,
+              status: "trialing",
+              userId: userData.userId,
+              familyId: userData.familyId,
+              requiresManualLogin: true,
+            });
           }
-          return
+          return;
         }
       } catch (error) {
-        console.log('User not ready yet, retrying in 1 second...')
+        console.log("User not ready yet, retrying in 1 second...");
       }
 
-      attempts++
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+      attempts++;
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
     }
 
     // Timeout - show error
-    setError('Account creation is taking longer than expected. Please try refreshing the page.')
-    onError('Account creation timeout')
-  }
+    setError(
+      "Account creation is taking longer than expected. Please try refreshing the page."
+    );
+    onError("Account creation timeout");
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
+    event.preventDefault();
 
     if (!stripe || !elements || !clientSecret) {
-      setError('Payment system not ready. Please try again.')
-      return
+      setError("Payment system not ready. Please try again.");
+      return;
     }
 
-    setIsProcessing(true)
-    setError(null)
+    setIsProcessing(true);
+    setError(null);
 
-    const cardElement = elements.getElement(CardElement)
+    const cardElement = elements.getElement(CardElement);
     if (!cardElement) {
-      setError('Payment form not ready. Please refresh and try again.')
-      setIsProcessing(false)
-      return
+      setError("Payment form not ready. Please refresh and try again.");
+      setIsProcessing(false);
+      return;
     }
 
     try {
       // Confirm the payment method
-      const { error: confirmError, setupIntent } = await stripe.confirmCardSetup(
-        clientSecret,
-        {
+      const { error: confirmError, setupIntent } =
+        await stripe.confirmCardSetup(clientSecret, {
           payment_method: {
             card: cardElement,
             billing_details: {
@@ -214,59 +214,60 @@ function PaymentFormContent({ familyData, onSuccess, onError }: PaymentFormProps
               email: familyData.email,
             },
           },
-        }
-      )
+        });
 
       if (confirmError) {
-        setError(confirmError.message || 'Payment setup failed')
-        onError(confirmError.message || 'Payment setup failed')
-      } else if (setupIntent && setupIntent.status === 'succeeded') {
+        setError(confirmError.message || "Payment setup failed");
+        onError(confirmError.message || "Payment setup failed");
+      } else if (setupIntent && setupIntent.status === "succeeded") {
         // Payment method saved successfully - now wait for user creation
-        console.log('Payment method saved, waiting for user creation...')
         if (userEmail) {
-          await waitForUserCreation(userEmail)
+          await waitForUserCreation(userEmail);
         } else {
           // Fallback if no email stored
           onSuccess({
             subscriptionId,
             setupIntentId: setupIntent.id,
-            status: 'trialing'
-          })
+            status: "trialing",
+          });
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Payment processing failed')
-      onError(err.message || 'Payment processing failed')
+      setError(err.message || "Payment processing failed");
+      onError(err.message || "Payment processing failed");
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
   const cardElementOptions = {
     style: {
       base: {
-        fontSize: '16px',
-        color: '#374151',
-        '::placeholder': {
-          color: '#9CA3AF',
+        fontSize: "16px",
+        color: "#374151",
+        "::placeholder": {
+          color: "#9CA3AF",
         },
-        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily:
+          '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       },
       invalid: {
-        color: '#DC2626',
-        iconColor: '#DC2626'
-      }
+        color: "#DC2626",
+        iconColor: "#DC2626",
+      },
     },
-    hidePostalCode: true
-  }
+    hidePostalCode: true,
+  };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        <span className="ml-3 text-gray-600">Creating your subscription and account...</span>
+        <span className="ml-3 text-gray-600">
+          Creating your subscription and account...
+        </span>
       </div>
-    )
+    );
   }
 
   return (
@@ -276,7 +277,9 @@ function PaymentFormContent({ familyData, onSuccess, onError }: PaymentFormProps
           <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <CreditCard className="h-6 w-6 text-green-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Secure Payment Setup</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Secure Payment Setup
+          </h3>
           <p className="text-sm text-gray-600">
             Add your payment method to start your 7-day free trial
           </p>
@@ -306,9 +309,12 @@ function PaymentFormContent({ familyData, onSuccess, onError }: PaymentFormProps
             <div className="flex items-start space-x-3">
               <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="text-sm">
-                <p className="text-blue-800 font-medium mb-1">7-Day Free Trial</p>
+                <p className="text-blue-800 font-medium mb-1">
+                  7-Day Free Trial
+                </p>
                 <p className="text-blue-700">
-                  You won't be charged today. Your trial starts immediately and you can cancel anytime during the 7 days.
+                  You won't be charged today. Your trial starts immediately and
+                  you can cancel anytime during the 7 days.
                 </p>
               </div>
             </div>
@@ -319,7 +325,10 @@ function PaymentFormContent({ familyData, onSuccess, onError }: PaymentFormProps
               <Lock className="h-4 w-4" />
               <span className="font-medium">Secure & Encrypted</span>
             </div>
-            <p>Your payment information is encrypted and secure. You can cancel your subscription at any time.</p>
+            <p>
+              Your payment information is encrypted and secure. You can cancel
+              your subscription at any time.
+            </p>
           </div>
 
           <button
@@ -333,15 +342,15 @@ function PaymentFormContent({ familyData, onSuccess, onError }: PaymentFormProps
                 Creating Account...
               </div>
             ) : (
-              'Complete Registration & Start Trial'
+              "Complete Registration & Start Trial"
             )}
           </button>
-          
+
           <p className="text-xs text-gray-500 text-center">
             After your trial ends, you'll be charged $39/month. Cancel anytime.
           </p>
         </form>
       </div>
     </div>
-  )
-} 
+  );
+}
