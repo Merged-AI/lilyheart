@@ -47,13 +47,12 @@ export async function POST(request: NextRequest) {
     );
 
     // Update the family record in Supabase to reflect cancellation
-    // Keep subscription_status as active but mark it as canceled at period end
     const { error: updateError } = await supabase
       .from("families")
       .update({
         subscription_canceled_at: new Date().toISOString(),
-        // Don't change subscription_status yet - keep it 'active' until period ends
-        // The webhook will handle the final status change to 'canceled'
+        subscription_status: "canceling", // New status to indicate pending cancellation
+        // The webhook will handle the final status change to 'canceled' when period ends
       })
       .eq("id", family.id);
 

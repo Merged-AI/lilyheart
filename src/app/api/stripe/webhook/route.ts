@@ -365,7 +365,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   // Get current family record to check if cancellation is already recorded
   const { data: currentFamily } = await supabase
     .from("families")
-    .select("subscription_canceled_at")
+    .select("subscription_canceled_at, subscription_status")
     .eq("stripe_subscription_id", subscription.id)
     .single();
 
@@ -374,26 +374,30 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const currentPeriodStart = subscriptionItem?.current_period_start;
   const currentPeriodEnd = subscriptionItem?.current_period_end;
 
-  const updateData: any = {
-    subscription_status: subscription.status,
-  };
+  const updateData: any = {};
 
-  // Handle cancellation at period end
-  if (
-    subscription.cancel_at_period_end &&
-    !currentFamily?.subscription_canceled_at
-  ) {
-    // Only set if not already set to preserve original cancellation timestamp
-    updateData.subscription_canceled_at = new Date().toISOString();
-  }
-
-  // Handle reactivation (when cancel_at_period_end is removed)
-  if (
-    !subscription.cancel_at_period_end &&
-    currentFamily?.subscription_canceled_at
-  ) {
-    // Remove cancellation timestamp when subscription is reactivated
-    updateData.subscription_canceled_at = null;
+  // Determine the correct subscription status
+  if (subscription.cancel_at_period_end) {
+    // Subscription is marked for cancellation but still active
+    updateData.subscription_status = "canceling";
+    // Only set cancellation timestamp if not already set
+    if (!currentFamily?.subscription_canceled_at) {
+      updateData.subscription_canceled_at = new Date().toISOString();
+    }
+  } else if (subscription.status === "canceled") {
+    // Subscription has actually been canceled
+    updateData.subscription_status = "canceled";
+  } else {
+    // Handle reactivation (when cancel_at_period_end is removed)
+    if (
+      !subscription.cancel_at_period_end &&
+      currentFamily?.subscription_canceled_at
+    ) {
+      // Remove cancellation timestamp when subscription is reactivated
+      updateData.subscription_canceled_at = null;
+    }
+    // Use Stripe's actual status for active subscriptions
+    updateData.subscription_status = subscription.status;
   }
 
   // Only add timestamp fields if they exist

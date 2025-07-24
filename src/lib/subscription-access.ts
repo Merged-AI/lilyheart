@@ -54,12 +54,13 @@ export async function checkSubscriptionAccess(): Promise<SubscriptionAccess> {
     const isPaidSubscription = family.subscription_status === 'active' && !isTrialing;
     const hasActiveSubscription = isPaidSubscription || isTrialing;
 
-    // Check if subscription is canceled but still within period
+    // Check if subscription is canceled or canceling but still within period
     const isCanceled = family.subscription_status === 'canceled';
+    const isCanceling = family.subscription_status === 'canceling';
     const isMarkedForCancellation = Boolean(family.subscription_canceled_at);
     const currentPeriodEnd = family.subscription_current_period_end ? 
                             new Date(family.subscription_current_period_end) : undefined;
-    const stillInCanceledPeriod = (isCanceled || isMarkedForCancellation) && currentPeriodEnd ? currentPeriodEnd > now : false;
+    const stillInCanceledPeriod = (isCanceled || isCanceling || isMarkedForCancellation) && currentPeriodEnd ? currentPeriodEnd > now : false;
 
     const finalHasAccess = hasActiveSubscription || stillInCanceledPeriod;
 

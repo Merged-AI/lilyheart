@@ -55,17 +55,19 @@ export async function GET(request: NextRequest) {
         last_payment_at: family.last_payment_at,
         parent_email: family.parent_email,
       },
-      subscription: {
-        id: subscription.id,
-        status: subscription.status,
-        cancel_at_period_end: subscription.cancel_at_period_end,
-        current_period_start: (subscription as any).items?.data?.[0]
-          ?.current_period_start,
-        current_period_end: (subscription as any).items?.data?.[0]
-          ?.current_period_end,
-        trial_end: subscription.trial_end,
-        canceled_at: subscription.canceled_at,
-      },
+              subscription: {
+          id: subscription.id,
+          status: subscription.status,
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          current_period_start: (subscription as any).items?.data?.[0]
+            ?.current_period_start,
+          current_period_end: (subscription as any).items?.data?.[0]
+            ?.current_period_end,
+          trial_end: subscription.trial_end,
+          canceled_at: subscription.canceled_at,
+          // Include our custom status for better UX
+          effective_status: family.subscription_status === "canceling" ? "canceling" : subscription.status,
+        },
       billing: {
         amount: subscription.items.data[0]?.price?.unit_amount || 3900,
         currency: subscription.items.data[0]?.price?.currency || "usd",

@@ -26,26 +26,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if subscription is actually marked for cancellation
-    if (!family.subscription_canceled_at) {
+    // Check if subscription is in canceling status
+    if (family.subscription_status !== "canceling") {
       return NextResponse.json(
         { error: "Subscription is not marked for cancellation" },
         { status: 400 }
       );
     }
 
-    // Check if subscription status is still active (not fully canceled yet)
-    if (family.subscription_status === "canceled") {
-      return NextResponse.json(
-        {
-          error:
-            "Subscription has already been canceled and cannot be reactivated",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Reactivate the subscription in Stripe by removing cancel_at_period_end
+    // Reactivate the subscription in Stripe (remove cancel_at_period_end)
     const reactivatedSubscription = await stripe.subscriptions.update(
       family.stripe_subscription_id,
       {
@@ -53,23 +42,22 @@ export async function POST(request: NextRequest) {
         metadata: {
           reactivated_by: "user",
           reactivated_at: new Date().toISOString(),
-          previous_cancellation: family.subscription_canceled_at,
         },
       }
     );
 
-    // Update the family record in Supabase to remove cancellation
+    // Update the family record in Supabase to reflect reactivation
     const { error: updateError } = await supabase
       .from("families")
       .update({
-        subscription_canceled_at: null, // Remove the cancellation timestamp
-        // Keep subscription_status as 'active' since it should still be active
+        subscription_canceled_at: null,
+        subscription_status: "active", // Set back to active
       })
       .eq("id", family.id);
 
     if (updateError) {
       console.error("Error updating family record:", updateError);
-      // Continue anyway since Stripe was updated successfully
+      // Continue anyway since Stripe was updated
     }
 
     return NextResponse.json({

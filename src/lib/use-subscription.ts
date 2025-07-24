@@ -30,6 +30,9 @@ interface UseSubscriptionReturn {
   isTrialing: boolean;
   isPaidSubscription: boolean;
   trialEnded: boolean;
+  isCanceling: boolean;
+  isCanceled: boolean;
+  isMarkedForCancellation: boolean;
   canAccessFeature: (feature: string) => boolean;
   refetchSubscription: () => Promise<void>;
 }
@@ -74,15 +77,16 @@ export function useSubscription(): UseSubscriptionReturn {
   const trialEnded = trialEndsAt && trialEndsAt <= now;
   const isPaidSubscription = subscriptionInfo?.family.subscription_status === 'active' && !isTrialing;
   
-  // Check if subscription is canceled but still within period
+  // Check if subscription is canceled or canceling but still within period
   const isCanceled = subscriptionInfo?.family.subscription_status === 'canceled';
+  const isCanceling = subscriptionInfo?.family.subscription_status === 'canceling';
   const isMarkedForCancellation = Boolean(
     subscriptionInfo?.family.subscription_canceled_at || 
     subscriptionInfo?.subscription?.cancel_at_period_end
   );
   const currentPeriodEnd = subscriptionInfo?.subscription?.current_period_end ? 
     new Date(subscriptionInfo.subscription.current_period_end * 1000) : null;
-  const stillInCanceledPeriod = (isCanceled || isMarkedForCancellation) && currentPeriodEnd && currentPeriodEnd > now;
+  const stillInCanceledPeriod = (isCanceled || isCanceling || isMarkedForCancellation) && currentPeriodEnd && currentPeriodEnd > now;
   
   const hasActiveSubscription = Boolean(
     subscriptionInfo?.hasSubscription && 
@@ -109,6 +113,9 @@ export function useSubscription(): UseSubscriptionReturn {
     isTrialing: Boolean(isTrialing),
     isPaidSubscription: Boolean(isPaidSubscription),
     trialEnded: Boolean(trialEnded && !isPaidSubscription),
+    isCanceling: Boolean(isCanceling),
+    isCanceled: Boolean(isCanceled),
+    isMarkedForCancellation: Boolean(isMarkedForCancellation),
     canAccessFeature,
     refetchSubscription: fetchSubscriptionInfo
   };
