@@ -84,17 +84,16 @@ export default function ChatModeModal({
         if (!hasActiveSubscription && !isTrialing) {
           setProfileModalConfig({
             title: "Subscription Required",
-            message: trialEnded
-              ? "Your free trial has ended. Please subscribe to continue using Heart Harbor's therapeutic features."
-              : "A subscription is required to access therapy sessions.",
+            message:
+              "A subscription is required to access therapy sessions. You can manage your subscription from your profile.",
             type: "warning",
             icon: <AlertTriangle className="h-6 w-6" />,
             primaryButton: {
-              text: "View Pricing",
+              text: "Manage Subscription",
               onClick: () => {
                 setShowProfileModal(false);
                 onClose();
-                router.push("/pricing");
+                router.push("/profile");
               },
             },
           });

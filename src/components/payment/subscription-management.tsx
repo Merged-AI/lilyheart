@@ -328,28 +328,59 @@ export default function SubscriptionManagement() {
         {/* Cancellation Notice */}
         {(subscriptionInfo.family.subscription_canceled_at ||
           subscriptionInfo.subscription?.cancel_at_period_end) && (
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+          <div
+            className={`${
+              subscriptionInfo.family.subscription_status === "canceled"
+                ? "bg-red-50 border-red-200"
+                : "bg-orange-50 border-orange-200"
+            } border rounded-lg p-4 mb-4`}
+          >
             <div className="flex items-center space-x-2">
-              <Clock
-                className="h-5 w-5 text-orange-600"
-                style={{ minWidth: "20px" }}
-              />
+              {subscriptionInfo.family.subscription_status === "canceled" ? (
+                <X
+                  className="h-5 w-5 text-red-600"
+                  style={{ minWidth: "20px" }}
+                />
+              ) : (
+                <Clock
+                  className="h-5 w-5 text-orange-600"
+                  style={{ minWidth: "20px" }}
+                />
+              )}
               <div>
-                <p className="text-orange-800 font-medium">
-                  Subscription Ending
+                <p
+                  className={`${
+                    subscriptionInfo.family.subscription_status === "canceled"
+                      ? "text-red-800"
+                      : "text-orange-800"
+                  } font-medium`}
+                >
+                  {subscriptionInfo.family.subscription_status === "canceled"
+                    ? "Subscription Canceled"
+                    : "Subscription Ending"}
                 </p>
-                <p className="text-orange-700 text-sm">
-                  Your subscription will end on{" "}
-                  {subscriptionInfo.subscription &&
-                    formatDate(
-                      subscriptionInfo.subscription.current_period_end
-                    )}
-                  . You'll retain access until then.
+                <p
+                  className={`${
+                    subscriptionInfo.family.subscription_status === "canceled"
+                      ? "text-red-700"
+                      : "text-orange-700"
+                  } text-sm`}
+                >
+                  {subscriptionInfo.family.subscription_status === "canceled"
+                    ? "Your subscription has been canceled and is no longer active."
+                    : `Your subscription will end on ${
+                        subscriptionInfo.subscription &&
+                        formatDate(
+                          subscriptionInfo.subscription.current_period_end
+                        )
+                      }. You'll retain access until then.`}
                 </p>
-                <p className="text-orange-700 text-sm mt-1">
-                  Changed your mind? You can reactivate your subscription at any
-                  time before it ends.
-                </p>
+                {subscriptionInfo.family.subscription_status !== "canceled" && (
+                  <p className="text-orange-700 text-sm mt-1">
+                    Changed your mind? You can reactivate your subscription at
+                    any time before it ends.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -359,7 +390,8 @@ export default function SubscriptionManagement() {
         <div className="flex space-x-3">
           {subscriptionInfo.hasSubscription &&
             !subscriptionInfo.family.subscription_canceled_at &&
-            !subscriptionInfo.subscription?.cancel_at_period_end && (
+            !subscriptionInfo.subscription?.cancel_at_period_end &&
+            subscriptionInfo.family.subscription_status !== "canceled" && (
               <button
                 onClick={() => setShowCancelModal(true)}
                 className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
@@ -372,7 +404,8 @@ export default function SubscriptionManagement() {
           {/* Reactivate button for canceled subscriptions that haven't ended yet */}
           {subscriptionInfo.hasSubscription &&
             (subscriptionInfo.family.subscription_canceled_at ||
-              subscriptionInfo.subscription?.cancel_at_period_end) && (
+              subscriptionInfo.subscription?.cancel_at_period_end) &&
+            subscriptionInfo.family.subscription_status !== "active" && (
               <button
                 onClick={() => setShowReactivateModal(true)}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"

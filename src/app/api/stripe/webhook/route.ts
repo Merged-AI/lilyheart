@@ -113,8 +113,6 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
 
     // Check if this is a resubscription (existing user)
     if (metadata.resubscription === "true" && metadata.family_id) {
-      console.log("Resubscription detected for family ID:", metadata.family_id);
-
       // Update existing family record
       const { error: updateError } = await supabase
         .from("families")
@@ -140,7 +138,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
               : null;
           })(),
         })
-        .eq("id", parseInt(metadata.family_id));
+        .eq("id", metadata.family_id);
 
       if (updateError) {
         console.error("Error updating family for resubscription:", updateError);
@@ -150,12 +148,66 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       return;
     }
 
+    // Check if this is a reactivation (existing user with canceled subscription)
+    if (metadata.reactivation === "true" && metadata.family_id) {
+      // Map Stripe status to database status for reactivation
+      const mapStripeStatusToDBStatus = (stripeStatus: string) => {
+        switch (stripeStatus) {
+          case "active":
+          case "incomplete": // Allow access while payment setup is in progress
+            return "active";
+          case "trialing":
+            return "trial";
+          case "canceled":
+          case "incomplete_expired":
+          case "past_due":
+          case "unpaid":
+          case "expired":
+            return "canceled";
+          default:
+            console.warn(
+              `Unknown Stripe status: ${stripeStatus}, mapping to canceled`
+            );
+            return "canceled";
+        }
+      };
+
+      // Update existing family record with new subscription
+      const { error: updateError } = await supabase
+        .from("families")
+        .update({
+          stripe_subscription_id: subscription.id,
+          subscription_status: mapStripeStatusToDBStatus(subscription.status),
+          trial_ends_at: subscription.trial_end
+            ? new Date(subscription.trial_end * 1000).toISOString()
+            : null,
+          subscription_current_period_start: (subscription as any)
+            .current_period_start
+            ? new Date(
+                (subscription as any).current_period_start * 1000
+              ).toISOString()
+            : null,
+          subscription_current_period_end: (subscription as any)
+            .current_period_end
+            ? new Date(
+                (subscription as any).current_period_end * 1000
+              ).toISOString()
+            : null,
+          subscription_canceled_at: null, // Clear previous cancellation
+          last_payment_failed_at: null, // Clear any previous payment failures
+        })
+        .eq("id", metadata.family_id);
+
+      if (updateError) {
+        console.error("Error updating family for reactivation:", updateError);
+      } else {
+        console.log("✅ Family subscription updated for reactivation!");
+      }
+      return;
+    }
+
     // Check if this is a new user creation (has all required metadata)
     if (!metadata.parent_email || !metadata.password || !metadata.family_name) {
-      console.log(
-        "No user creation metadata found, updating existing family record..."
-      );
-
       // Handle existing family (fallback to old behavior)
       const { data: family } = await supabase
         .from("families")
@@ -168,11 +220,6 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       }
       return;
     }
-
-    console.log(
-      "Creating new user from Stripe subscription for:",
-      metadata.parent_email
-    );
 
     // Parse children data
     let childrenData = [];
@@ -199,8 +246,6 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       console.error("Error creating auth user:", authError);
       throw new Error("Failed to create user account");
     }
-
-    console.log("Supabase user created:", authUser.user.id);
 
     // 2. Create family record
     const { data: family, error: familyError } = await supabase
@@ -243,8 +288,6 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       throw new Error("Failed to create family record");
     }
 
-    console.log("Family record created:", family.id);
-
     // 3. Create children records
     if (childrenData.length > 0) {
       const childrenRecords = childrenData.map((child: any) => ({
@@ -264,12 +307,8 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       if (childrenError) {
         console.error("Error creating children:", childrenError);
         // Continue anyway - children can be added later
-      } else {
-        console.log("Children records created:", childrenRecords.length);
       }
     }
-
-    console.log("✅ User account fully created from Stripe subscription!");
   } catch (error) {
     console.error("Error in handleSubscriptionCreated:", error);
     // Don't throw - we don't want to break the webhook
@@ -355,13 +394,6 @@ INSTRUCTIONS FOR DR. EMMA:
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  console.log(
-    "Subscription updated:",
-    subscription.id,
-    "cancel_at_period_end:",
-    subscription.cancel_at_period_end
-  );
-
   // Get current family record to check if cancellation is already recorded
   const { data: currentFamily } = await supabase
     .from("families")
@@ -376,28 +408,54 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
   const updateData: any = {};
 
+  // Map Stripe subscription status to our database values
+  const mapStripeStatusToDBStatus = (
+    stripeStatus: string,
+    cancelAtPeriodEnd: boolean
+  ) => {
+    if (cancelAtPeriodEnd) {
+      return "canceling";
+    }
+
+    switch (stripeStatus) {
+      case "active":
+        return "active";
+      case "trialing":
+        return "trial";
+      case "canceled":
+      case "incomplete":
+      case "incomplete_expired":
+      case "past_due":
+      case "unpaid":
+      case "expired":
+        return "canceled";
+      default:
+        console.warn(
+          `Unknown Stripe status: ${stripeStatus}, mapping to canceled`
+        );
+        return "canceled";
+    }
+  };
+
   // Determine the correct subscription status
-  if (subscription.cancel_at_period_end) {
-    // Subscription is marked for cancellation but still active
-    updateData.subscription_status = "canceling";
-    // Only set cancellation timestamp if not already set
+  const mappedStatus = mapStripeStatusToDBStatus(
+    subscription.status,
+    subscription.cancel_at_period_end
+  );
+  updateData.subscription_status = mappedStatus;
+
+  // Handle cancellation timestamp
+  if (subscription.cancel_at_period_end || subscription.status === "canceled") {
+    // Set cancellation timestamp if not already set
     if (!currentFamily?.subscription_canceled_at) {
       updateData.subscription_canceled_at = new Date().toISOString();
     }
-  } else if (subscription.status === "canceled") {
-    // Subscription has actually been canceled
-    updateData.subscription_status = "canceled";
   } else {
     // Handle reactivation (when cancel_at_period_end is removed)
-    if (
-      !subscription.cancel_at_period_end &&
-      currentFamily?.subscription_canceled_at
-    ) {
+    if (currentFamily?.subscription_canceled_at) {
       // Remove cancellation timestamp when subscription is reactivated
       updateData.subscription_canceled_at = null;
     }
-    // Use Stripe's actual status for active subscriptions
-    updateData.subscription_status = subscription.status;
   }
 
   // Only add timestamp fields if they exist
@@ -436,8 +494,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
   if (error) {
     console.error("Error updating family subscription:", error);
-  } else {
-    console.log("Successfully updated family subscription status");
   }
 }
 
@@ -453,8 +509,6 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
   if (error) {
     console.error("Error marking subscription as canceled:", error);
-  } else {
-    console.log("Successfully marked subscription as canceled");
   }
 }
 
