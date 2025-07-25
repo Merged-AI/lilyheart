@@ -147,9 +147,6 @@ export default function ViewChildPage() {
 
     // Only load data if we haven't loaded it before
     if (!loadedTabs.includes(tabId)) {
-      if (tabId === "mood" && moodEntries.length === 0) {
-        fetchMoodData();
-      }
       setLoadedTabs((prev) => [...prev, tabId]);
     }
   };
@@ -207,80 +204,6 @@ export default function ViewChildPage() {
       console.error("Error fetching child data:", error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Separate function to fetch comprehensive mood data when mood tab is accessed
-  const fetchMoodData = async () => {
-    try {
-      // Fetch mood entries from mood-tracking API
-      const moodResponse = await fetch(`/api/mood-tracking?childId=${childId}`);
-      if (moodResponse.ok) {
-        const moodData = await moodResponse.json();
-
-        // Store mood analysis data
-        if (moodData.moodAnalysis) {
-          setMoodAnalysis(moodData.moodAnalysis);
-        }
-
-        // Handle the mood tracking API response structure
-        if (moodData.moodData && moodData.moodData.length > 0) {
-          const moodEntriesFromAPI = moodData.moodData.map((entry: any) => ({
-            id: entry.session_id || `mood-${entry.date}`,
-            created_at: `${entry.date}T00:00:00.000Z`,
-            mood_score: entry.happiness,
-            notes: entry.notes || "",
-            happiness: entry.happiness,
-            anxiety: entry.anxiety,
-            sadness: entry.sadness,
-            stress: entry.stress,
-            confidence: entry.confidence,
-          }));
-
-          // Create mood entries from recent sessions
-          const sessionsToUse = recentSessions;
-          const moodEntriesFromSessions = sessionsToUse
-            .filter((session: Session) => session.mood_analysis)
-            .map((session: Session) => ({
-              id: session.id,
-              created_at: session.created_at,
-              mood_score: session.mood_analysis.happiness,
-              notes: session.mood_analysis.insights || "",
-              happiness: session.mood_analysis.happiness,
-              anxiety: session.mood_analysis.anxiety,
-              sadness: session.mood_analysis.sadness,
-              stress: session.mood_analysis.stress,
-              confidence: session.mood_analysis.confidence,
-            }));
-
-          // Combine with session-based mood entries, avoiding duplicates
-          const combined = [...moodEntriesFromSessions];
-          moodEntriesFromAPI.forEach((apiEntry: any) => {
-            const exists = combined.find(
-              (existing) =>
-                existing.id === apiEntry.id ||
-                existing.created_at.split("T")[0] ===
-                  apiEntry.created_at.split("T")[0]
-            );
-            if (!exists) {
-              combined.push({
-                ...apiEntry,
-                notes: apiEntry.notes || "",
-              });
-            }
-          });
-
-          setMoodEntries(
-            combined.sort(
-              (a, b) =>
-                new Date(b.created_at).getTime() -
-                new Date(a.created_at).getTime()
-            )
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching mood data:", error);
     }
   };
 
@@ -583,7 +506,9 @@ export default function ViewChildPage() {
                       Avg Mood
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {averageMood.toFixed(1)}/10
+                      {moodEntries.length > 0
+                        ? `${averageMood.toFixed(1)}/10`
+                        : "N/A"}
                     </p>
                   </div>
                 </div>
@@ -827,13 +752,15 @@ export default function ViewChildPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center">
                   <div className="text-3xl mb-2">
-                    {getMoodEmoji(averageMood)}
+                    {moodEntries.length > 0 ? getMoodEmoji(averageMood) : "❓"}
                   </div>
                   <p className="text-sm font-medium text-gray-600">
                     Average Mood
                   </p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {averageMood.toFixed(1)}/10
+                    {moodEntries.length > 0
+                      ? `${averageMood.toFixed(1)}/10`
+                      : "N/A"}
                   </p>
                 </div>
                 <div className="text-center">
@@ -1010,13 +937,17 @@ export default function ViewChildPage() {
                         style={{
                           width: `${Math.max(
                             0,
-                            Math.min(averageMood * 10, 100)
+                            moodEntries.length > 0
+                              ? Math.min(averageMood * 10, 100)
+                              : 0
                           )}%`,
                         }}
                       ></div>
                     </div>
                     <span className="text-sm font-medium text-gray-900">
-                      {averageMood.toFixed(1)}/10
+                      {moodEntries.length > 0
+                        ? `${averageMood.toFixed(1)}/10`
+                        : "N/A"}
                     </span>
                   </div>
                 </div>
@@ -1112,7 +1043,10 @@ export default function ViewChildPage() {
                           Improve mood score
                         </p>
                         <p className="text-xs text-gray-500">
-                          Current: {averageMood.toFixed(1)}/10
+                          Current:{" "}
+                          {moodEntries.length > 0
+                            ? `${averageMood.toFixed(1)}/10`
+                            : "N/A"}
                         </p>
                       </div>
                     </div>
@@ -1131,135 +1065,148 @@ export default function ViewChildPage() {
                     </div>
                   </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-600 mb-3">
-                    Achievements
-                  </h4>
-                  <div className="space-y-3">
-                    {/* First Session Achievement */}
-                    {(child.sessions_count || 0) >= 1 && (
-                      <div className="flex items-center space-x-3 p-3 bg-yellow-50 rounded-lg">
-                        <Award className="h-5 w-5 text-yellow-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            First Session
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Completed your first session
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 5 Sessions Achievement */}
-                    {(child.sessions_count || 0) >= 5 && (
-                      <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
-                        <Award className="h-5 w-5 text-green-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            Consistent Participant
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Completed 5 sessions
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 10 Sessions Achievement */}
-                    {(child.sessions_count || 0) >= 10 && (
-                      <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
-                        <Award className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            Dedicated Learner
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Completed 10 sessions
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 20 Sessions Achievement */}
-                    {(child.sessions_count || 0) >= 20 && (
-                      <div className="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg">
-                        <Award className="h-5 w-5 text-purple-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            Committed Explorer
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Completed 20 sessions
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 50 Sessions Achievement */}
-                    {(child.sessions_count || 0) >= 50 && (
-                      <div className="flex items-center space-x-3 p-3 bg-indigo-50 rounded-lg">
-                        <Award className="h-5 w-5 text-indigo-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            Master Participant
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Completed 50 sessions
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 100 Sessions Achievement */}
-                    {(child.sessions_count || 0) >= 100 && (
-                      <div className="flex items-center space-x-3 p-3 bg-pink-50 rounded-lg">
-                        <Award className="h-5 w-5 text-pink-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            Century Club
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Completed 100 sessions
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* High Mood Achievement */}
-                    {averageMood >= 7 && (
-                      <div className="flex items-center space-x-3 p-3 bg-pink-50 rounded-lg">
-                        <Award className="h-5 w-5 text-pink-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            Positive Mindset
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Maintained high mood scores
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Recent Activity Achievement */}
-                    {child.last_session_at &&
-                      new Date().getTime() -
-                        new Date(child.last_session_at).getTime() <=
-                        7 * 24 * 60 * 60 * 1000 && (
-                        <div className="flex items-center space-x-3 p-3 bg-orange-50 rounded-lg">
-                          <Award className="h-5 w-5 text-orange-600" />
+                {/* Only show achievements section if there are any achievements to display */}
+                {((child.sessions_count || 0) >= 1 || // First Session
+                  (child.sessions_count || 0) >= 5 || // Consistent Participant
+                  (child.sessions_count || 0) >= 10 || // Dedicated Learner
+                  (child.sessions_count || 0) >= 20 || // Committed Explorer
+                  (child.sessions_count || 0) >= 50 || // Master Participant
+                  (child.sessions_count || 0) >= 100 || // Century Club
+                  (moodEntries.length > 0 && averageMood >= 7) || // Positive Mindset
+                  (child.last_session_at &&
+                    new Date().getTime() -
+                      new Date(child.last_session_at).getTime() <=
+                      7 * 24 * 60 * 60 * 1000)) && ( // Recent Activity
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-600 mb-3">
+                      Achievements
+                    </h4>
+                    <div className="space-y-3">
+                      {/* First Session Achievement */}
+                      {(child.sessions_count || 0) >= 1 && (
+                        <div className="flex items-center space-x-3 p-3 bg-yellow-50 rounded-lg">
+                          <Award className="h-5 w-5 text-yellow-600" />
                           <div>
                             <p className="text-sm font-medium text-gray-900">
-                              Recent Activity
+                              First Session
                             </p>
                             <p className="text-xs text-gray-500">
-                              Active in the last week
+                              Completed your first session
                             </p>
                           </div>
                         </div>
                       )}
+
+                      {/* 5 Sessions Achievement */}
+                      {(child.sessions_count || 0) >= 5 && (
+                        <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+                          <Award className="h-5 w-5 text-green-600" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              Consistent Participant
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Completed 5 sessions
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 10 Sessions Achievement */}
+                      {(child.sessions_count || 0) >= 10 && (
+                        <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
+                          <Award className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              Dedicated Learner
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Completed 10 sessions
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 20 Sessions Achievement */}
+                      {(child.sessions_count || 0) >= 20 && (
+                        <div className="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg">
+                          <Award className="h-5 w-5 text-purple-600" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              Committed Explorer
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Completed 20 sessions
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 50 Sessions Achievement */}
+                      {(child.sessions_count || 0) >= 50 && (
+                        <div className="flex items-center space-x-3 p-3 bg-indigo-50 rounded-lg">
+                          <Award className="h-5 w-5 text-indigo-600" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              Master Participant
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Completed 50 sessions
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 100 Sessions Achievement */}
+                      {(child.sessions_count || 0) >= 100 && (
+                        <div className="flex items-center space-x-3 p-3 bg-pink-50 rounded-lg">
+                          <Award className="h-5 w-5 text-pink-600" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              Century Club
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Completed 100 sessions
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* High Mood Achievement */}
+                      {averageMood >= 7 && (
+                        <div className="flex items-center space-x-3 p-3 bg-pink-50 rounded-lg">
+                          <Award className="h-5 w-5 text-pink-600" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              Positive Mindset
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Maintained high mood scores
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent Activity Achievement */}
+                      {child.last_session_at &&
+                        new Date().getTime() -
+                          new Date(child.last_session_at).getTime() <=
+                          7 * 24 * 60 * 60 * 1000 && (
+                          <div className="flex items-center space-x-3 p-3 bg-orange-50 rounded-lg">
+                            <Award className="h-5 w-5 text-orange-600" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                Recent Activity
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Active in the last week
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

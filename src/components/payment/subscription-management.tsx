@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
 import {
   CreditCard,
   AlertTriangle,
@@ -14,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import Modal from "@/components/common/Modal";
 
 interface SubscriptionInfo {
   hasSubscription: boolean;
@@ -291,14 +291,21 @@ export default function SubscriptionManagement() {
                 <Calendar className="h-5 w-5 text-gray-400" />
                 <div>
                   <p className="text-sm text-gray-500">
-                    {subscriptionInfo.subscription.cancel_at_period_end
+                    {subscriptionInfo.family.subscription_status === "canceled"
+                      ? "Canceled On"
+                      : subscriptionInfo.subscription.cancel_at_period_end
                       ? "Ends On"
                       : "Next Billing"}
                   </p>
                   <p className="font-medium">
-                    {formatDate(
-                      subscriptionInfo.subscription.current_period_end
-                    )}
+                    {subscriptionInfo.family.subscription_status === "canceled"
+                      ? formatDate(
+                          subscriptionInfo.subscription.canceled_at ||
+                            subscriptionInfo.subscription.current_period_end
+                        )
+                      : formatDate(
+                          subscriptionInfo.subscription.current_period_end
+                        )}
                   </p>
                 </div>
               </div>
@@ -337,15 +344,9 @@ export default function SubscriptionManagement() {
           >
             <div className="flex items-center space-x-2">
               {subscriptionInfo.family.subscription_status === "canceled" ? (
-                <X
-                  className="h-5 w-5 text-red-600"
-                  style={{ minWidth: "20px" }}
-                />
+                <X className="h-5 w-5 text-red-600 min-w-[20px]" />
               ) : (
-                <Clock
-                  className="h-5 w-5 text-orange-600"
-                  style={{ minWidth: "20px" }}
-                />
+                <Clock className="h-5 w-5 text-orange-600 min-w-[20px]" />
               )}
               <div>
                 <p
@@ -428,111 +429,65 @@ export default function SubscriptionManagement() {
       </div>
 
       {/* Cancel Confirmation Modal */}
-      {showCancelModal &&
-        typeof window !== "undefined" &&
-        createPortal(
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
-            style={{ zIndex: 99999 }}
-          >
-            <div
-              className="bg-white rounded-xl p-6 max-w-md w-full relative"
-              style={{ zIndex: 100000 }}
-            >
-              <div className="text-center">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Cancel Subscription?
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Are you sure you want to cancel your subscription? You'll
-                  retain access until the end of your current billing period.
-                </p>
-
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => setShowCancelModal(false)}
-                    disabled={isCanceling}
-                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                  >
-                    Keep Subscription
-                  </button>
-                  <button
-                    onClick={handleCancelSubscription}
-                    disabled={isCanceling}
-                    className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
-                  >
-                    {isCanceling ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Canceling...</span>
-                      </>
-                    ) : (
-                      <span>Yes, Cancel</span>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        title="Cancel Subscription?"
+        type="warning"
+        icon={<AlertTriangle className="h-6 w-6" />}
+        primaryButton={{
+          text: isCanceling ? "Canceling..." : "Yes, Cancel",
+          onClick: handleCancelSubscription,
+          disabled: isCanceling,
+          className:
+            "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2",
+        }}
+        secondaryButton={{
+          text: "Keep Subscription",
+          onClick: () => setShowCancelModal(false),
+          disabled: isCanceling,
+          className:
+            "bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed",
+        }}
+      >
+        <div>
+          <p className="text-gray-700 leading-relaxed">
+            Are you sure you want to cancel your subscription? You'll retain
+            access until the end of your current billing period.
+          </p>
+        </div>
+      </Modal>
 
       {/* Reactivate Confirmation Modal */}
-      {showReactivateModal &&
-        typeof window !== "undefined" &&
-        createPortal(
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
-            style={{ zIndex: 99999 }}
-          >
-            <div
-              className="bg-white rounded-xl p-6 max-w-md w-full relative"
-              style={{ zIndex: 100000 }}
-            >
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Reactivate Subscription?
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  This will reactivate your subscription and continue billing
-                  according to your current plan. Your subscription will no
-                  longer be scheduled for cancellation.
-                </p>
-
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => setShowReactivateModal(false)}
-                    disabled={isReactivating}
-                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleReactivateSubscription}
-                    disabled={isReactivating}
-                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
-                  >
-                    {isReactivating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Reactivating...</span>
-                      </>
-                    ) : (
-                      <span>Yes, Reactivate</span>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      <Modal
+        isOpen={showReactivateModal}
+        onClose={() => setShowReactivateModal(false)}
+        title="Reactivate Subscription?"
+        type="success"
+        icon={<CheckCircle className="h-6 w-6" />}
+        primaryButton={{
+          text: isReactivating ? "Reactivating..." : "Yes, Reactivate",
+          onClick: handleReactivateSubscription,
+          disabled: isReactivating,
+          className:
+            "bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2",
+        }}
+        secondaryButton={{
+          text: "Cancel",
+          onClick: () => setShowReactivateModal(false),
+          disabled: isReactivating,
+          className:
+            "bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed",
+        }}
+      >
+        <div>
+          <p className="text-gray-700 leading-relaxed">
+            This will reactivate your subscription and continue billing
+            according to your current plan. Your subscription will no longer be
+            scheduled for cancellation.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }

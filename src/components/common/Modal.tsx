@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface ModalProps {
@@ -12,11 +13,13 @@ interface ModalProps {
     text: string;
     onClick: () => void;
     className?: string;
+    disabled?: boolean;
   };
   secondaryButton?: {
     text: string;
     onClick: () => void;
     className?: string;
+    disabled?: boolean;
   };
   icon?: ReactNode;
   type?: "info" | "warning" | "error" | "success";
@@ -36,6 +39,20 @@ export default function Modal({
   hideCloseButton,
   maxWidth = "max-w-md",
 }: ModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+
+    // Cleanup function to restore scroll on unmount
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
+
   if (!isOpen) {
     return null;
   }
@@ -66,14 +83,27 @@ export default function Modal({
     }
   };
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
-      style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 2147483647,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+      }}
+      onClick={(e) => {
+        // Close modal when clicking backdrop
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <div
-        className={`bg-white rounded-2xl p-4 sm:p-6 lg:p-8 ${maxWidth} w-full border-4 ${getTypeStyles()} max-h-[90vh] overflow-hidden`}
-        style={{ position: "relative", zIndex: 10000 }}
+        className={`bg-white rounded-2xl p-4 sm:p-6 lg:p-8 ${maxWidth} w-full border-4 ${getTypeStyles()} max-h-[90vh] overflow-hidden relative`}
       >
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center space-x-3">
@@ -107,6 +137,7 @@ export default function Modal({
           {secondaryButton && (
             <button
               onClick={secondaryButton.onClick}
+              disabled={secondaryButton.disabled}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 secondaryButton.className ||
                 "bg-gray-200 text-gray-800 hover:bg-gray-300"
@@ -118,6 +149,7 @@ export default function Modal({
           {primaryButton && (
             <button
               onClick={primaryButton.onClick}
+              disabled={primaryButton.disabled}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 primaryButton.className ||
                 "bg-purple-600 text-white hover:bg-purple-700"
@@ -130,4 +162,9 @@ export default function Modal({
       </div>
     </div>
   );
+
+  // Render the modal using createPortal to escape the layout constraints
+  return typeof window !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : null;
 }
