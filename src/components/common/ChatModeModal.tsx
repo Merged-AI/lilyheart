@@ -68,7 +68,7 @@ export default function ChatModeModal({
 
         // Calculate subscription status from the response data
         const hasActiveSubscription =
-          subscriptionData.hasSubscription &&
+          // subscriptionData.hasSubscription &&
           (subscriptionData.subscription?.status === "active" ||
             subscriptionData.family?.subscription_status === "active");
         const isTrialing =
@@ -81,7 +81,9 @@ export default function ChatModeModal({
           : false;
 
         // Check if subscription is required
-        if (!hasActiveSubscription && !isTrialing) {
+        if (
+          // !hasActiveSubscription &&
+           !isTrialing) {
           setProfileModalConfig({
             title: "Subscription Required",
             message:
