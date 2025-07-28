@@ -72,7 +72,7 @@ export default function ChatModeModal({
           (subscriptionData.subscription?.status === "active" ||
             subscriptionData.family?.subscription_status === "active");
         const isTrialing =
-          subscriptionData.hasSubscription &&
+          // subscriptionData.hasSubscription &&
           (subscriptionData.subscription?.status === "trialing" ||
             subscriptionData.family?.subscription_status === "trialing");
         const trialEnded = subscriptionData.family?.trial_ends_at
