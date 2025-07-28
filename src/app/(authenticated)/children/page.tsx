@@ -149,7 +149,7 @@ export default function ChildrenManagementPage() {
             <p className="text-gray-600 mb-4">
               {searchTerm || filterStatus !== "all"
                 ? "Try adjusting your search or filters"
-                : "Get started by adding your first child to Heart Harbor"}
+                : "Get started by adding your first child to Lily Heart"}
             </p>
             {!searchTerm && filterStatus === "all" && (
               <button

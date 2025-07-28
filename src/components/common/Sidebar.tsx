@@ -22,7 +22,9 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
     },
     {
       name: "Chat Sessions",
-      href: selectedChildId ? `/chat-sessions?childId=${selectedChildId}` : "/chat-sessions",
+      href: selectedChildId
+        ? `/chat-sessions?childId=${selectedChildId}`
+        : "/chat-sessions",
       icon: MessageCircle,
       description: "View session history",
     },
@@ -42,11 +44,20 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
 
   const isActiveRoute = (href: string) => {
     if (href === "/dashboard" && pathname === "/dashboard") return true;
-    if (href.includes("/chat-sessions") && pathname.includes("/chat-sessions")) return true;
-    if (href.includes("/chat") && pathname.includes("/chat") && !pathname.includes("/chat-sessions")) return true;
+    if (href.includes("/chat-sessions") && pathname.includes("/chat-sessions"))
+      return true;
+    if (
+      href.includes("/chat") &&
+      pathname.includes("/chat") &&
+      !pathname.includes("/chat-sessions")
+    )
+      return true;
     if (href.includes("/children") && pathname.includes("/children"))
       return true;
-    if (href === "/session-lock-management" && pathname === "/session-lock-management")
+    if (
+      href === "/session-lock-management" &&
+      pathname === "/session-lock-management"
+    )
       return true;
     return false;
   };
@@ -94,7 +105,7 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
                 className="text-xl font-bold text-gray-900 truncate"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
-                Heart Harbor
+                Lily Heart
               </h1>
               <p
                 className="text-xs text-gray-600 truncate"

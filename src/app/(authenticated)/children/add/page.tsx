@@ -278,7 +278,7 @@ function AddChildContent() {
 
             <div>
               <label className="block text-sm font-medium text-purple-700 mb-2">
-                Why are you adding your child to Heart Harbor? *
+                Why are you adding your child to Lily Heart? *
               </label>
               <textarea
                 value={childData.reasonForAdding}
@@ -570,7 +570,7 @@ function AddChildContent() {
                   >
                     {childId
                       ? "Edit Child Information"
-                      : "Add Child to Heart Harbor"}
+                      : "Add Child to Lily Heart"}
                   </h1>
                   <p className="text-sm text-purple-600">
                     Step {currentStep} of {totalSteps}

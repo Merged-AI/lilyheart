@@ -104,7 +104,7 @@ export default function Header({
                   className="text-xl sm:text-2xl font-bold text-gray-900 truncate"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 >
-                  Heart Harbor
+                  Lily Heart
                 </h1>
                 <p
                   className="text-xs sm:text-sm text-gray-600 truncate"
@@ -140,7 +140,7 @@ export default function Header({
                 <Brain className="h-6 w-6 text-purple-600" />
               </div>
               <span style={{ fontFamily: "var(--font-poppins)" }}>
-                Heart Harbor
+                Lily Heart
               </span>
             </Link>
 

@@ -86,7 +86,7 @@ export default function HomePage() {
               <Brain className="h-6 w-6 text-purple-600" />
             </div>
             <span style={{ fontFamily: "var(--font-poppins)" }}>
-              Heart Harbor
+              Lily Heart
             </span>
           </Link>
 
@@ -358,7 +358,7 @@ export default function HomePage() {
             className="text-4xl font-bold text-center text-gray-900 mb-16"
             style={{ fontFamily: "var(--font-poppins)" }}
           >
-            How Heart Harbor Works
+            How Lily Heart Works
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
@@ -616,7 +616,7 @@ export default function HomePage() {
             className="text-2xl italic text-gray-600 mb-8 leading-relaxed"
             style={{ fontFamily: "var(--font-inter)" }}
           >
-            "Heart Harbor transformed how our family communicates. My kids
+            "Lily Heart transformed how our family communicates. My kids
             actually open up more, and the insights help me understand their
             emotional needs better."
           </p>
@@ -697,7 +697,7 @@ export default function HomePage() {
                 className="text-xl font-bold"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
-                Heart Harbor
+                Lily Heart
               </span>
             </div>
             <p

@@ -1,10 +1,10 @@
-# Heart Harbor: Family Communication & Emotional Support Platform
+# Lily Heart: Family Communication & Emotional Support Platform
 ## Board Progress Report - Q1 2024
 
 ---
 
 ## 🎯 **Mission Statement**
-Heart Harbor helps families communicate better by providing a safe space for children to express themselves while giving parents tools to organize their thoughts and observations before important conversations with professionals.
+Lily Heart helps families communicate better by providing a safe space for children to express themselves while giving parents tools to organize their thoughts and observations before important conversations with professionals.
 
 ---
 
@@ -143,7 +143,7 @@ Transform scattered observations into organized insights for meaningful discussi
 
 ### **Competitive Landscape:**
 
-| Feature | Heart Harbor | Therapy Apps | Family Apps | Communication Tools |
+| Feature | Lily Heart | Therapy Apps | Family Apps | Communication Tools |
 |---------|---------------|-------------|-------------|-------------------|
 | **24/7 Child Support** | ✅ Always available | ❌ Scheduled only | ⚠️ Limited features | ❌ Adult-focused |
 | **Parent Organization** | ✅ Comprehensive tools | ❌ Minimal support | ⚠️ Basic tracking | ❌ No integration |
@@ -271,4 +271,4 @@ Transform scattered observations into organized insights for meaningful discussi
 
 ---
 
-*Heart Harbor: Supporting families in building stronger communication while empowering parents with organization tools - because every family deserves to feel heard and understood.* 
+*Lily Heart: Supporting families in building stronger communication while empowering parents with organization tools - because every family deserves to feel heard and understood.* 

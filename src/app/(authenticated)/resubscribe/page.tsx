@@ -80,8 +80,6 @@ export default function ResubscribePage() {
     return null; // Will redirect to login
   }
 
-
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       {/* Header */}
@@ -93,9 +91,7 @@ export default function ResubscribePage() {
                 <Brain className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  Heart Harbor
-                </h1>
+                <h1 className="text-xl font-bold text-gray-900">Lily Heart</h1>
                 <p className="text-sm text-gray-600">Reactivate Subscription</p>
               </div>
             </div>
@@ -113,7 +109,7 @@ export default function ResubscribePage() {
       <div className="max-w-2xl mx-auto px-6 py-16">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Welcome Back to Heart Harbor!
+            Welcome Back to Lily Heart!
           </h1>
           <p className="text-lg text-gray-600">
             Continue your family's therapeutic journey
@@ -134,7 +130,7 @@ export default function ResubscribePage() {
               <span className="text-gray-600 text-lg">/month</span>
             </div>
             <p className="text-gray-600 mb-6">
-              Full access to all Heart Harbor features
+              Full access to all Lily Heart features
             </p>
 
             {/* Features Reminder */}

@@ -50,7 +50,7 @@ export default function ChildOnboardingModal({
             className="text-xl sm:text-2xl font-bold text-gray-900 mb-1"
             style={{ fontFamily: "var(--font-poppins)" }}
           >
-            Welcome to Heart Harbor
+            Welcome to Lily Heart
           </h1>
           <p
             className="text-sm sm:text-base text-gray-600"
@@ -131,7 +131,7 @@ export default function ChildOnboardingModal({
                   <span>Terms of Use</span>
                   <ExternalLink className="h-3 w-3" />
                 </button>{" "}
-                and acknowledge that Heart Harbor is for informational purposes
+                and acknowledge that Lily Heart is for informational purposes
                 only.
               </p>
             </div>

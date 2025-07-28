@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import {
-  CardElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
-import { CreditCard, Lock, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+  CreditCard,
+  Lock,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+} from "lucide-react";
 
 interface ResubscribeFormProps {
   onSuccess: (result: any) => void;
@@ -46,7 +48,7 @@ export default function ResubscribeForm({
       }
 
       const data = await response.json();
-      
+
       setClientSecret(data.clientSecret);
       setSubscriptionId(data.subscriptionId);
 
@@ -55,7 +57,7 @@ export default function ResubscribeForm({
         onSuccess({
           subscriptionId: data.subscriptionId,
           status: data.status,
-          message: data.message
+          message: data.message,
         });
       }
     } catch (err: any) {
@@ -103,7 +105,7 @@ export default function ResubscribeForm({
           subscriptionId,
           setupIntentId: setupIntent.id,
           status: "trialing",
-          message: "Subscription reactivated successfully!"
+          message: "Subscription reactivated successfully!",
         });
       }
     } catch (err: any) {
@@ -137,9 +139,7 @@ export default function ResubscribeForm({
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mr-3" />
-        <span className="text-gray-600">
-          Reactivating your subscription...
-        </span>
+        <span className="text-gray-600">Reactivating your subscription...</span>
       </div>
     );
   }
@@ -155,7 +155,7 @@ export default function ResubscribeForm({
             Reactivate Your Subscription
           </h3>
           <p className="text-sm text-gray-600">
-            Add your payment method to continue with Heart Harbor
+            Add your payment method to continue with Lily Heart
           </p>
         </div>
 
@@ -186,8 +186,8 @@ export default function ResubscribeForm({
                   Welcome Back - 7-Day Trial
                 </p>
                 <p className="text-blue-700">
-                  As a returning customer, enjoy another 7-day free trial. 
-                  You can cancel anytime during the trial period.
+                  As a returning customer, enjoy another 7-day free trial. You
+                  can cancel anytime during the trial period.
                 </p>
               </div>
             </div>
@@ -222,4 +222,4 @@ export default function ResubscribeForm({
       </div>
     </div>
   );
-} 
+}
