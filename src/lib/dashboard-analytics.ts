@@ -112,6 +112,18 @@ async function calculateAnalytics(
   const now = new Date();
   // Use consistent week calculation logic
   const startOfWeek = getStartOfWeek(now);
+  
+  // Get supabase client to fetch child name
+  const supabase = createServerSupabase();
+  
+  // Fetch child name
+  const { data: child } = await supabase
+    .from("children")
+    .select("name")
+    .eq("id", childId)
+    .single();
+  
+  const childName = child?.name || null;
 
   // Basic session statistics using the consistent week logic
   const sessionsThisWeek = sessions.filter(
@@ -136,7 +148,7 @@ async function calculateAnalytics(
   const aiAnalysisPrompt = `Analyze these therapy sessions (up to last 10 sessions) for a child and provide comprehensive insights focusing on recent trends and patterns. Focus on emotional trends, communication patterns, and therapeutic progress. Sessions data:
 ${JSON.stringify(sessionData, null, 2)}
 
-Provide analysis in this exact JSON format, ensuring confidence_score is a percentage between 0-100:
+Create a compassionate, non-clinical analysis in this exact JSON format, ensuring confidence_score is a percentage between 0-100:
 {
   "emotional_trend": {
     "status": "improving" | "declining" | "stable",
@@ -150,45 +162,88 @@ Provide analysis in this exact JSON format, ensuring confidence_score is a perce
     "identified_concerns": string[],
     "priority_concerns": string[]
   },
+  "weekly_insight": {
+    "story": "is working through [describe the developmental challenge in warm, normal terms]",
+    "what_happened": "Brief summary of what the child shared or experienced this week",
+    "good_news": "Positive emotional growth or communication progress observed"
+  },
+  "action_plan": {
+    "steps": [
+      {
+        "timeframe": "Tonight",
+        "action": "Specific immediate action for parents",
+        "description": "Brief explanation of how to do it"
+      },
+      {
+        "timeframe": "This Week", 
+        "action": "Ongoing weekly action",
+        "description": "How to implement throughout the week"
+      },
+      {
+        "timeframe": "Next Week",
+        "action": "Future step if needed",
+        "description": "When and how to take this step"
+      }
+    ],
+    "quick_win": "One simple thing parents can do right now for immediate positive impact"
+  },
+  "progress_tracking": {
+    "wins": ["Positive developments or breakthroughs"],
+    "working_on": [
+      {
+        "issue": "Area of focus",
+        "note": "Context about progress"
+      }
+    ],
+    "when_to_worry": "Clear indicator for when to seek additional support"
+  },
   "communication_insights": [{
     "topic": string,
     "confidence_score": number, // Must be between 0-100 representing percentage confidence
     "observations": string[],
     "parent_insights": string[],
     "communication_tips": string[],
-    "recommended_next_step": string
+    "recommended_next_step": string,
+    "updated_at": "${new Date().toISOString()}"
   }],
   "growth_development_insights": [{
     "category": string,
     "insight_summary": string,
     "insight_detail": string,
-    "suggested_actions": string[]
+    "suggested_actions": string[],
+    "updated_at": "${new Date().toISOString()}"
   }],
   "family_communication_summary": {
     "strengths": string[],
     "growth_areas": string[],
-    "recommendations": string[]
+    "recommendations": string[],
+    "updated_at": "${new Date().toISOString()}"
   },
   "conversation_organization": {
     "key_topics": string[],
-    "questions_to_consider": string[]
+    "questions_to_consider": string[],
+    "updated_at": "${new Date().toISOString()}"
   },
   "family_wellness_tips": [{
     "title": string,
-    "description": string
+    "description": string,
+    "updated_at": "${new Date().toISOString()}"
   }],
   "family_communication_goals": [ // Must include exactly these three goals in this order
     {
       "goal_type": "This Week", // Short-term immediate action
-      "description": string
+      "description": string,
+      "updated_at": "${new Date().toISOString()}"
     },
     {
       "goal_type": "Ongoing", // Medium-term consistent practice
-      "description": string
+      "description": string,
+      "updated_at": "${new Date().toISOString()}"
     },
     {
       "goal_type": "If Needed", // Contingency plan
-      "description": string
+      "description": string,
+      "updated_at": "${new Date().toISOString()}"
     }
   ]
 }`;
@@ -249,6 +304,7 @@ Provide analysis in this exact JSON format, ensuring confidence_score is a perce
 
   return {
     child_id: childId,
+    child_name: childName,
     latest_mood: latestMood,
     sessions_analytics: {
       sessions_this_week: sessionsThisWeek,
@@ -258,6 +314,9 @@ Provide analysis in this exact JSON format, ensuring confidence_score is a perce
     },
     emotional_trend: aiAnalysis.emotional_trend,
     active_concerns: aiAnalysis.active_concerns,
+    weekly_insight: aiAnalysis.weekly_insight || null,
+    action_plan: aiAnalysis.action_plan || null,
+    progress_tracking: aiAnalysis.progress_tracking || null,
     alerts: {
       has_alert: hasAlert,
       alert_type: hasAlert ? "warning" : undefined,
@@ -267,12 +326,21 @@ Provide analysis in this exact JSON format, ensuring confidence_score is a perce
         : undefined,
       created_at: hasAlert ? now.toISOString() : undefined,
     },
-    communication_insights: aiAnalysis.communication_insights,
-    growth_development_insights: aiAnalysis.growth_development_insights,
-    family_communication_summary: aiAnalysis.family_communication_summary,
-    conversation_organization: aiAnalysis.conversation_organization,
-    family_wellness_tips: aiAnalysis.family_wellness_tips,
-    family_communication_goals: aiAnalysis.family_communication_goals,
+    communication_insights: aiAnalysis.communication_insights || [],
+    growth_development_insights: aiAnalysis.growth_development_insights || [],
+    family_communication_summary: aiAnalysis.family_communication_summary || {
+      strengths: [],
+      growth_areas: [],
+      recommendations: [],
+      updated_at: now.toISOString(),
+    },
+    conversation_organization: aiAnalysis.conversation_organization || {
+      key_topics: [],
+      questions_to_consider: [],
+      updated_at: now.toISOString(),
+    },
+    family_wellness_tips: aiAnalysis.family_wellness_tips || [],
+    family_communication_goals: aiAnalysis.family_communication_goals || [],
     updated_at: new Date().toISOString(),
   };
 }

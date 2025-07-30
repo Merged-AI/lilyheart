@@ -556,7 +556,6 @@ export default function ParentDashboard() {
           }
         >
           <ChildMentalHealthDashboard
-            selectedChildId={selectedChildId}
             analyticsData={analyticsData}
           />
         </Suspense>
