@@ -12,12 +12,13 @@ function getApiUrl(endpoint: string): string {
   // Remove leading slash if present
   let cleanEndpoint = endpoint.startsWith("/") ? endpoint.slice(1) : endpoint;
 
-  // Remove 'api/' prefix if present, since we'll add it back
+  // Remove 'api/' prefix if present
   if (cleanEndpoint.startsWith("api/")) {
     cleanEndpoint = cleanEndpoint.slice(4);
   }
 
-  return `${BACKEND_URL}/api/${cleanEndpoint}`;
+  // Return relative path (will go through Next.js rewrites)
+  return `/api/${cleanEndpoint}`;
 }
 
 /**
@@ -154,7 +155,9 @@ export async function handleApiResponse<T>(response: Response): Promise<T> {
     const errorData = await response
       .json()
       .catch(() => ({ error: "Unknown error" }));
-    throw new Error(errorData.error || errorData.details || `HTTP ${response.status}`);
+    throw new Error(
+      errorData.error || errorData.details || `HTTP ${response.status}`
+    );
   }
 
   const data = await response.json();
