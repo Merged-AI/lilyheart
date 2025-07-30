@@ -19,7 +19,7 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  title: 'Lily Heart - Family Communication Coach',
+  title: 'Lily Heart AI - Family Communication Coach',
   description: 'AI-powered family communication coach that helps children and parents build stronger emotional connections through safe, supportive conversations.',
   keywords: [
     'family communication',
@@ -33,9 +33,9 @@ export const metadata: Metadata = {
     'parent insights',
     'child development'
   ].join(', '),
-  authors: [{ name: 'Lily Heart Team' }],
-  creator: 'Lily Heart',
-  publisher: 'Lily Heart',
+  authors: [{ name: 'Lily Heart AI Team' }],
+  creator: 'Lily Heart AI',
+  publisher: 'Lily Heart AI',
   formatDetection: {
     email: false,
     address: false,
@@ -46,16 +46,16 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: 'Lily Heart - Family Communication Coach',
+    title: 'Lily Heart AI - Family Communication Coach',
     description: 'AI-powered family communication coach that helps children and parents build stronger emotional connections through safe, supportive conversations.',
     url: 'https://heart-harbor.com',
-    siteName: 'Lily Heart',
+    siteName: 'Lily Heart AI',
     images: [
       {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Lily Heart - Family Communication Coach',
+        alt: 'Lily Heart AI - Family Communication Coach',
       },
     ],
     locale: 'en_US',
@@ -63,10 +63,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Lily Heart - Family Communication Coach',
+    title: 'Lily Heart AI - Family Communication Coach',
     description: 'AI-powered family communication coach that helps children and parents build stronger emotional connections.',
     images: ['/twitter-image.jpg'],
-    creator: '@lily_heart',
+    creator: '@lily_heart_ai',
   },
   robots: {
     index: true,

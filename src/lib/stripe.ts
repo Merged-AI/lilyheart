@@ -16,7 +16,7 @@ export const getStripe = () => {
   return stripePromise;
 };
 
-// Lily Heart pricing configuration
+// Lily Heart AI pricing configuration
 export const PRICING_PLANS = {
   family_coach: {
     name: "Family Communication Coach",

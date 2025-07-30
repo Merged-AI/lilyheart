@@ -17,7 +17,7 @@ body {
   font-family: var(--font-inter, var(--font-inter-fallback));
 }
 
-/* Lily Heart Brand Colors */
+/* Lily Heart AI Brand Colors */
 :root {
   --mb-purple: #8B5CF6;
   --mb-purple-light: #A78BFA;
@@ -334,7 +334,7 @@ html {
   border-left: 4px solid #10b981;
 }
 
-/* Chart customizations for Lily Heart */
+/* Chart customizations for Lily Heart AI */
 .recharts-tooltip-wrapper {
   background: white !important;
   border: 1px solid #e2e8f0 !important;

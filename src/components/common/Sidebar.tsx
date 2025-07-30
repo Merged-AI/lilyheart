@@ -105,7 +105,7 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
                 className="text-xl font-bold text-gray-900 truncate"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
-                Lily Heart
+                Lily Heart AI
               </h1>
               <p
                 className="text-xs text-gray-600 truncate"

@@ -120,7 +120,7 @@ export default function RegisterPage() {
                 <Brain className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Lily Heart</h1>
+                <h1 className="text-xl font-bold text-gray-900">Lily Heart AI</h1>
                 <p className="text-sm text-gray-600">
                   Family Communication Coach
                 </p>
@@ -498,7 +498,7 @@ export default function RegisterPage() {
                   <CheckCircle className="h-8 w-8 text-green-600" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  Welcome to Lily Heart!
+                  Welcome to Lily Heart AI!
                 </h2>
                 <p className="text-gray-600 mb-6">
                   Your account has been created and your 7-day free trial has

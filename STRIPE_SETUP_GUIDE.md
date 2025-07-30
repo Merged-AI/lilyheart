@@ -1,4 +1,4 @@
-# Lily Heart Stripe Integration Setup Guide
+# Lily Heart AI Stripe Integration Setup Guide
 
 ## 🎉 What's Been Completed
 
@@ -59,7 +59,7 @@ stripe login
 3. **Test Stripe connection:**
    Visit: `http://localhost:3000/api/stripe/test`
    
-   You should see a success response with your Stripe account details and the Lily Heart product/price information.
+   You should see a success response with your Stripe account details and the Lily Heart AI product/price information.
 
 4. **Test the registration flow:**
    - Go to `http://localhost:3000/auth/register`
@@ -91,7 +91,7 @@ Use the Stripe CLI forwarding (step 2 above) - no additional setup needed!
 The system will automatically create:
 - **Product:** "Family Communication Coach"
 - **Price:** $39.00/month with 7-day trial
-- **Features:** All Lily Heart features included
+- **Features:** All Lily Heart AI features included
 
 ## 🎯 How the Flow Works
 
@@ -152,7 +152,7 @@ If you encounter issues:
 
 ## 🎉 You're Ready!
 
-Once you've completed the environment setup and webhook configuration, your Lily Heart platform will have full Stripe integration with:
+Once you've completed the environment setup and webhook configuration, your Lily Heart AI platform will have full Stripe integration with:
 
 - ✅ 7-day free trial signup
 - ✅ Automated billing after trial
@@ -160,4 +160,4 @@ Once you've completed the environment setup and webhook configuration, your Lily
 - ✅ Parent dashboard integration
 - ✅ Secure payment processing
 
-The system is designed to handle all the complex subscription management automatically while providing a smooth experience for families joining Lily Heart. 
+The system is designed to handle all the complex subscription management automatically while providing a smooth experience for families joining Lily Heart AI. 

@@ -13,7 +13,7 @@ export default function TermsOfUsePage() {
             className="inline-flex items-center space-x-2 text-purple-600 hover:text-purple-700 transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
-            <span className="font-medium">Back to Lily Heart</span>
+            <span className="font-medium">Back to Lily Heart AI</span>
           </Link>
         </div>
       </header>
@@ -54,7 +54,7 @@ export default function TermsOfUsePage() {
                 className="text-gray-700 leading-relaxed"
                 style={{ fontFamily: "var(--font-inter)" }}
               >
-                Lily Heart (the "App") is an AI-based application that provides mental wellness information, emotional support prompts, and general self-help guidance. It is not a medical or mental health service, nor does it offer professional therapy, diagnosis, or treatment. The App is provided for informational and educational purposes only.
+                Lily Heart AI (the "App") is an AI-based application that provides mental wellness information, emotional support prompts, and general self-help guidance. It is not a medical or mental health service, nor does it offer professional therapy, diagnosis, or treatment. The App is provided for informational and educational purposes only.
               </p>
             </section>
 
@@ -236,14 +236,14 @@ export default function TermsOfUsePage() {
               className="text-gray-600"
               style={{ fontFamily: "var(--font-inter)" }}
             >
-              By using Lily Heart, you acknowledge that you have read, understood, and agree to these Terms of Use and the associated disclaimers.
+              By using Lily Heart AI, you acknowledge that you have read, understood, and agree to these Terms of Use and the associated disclaimers.
             </p>
             <Link
               href="/"
               className="inline-flex items-center space-x-2 text-purple-600 hover:text-purple-700 transition-colors mt-4"
             >
               <Heart className="h-5 w-5" />
-              <span className="font-medium">Return to Lily Heart</span>
+              <span className="font-medium">Return to Lily Heart AI</span>
             </Link>
           </div>
         </div>

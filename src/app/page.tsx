@@ -86,7 +86,7 @@ export default function HomePage() {
               <Brain className="h-6 w-6 text-purple-600" />
             </div>
             <span style={{ fontFamily: "var(--font-poppins)" }}>
-              Lily Heart
+              Lily Heart AI
             </span>
           </Link>
 
@@ -358,7 +358,7 @@ export default function HomePage() {
             className="text-4xl font-bold text-center text-gray-900 mb-16"
             style={{ fontFamily: "var(--font-poppins)" }}
           >
-            How Lily Heart Works
+            How Lily Heart AI Works
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
@@ -616,7 +616,7 @@ export default function HomePage() {
             className="text-2xl italic text-gray-600 mb-8 leading-relaxed"
             style={{ fontFamily: "var(--font-inter)" }}
           >
-            "Lily Heart transformed how our family communicates. My kids
+            "Lily Heart AI transformed how our family communicates. My kids
             actually open up more, and the insights help me understand their
             emotional needs better."
           </p>
@@ -697,7 +697,7 @@ export default function HomePage() {
                 className="text-xl font-bold"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
-                Lily Heart
+                Lily Heart AI
               </span>
             </div>
             <p
@@ -717,7 +717,7 @@ export default function HomePage() {
                   className="text-gray-300 text-xs leading-relaxed"
                   style={{ fontFamily: "var(--font-inter)" }}
                 >
-                  <strong>Disclaimer:</strong> Lily Heart (lilyheart.ai) is an
+                  <strong>Disclaimer:</strong> Lily Heart AI (lilyheart.ai) is an
                   AI mental wellness tool, not a licensed therapist or medical
                   service. It does not offer diagnosis, treatment, or
                   professional mental health advice. For emergencies, contact
@@ -733,7 +733,7 @@ export default function HomePage() {
               className="text-gray-500 text-xs"
               style={{ fontFamily: "var(--font-inter)" }}
             >
-              © {new Date().getFullYear()} Lily Heart. All rights reserved.
+              © {new Date().getFullYear()} Lily Heart AI. All rights reserved.
             </p>
           </div>
         </div>

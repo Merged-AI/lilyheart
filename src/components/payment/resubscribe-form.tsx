@@ -155,7 +155,7 @@ export default function ResubscribeForm({
             Reactivate Your Subscription
           </h3>
           <p className="text-sm text-gray-600">
-            Add your payment method to continue with Lily Heart
+            Add your payment method to continue with Lily Heart AI
           </p>
         </div>
 

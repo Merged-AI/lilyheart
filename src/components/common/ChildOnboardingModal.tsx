@@ -50,7 +50,7 @@ export default function ChildOnboardingModal({
             className="text-xl sm:text-2xl font-bold text-gray-900 mb-1"
             style={{ fontFamily: "var(--font-poppins)" }}
           >
-            Welcome to Lily Heart
+            Welcome to Lily Heart AI
           </h1>
           <p
             className="text-sm sm:text-base text-gray-600"
@@ -68,7 +68,7 @@ export default function ChildOnboardingModal({
               className="text-gray-700 text-sm leading-relaxed"
               style={{ fontFamily: "var(--font-inter)" }}
             >
-              Lily Heart is an AI-based mental wellness companion designed to
+              Lily Heart AI is an AI-based mental wellness companion designed to
               offer support and helpful insights. It is{" "}
               <strong>not a licensed therapist</strong> and{" "}
               <strong>not a substitute for professional care</strong>.
@@ -131,7 +131,7 @@ export default function ChildOnboardingModal({
                   <span>Terms of Use</span>
                   <ExternalLink className="h-3 w-3" />
                 </button>{" "}
-                and acknowledge that Lily Heart is for informational purposes
+                and acknowledge that Lily Heart AI is for informational purposes
                 only.
               </p>
             </div>
