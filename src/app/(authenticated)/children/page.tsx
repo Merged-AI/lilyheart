@@ -11,6 +11,7 @@ import {
   MessageCircle,
   Loader2,
 } from "lucide-react";
+import { apiGet, apiDelete } from "../../../lib/api";
 
 interface Child {
   id: string;
@@ -40,11 +41,8 @@ export default function ChildrenManagementPage() {
 
   const fetchChildren = async () => {
     try {
-      const response = await fetch("/api/children");
-      if (response.ok) {
-        const data = await response.json();
-        setChildren(data.children || []);
-      }
+      const data = await apiGet<{ children: Child[] }>("children");
+      setChildren(data.children || []);
     } catch (error) {
       console.error("Error fetching children:", error);
     } finally {
@@ -73,17 +71,11 @@ export default function ChildrenManagementPage() {
     if (!childToDelete) return;
 
     try {
-      const response = await fetch(`/api/children/${childToDelete.id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        setChildren(children.filter((child) => child.id !== childToDelete.id));
-        setShowDeleteModal(false);
-        setChildToDelete(null);
-      } else {
-        alert("Failed to delete child. Please try again.");
-      }
+      await apiDelete(`children/${childToDelete.id}`);
+      
+      setChildren(children.filter((child) => child.id !== childToDelete.id));
+      setShowDeleteModal(false);
+      setChildToDelete(null);
     } catch (error) {
       console.error("Error deleting child:", error);
       alert("Failed to delete child. Please try again.");

@@ -65,7 +65,7 @@ Respond with a JSON object only:
   "sadness": number,
   "stress": number,
   "confidence": number,
-  "insights": "Brief clinical observation about the emotional state"
+  "insights": "Brief caring observation about the emotional state"
 }`;
 
     const completion = await openai.chat.completions.create({

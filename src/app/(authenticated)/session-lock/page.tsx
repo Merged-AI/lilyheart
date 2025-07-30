@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Lock, Eye, EyeOff, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSessionLock } from "@/lib/session-lock-context";
+import { apiPost } from "@/lib/api";
 
 export default function SessionLockPage() {
   const [passcode, setPasscode] = useState("");
@@ -19,30 +20,18 @@ export default function SessionLockPage() {
     setError("");
 
     try {
-      const response = await fetch("/api/auth/pin/validate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ pin: passcode }),
-      });
+      const data = await apiPost<{ success: boolean; message?: string }>("auth/pin/validate", { pin: passcode });
 
-      if (response.ok) {
-        unlockSession();
+      // PIN validation successful
+      unlockSession();
+      setPasscode("");
 
-        setPasscode("");
-
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 200);
-      } else {
-        const errorData = await response.json();
-        setError("Incorrect passcode. Please try again.");
-        setPasscode("");
-      }
-    } catch (error) {
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 200);
+    } catch (error: any) {
       console.error("PIN validation error:", error);
-      setError("An error occurred. Please try again.");
+      setError("Incorrect passcode. Please try again.");
       setPasscode("");
     }
 

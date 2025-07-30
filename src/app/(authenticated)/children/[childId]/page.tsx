@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { formatSessionDuration } from "@/lib/utils";
 import ChatModeModal from "@/components/common/ChatModeModal";
+import { apiGet, apiDelete, apiUpload } from "../../../../lib/api";
 
 interface Child {
   id: string;
@@ -93,21 +94,6 @@ interface MoodEntry {
   confidence?: number;
 }
 
-interface MoodAnalysis {
-  status: string;
-  level: string;
-  trend: string;
-  insights: string;
-  recommendations: string[];
-  currentAverages: {
-    happiness: number;
-    anxiety: number;
-    sadness: number;
-    stress: number;
-    confidence: number;
-  };
-}
-
 interface UploadedFile {
   id: string;
   name: string;
@@ -125,7 +111,6 @@ export default function ViewChildPage() {
   const [child, setChild] = useState<Child | null>(null);
   const [recentSessions, setRecentSessions] = useState<Session[]>([]);
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
-  const [moodAnalysis, setMoodAnalysis] = useState<MoodAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -156,50 +141,44 @@ export default function ViewChildPage() {
       setIsLoading(true);
 
       // Fetch child details
-      const childResponse = await fetch(`/api/children/${childId}`);
-      if (childResponse.ok) {
-        const childData = await childResponse.json();
-        setChild(childData.child);
+      const childData = await apiGet<{ child: Child }>(`children/${childId}`);
+      setChild(childData.child);
 
-        // Update uploaded files from knowledge base documents
-        if (childData.child.knowledge_base_documents) {
-          const knowledgeBaseFiles: UploadedFile[] =
-            childData.child.knowledge_base_documents.map((doc: any) => ({
-              id: doc.id,
-              name: doc.filename,
-              size: doc.file_size,
-              type: doc.file_type,
-              uploadedAt: new Date(doc.uploaded_at),
-            }));
-          setUploadedFiles(knowledgeBaseFiles);
-        }
+      // Update uploaded files from knowledge base documents
+      if (childData.child.knowledge_base_documents) {
+        const knowledgeBaseFiles: UploadedFile[] =
+          childData.child.knowledge_base_documents.map((doc: any) => ({
+            id: doc.id,
+            name: doc.filename,
+            size: doc.file_size,
+            type: doc.file_type,
+            uploadedAt: new Date(doc.uploaded_at),
+          }));
+        setUploadedFiles(knowledgeBaseFiles);
       }
 
       // Only fetch recent sessions for overview (limit to 5)
-      const recentSessionsResponse = await fetch(
-        `/api/sessions?childId=${childId}&limit=5`
+      const recentSessionsData = await apiGet<{ sessions: Session[] }>(
+        `sessions?childId=${childId}&limit=5`
       );
-      if (recentSessionsResponse.ok) {
-        const recentSessionsData = await recentSessionsResponse.json();
-        setRecentSessions(recentSessionsData.sessions || []);
+      setRecentSessions(recentSessionsData.sessions || []);
 
-        // Create mood entries from recent sessions only for overview
-        const recentMoodEntries = (recentSessionsData.sessions || [])
-          .filter((session: Session) => session.mood_analysis)
-          .map((session: Session) => ({
-            id: session.id,
-            created_at: session.created_at,
-            mood_score: session.mood_analysis.happiness,
-            notes: session.mood_analysis.insights,
-            happiness: session.mood_analysis.happiness,
-            anxiety: session.mood_analysis.anxiety,
-            sadness: session.mood_analysis.sadness,
-            stress: session.mood_analysis.stress,
-            confidence: session.mood_analysis.confidence,
-          }));
+      // Create mood entries from recent sessions only for overview
+      const recentMoodEntries = (recentSessionsData.sessions || [])
+        .filter((session: Session) => session.mood_analysis)
+        .map((session: Session) => ({
+          id: session.id,
+          created_at: session.created_at,
+          mood_score: session.mood_analysis.happiness,
+          notes: session.mood_analysis.insights,
+          happiness: session.mood_analysis.happiness,
+          anxiety: session.mood_analysis.anxiety,
+          sadness: session.mood_analysis.sadness,
+          stress: session.mood_analysis.stress,
+          confidence: session.mood_analysis.confidence,
+        }));
 
-        setMoodEntries(recentMoodEntries);
-      }
+      setMoodEntries(recentMoodEntries);
     } catch (error) {
       console.error("Error fetching child data:", error);
     } finally {
@@ -240,19 +219,8 @@ export default function ViewChildPage() {
       });
       formData.append("childId", childId);
 
-      const response = await fetch("/api/knowledge-base/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || errorData.details || "Upload failed"
-        );
-      }
-
-      const result = await response.json();
+      // Use apiUpload for FormData uploads
+      const result = await apiUpload("knowledge-base/upload", formData);
 
       if (result.success) {
         // Clear selected files
@@ -268,8 +236,6 @@ export default function ViewChildPage() {
 
         // Refresh child data to get updated knowledge base documents
         await fetchChildData();
-
-        console.log("✅ Files uploaded successfully:", result.message);
       } else {
         throw new Error(result.error || result.details || "Upload failed");
       }
@@ -288,20 +254,9 @@ export default function ViewChildPage() {
   const handleDeleteFile = async (fileId: string) => {
     try {
       // Call the DELETE API endpoint to remove from Pinecone
-      const response = await fetch(
-        `/api/knowledge-base/upload/${fileId}?childId=${childId}`,
-        {
-          method: "DELETE",
-        }
+      const result = await apiDelete(
+        `knowledge-base/upload/${fileId}?childId=${childId}`
       );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete file");
-      }
-
-      const result = await response.json();
-      console.log("✅ File deleted successfully:", result.message);
 
       // Refresh child data to get updated knowledge base documents
       await fetchChildData();
@@ -377,7 +332,6 @@ export default function ViewChildPage() {
     );
   }
 
-  const recentMoodEntries = moodEntries.slice(0, 7);
   const averageMood =
     moodEntries.length > 0
       ? moodEntries.reduce((sum, entry) => sum + getMoodScore(entry), 0) /
@@ -667,7 +621,7 @@ export default function ViewChildPage() {
                                 key={index}
                                 className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"
                               >
-                                {topic}
+                                {topic.charAt(0).toUpperCase() + topic.slice(1)}
                               </span>
                             ))}
                           </div>
@@ -788,51 +742,6 @@ export default function ViewChildPage() {
                   </p>
                 </div>
               </div>
-
-              {/* Mood Analysis Insights */}
-              {moodAnalysis && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">
-                        Current Status
-                      </h4>
-                      <div
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          moodAnalysis.level === "critical"
-                            ? "bg-red-100 text-red-800"
-                            : moodAnalysis.level === "high"
-                            ? "bg-orange-100 text-orange-800"
-                            : moodAnalysis.level === "medium"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-green-100 text-green-800"
-                        }`}
-                      >
-                        {moodAnalysis.status}
-                      </div>
-                      <p className="text-sm text-gray-600 mt-2">
-                        {moodAnalysis.insights}
-                      </p>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">
-                        Recommendations
-                      </h4>
-                      <ul className="space-y-1">
-                        {moodAnalysis.recommendations.map((rec, index) => (
-                          <li
-                            key={index}
-                            className="text-sm text-gray-600 flex items-start"
-                          >
-                            <span className="text-purple-600 mr-2">•</span>
-                            {rec}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Mood Entries */}

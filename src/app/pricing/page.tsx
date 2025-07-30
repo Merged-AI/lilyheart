@@ -124,8 +124,7 @@ export default function PricingPage() {
       return "/profile";
     }
 
-    // If trial ended or canceled, go to resubscribe page for existing users
-    return "/resubscribe";
+    return "/";
   };
 
   const getTrialText = () => {
@@ -165,7 +164,9 @@ export default function PricingPage() {
                 <Brain className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Lily Heart AI</h1>
+                <h1 className="text-xl font-bold text-gray-900">
+                  Lily Heart AI
+                </h1>
                 <p className="text-sm text-gray-600">
                   Family Communication Coach
                 </p>
@@ -388,8 +389,8 @@ export default function PricingPage() {
           </h3>
           <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
             Join thousands of families who have improved their emotional
-            connections and communication with Lily Heart AI's Family Communication
-            Coach.
+            connections and communication with Lily Heart AI's Family
+            Communication Coach.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {isLoading ? (

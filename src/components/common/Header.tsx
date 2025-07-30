@@ -93,7 +93,7 @@ export default function Header({
   if (variant === "auth") {
     return (
       <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4">
+        <div className="px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center space-x-3 sm:space-x-4">
               <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -130,7 +130,7 @@ export default function Header({
   if (!family) {
     return (
       <header className="bg-gradient-to-r from-purple-600 to-blue-600 sticky top-0 z-50 backdrop-blur-lg">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4">
+        <div className="px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <Link
               href="/"
@@ -200,7 +200,7 @@ export default function Header({
   return (
     <>
       <header className="bg-white/80 backdrop-blur-lg shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4">
+        <div className="px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Left side - Welcome message instead of logo */}
             <div className="flex items-center space-x-4">

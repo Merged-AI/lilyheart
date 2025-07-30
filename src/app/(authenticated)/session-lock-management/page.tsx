@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Eye, EyeOff, Shield, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiPut, apiPost } from "@/lib/api";
 
 export default function SessionLockManagementPage() {
   const [currentPin, setCurrentPin] = useState("");
@@ -17,46 +18,45 @@ export default function SessionLockManagementPage() {
     e.preventDefault();
     setIsLoading(true);
 
+    // First validate current PIN with server
+    try {
+      await apiPost<{ message: string }>("auth/pin/validate", {
+        pin: currentPin,
+      });
+    } catch (error: any) {
+      toast.error("Current PIN is incorrect. Please try again.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Then check if new PINs match
     if (newPin !== confirmNewPin) {
-      toast.error("PINs do not match. Please try again.");
+      toast.error("New PINs do not match. Please try again.");
       setIsLoading(false);
       return;
     }
 
     if (newPin.length !== 4) {
-      toast.error("PIN must be exactly 4 digits.");
+      toast.error("New PIN must be exactly 4 digits.");
       setIsLoading(false);
       return;
     }
 
+    // Finally update the PIN
     try {
-      const response = await fetch("/api/auth/pin", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          currentPin,
-          newPin,
-        }),
+      const data = await apiPut<{ message: string }>("auth/pin", {
+        currentPin,
+        newPin,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success(data.message || "PIN updated successfully!");
-        setCurrentPin("");
-        setNewPin("");
-        setConfirmNewPin("");
-      } else {
-        toast.error(
-          data.error ||
-            data.message ||
-            "Failed to update PIN. Please try again."
-        );
-      }
-    } catch (error) {
-      toast.error("Network error. Please check your connection and try again.");
+      toast.success(data.message || "PIN updated successfully!");
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmNewPin("");
+    } catch (error: any) {
+      toast.error(
+        error.message || "Failed to update PIN. Please try again."
+      );
     }
 
     setIsLoading(false);
@@ -64,16 +64,6 @@ export default function SessionLockManagementPage() {
 
   return (
     <div className="max-w-xl mx-auto p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Session Lock Management
-        </h1>
-        <p className="text-gray-600">
-          Manage your parent PIN and to control access to your child's therapy
-          insights.
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 gap-8">
         {/* PIN Management */}
         <div className="bg-white rounded-xl shadow-lg p-6">

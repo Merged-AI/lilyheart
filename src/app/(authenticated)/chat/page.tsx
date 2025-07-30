@@ -19,6 +19,7 @@ import Modal from "@/components/common/Modal";
 import ChildOnboardingModal from "@/components/common/ChildOnboardingModal";
 import RealtimeVoiceChat from "@/components/chat/RealtimeVoiceChat";
 import { useSessionLock } from "@/lib/session-lock-context";
+import { apiCall, handleApiResponse } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -244,14 +245,6 @@ function ChatContent() {
     setModalConfig((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
-  const handleProfileCompletion = useCallback(
-    (childId: string) => {
-      handleModalClose();
-      router.push(`/children/add?childId=${childId}`);
-    },
-    [handleModalClose, router]
-  );
-
   const handleAddChild = () => {
     router.push("/children/add");
   };
@@ -336,11 +329,8 @@ function ChatContent() {
   // Analyze mood using OpenAI API
   const analyzeMoodWithAI = async (message: string) => {
     try {
-      const response = await fetch("/api/mood-tracking", {
+      const response = await apiCall("mood-tracking/analyze", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           childId: selectedChildId,
           moodDescription: message,
@@ -348,7 +338,7 @@ function ChatContent() {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await handleApiResponse<{ moodAnalysis: any }>(response);
         return data.moodAnalysis;
       }
     } catch (error) {
@@ -377,11 +367,8 @@ function ChatContent() {
         throw new Error("No child selected");
       }
 
-      const response = await fetch("/api/chat", {
+      const response = await apiCall("chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           message: userMessage,
           history: messageHistory.slice(-10), // Send last 10 messages for context
@@ -392,7 +379,7 @@ function ChatContent() {
 
       if (response.status === 422) {
         // Profile completion required
-        const data = await response.json();
+        const data = await handleApiResponse<any>(response);
         if (data.requiresProfileCompletion) {
           router.push(`/children/add?childId=${selectedChildId}`);
           return {
@@ -404,7 +391,7 @@ function ChatContent() {
 
       if (response.status === 403) {
         // Subscription required
-        const data = await response.json();
+        const data = await handleApiResponse<any>(response);
         if (data.requiresSubscription) {
           // Redirect to subscription page or show subscription modal
           router.push("/pricing");
@@ -416,11 +403,7 @@ function ChatContent() {
         }
       }
 
-      if (!response.ok) {
-        throw new Error("Failed to get AI response");
-      }
-
-      const data = await response.json();
+      const data = await handleApiResponse<any>(response);
 
       // Check if the response indicates crisis content
       if (data.hasAlert && data.alert_level === "high") {
@@ -542,11 +525,8 @@ function ChatContent() {
     try {
       if (selectedChildId) {
         // Complete the active session for this child
-        const completeResponse = await fetch("/api/chat/sessions/complete", {
+        const completeResponse = await apiCall("chat/sessions/complete", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify({
             childId: selectedChildId,
             sessionDuration: sessionDuration,
@@ -561,11 +541,8 @@ function ChatContent() {
         }
 
         // Trigger dashboard analytics update asynchronously (don't await)
-        fetch(`/api/analysis/dashboard-analytics`, {
+        apiCall("analysis/dashboard-analytics", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify({
             childId: selectedChildId,
           }),
@@ -1069,11 +1046,8 @@ function ChatContent() {
       }));
 
       // Call voice chat API with abort controller
-      const response = await fetch("/api/chat/voice", {
+      const response = await apiCall("chat/voice", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           audioData: base64Audio,
           childId: selectedChildId,
@@ -1087,7 +1061,7 @@ function ChatContent() {
         throw new Error("Failed to process voice message");
       }
 
-      const data = await response.json();
+      const data = await handleApiResponse<any>(response);
 
       if (data.success) {
         // Only add messages if there's actual content

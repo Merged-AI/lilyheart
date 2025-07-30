@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Mic, Loader2, AlertCircle } from "lucide-react";
+import { apiPost } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -32,6 +33,11 @@ export default function RealtimeVoiceChat({
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] =
     useState<string>("Disconnected");
+
+  // Turn-taking synchronization state
+  const [aiIsResponding, setAiIsResponding] = useState(false);
+  const [isWaitingForAIResponse, setIsWaitingForAIResponse] = useState(false);
+
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const dataChannel = useRef<RTCDataChannel | null>(null);
   const audioElement = useRef<HTMLAudioElement | null>(null);
@@ -52,11 +58,21 @@ export default function RealtimeVoiceChat({
   const [isResponseCooldown, setIsResponseCooldown] = useState(false);
   const COOLDOWN_DURATION = 5000; // 5 seconds
 
+  // Turn-taking refs
+  const aiIsRespondingRef = useRef<boolean>(false);
+  const pendingUserMessageRef = useRef<string>("");
+  const currentTurnId = useRef<string>("");
+  const turnStartTime = useRef<number>(0);
+  const turnTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const TURN_TIMEOUT = 30000; // 30 seconds timeout for AI response
+
   // Cleanup function
   const cleanup = useCallback(() => {
     isCleaningUp.current = true;
     setIsInputCooldown(false);
     setIsResponseCooldown(false);
+    setAiIsResponding(false);
+    setIsWaitingForAIResponse(false);
 
     setIsConnected(false);
     setIsConnecting(false);
@@ -72,6 +88,18 @@ export default function RealtimeVoiceChat({
     lastUserMessageTime.current = 0;
     pendingUserMessage.current = "";
     pendingSessionId.current = "";
+
+    // Reset turn-taking state
+    aiIsRespondingRef.current = false;
+    pendingUserMessageRef.current = "";
+    currentTurnId.current = "";
+    turnStartTime.current = 0;
+
+    // Clear any pending timeouts
+    if (turnTimeoutRef.current) {
+      clearTimeout(turnTimeoutRef.current);
+      turnTimeoutRef.current = null;
+    }
 
     navigator.mediaDevices
       .getUserMedia({ audio: true })
@@ -113,25 +141,19 @@ export default function RealtimeVoiceChat({
   const storeUserMessageInBackend = useCallback(
     async (content: string) => {
       try {
-        const response = await fetch("/api/chat/realtime-proxy", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            action: "store_user_message",
+        const result = await apiPost<{ sessionId?: string }>(
+          "chat/realtime-proxy",
+          {
+            event: "store_user_message",
             childId,
             data: {
               content,
             },
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.sessionId) {
-            pendingSessionId.current = result.sessionId;
           }
+        );
+
+        if (result.sessionId) {
+          pendingSessionId.current = result.sessionId;
         }
       } catch (error) {
         console.error("Error storing user message:", error);
@@ -151,28 +173,19 @@ export default function RealtimeVoiceChat({
       }
 
       try {
-        const response = await fetch("/api/chat/realtime-proxy", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const result = await apiPost<any>("chat/realtime-proxy", {
+          event: "store_ai_response",
+          childId,
+          data: {
+            sessionId: pendingSessionId.current,
+            content,
+            userMessage: pendingUserMessage.current,
           },
-          body: JSON.stringify({
-            action: "store_ai_response",
-            childId,
-            data: {
-              sessionId: pendingSessionId.current,
-              content,
-              userMessage: pendingUserMessage.current,
-            },
-          }),
         });
 
-        if (response.ok) {
-          const result = await response.json();
-          // Clear pending data after successful storage
-          pendingSessionId.current = "";
-          pendingUserMessage.current = "";
-        }
+        // Clear pending data after successful storage
+        pendingSessionId.current = "";
+        pendingUserMessage.current = "";
       } catch (error) {
         console.error("Error storing conversation:", error);
       }
@@ -248,6 +261,12 @@ export default function RealtimeVoiceChat({
       return;
     }
 
+    // TURN-TAKING CHECK: Don't process if AI is currently responding
+    if (aiIsRespondingRef.current || isWaitingForAIResponse) {
+      pendingUserMessageRef.current = transcript;
+      return;
+    }
+
     // Start cooldown for voice input
     setIsInputCooldown(true);
     setTimeout(() => {
@@ -282,8 +301,14 @@ export default function RealtimeVoiceChat({
       return;
     }
 
+    // Set turn-taking state
+    aiIsRespondingRef.current = true;
+    setIsWaitingForAIResponse(true);
+    currentTurnId.current = Date.now().toString();
+    turnStartTime.current = now;
+
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: currentTurnId.current,
       content: transcript,
       sender: "child",
       timestamp: new Date(),
@@ -367,6 +392,28 @@ export default function RealtimeVoiceChat({
         lastAIResponse.current = responseText;
         lastAIResponseTime.current = Date.now();
 
+        // TURN-TAKING: Complete the current turn and allow next user input
+        aiIsRespondingRef.current = false;
+        setIsWaitingForAIResponse(false);
+        setAiIsResponding(false);
+
+        // Clear timeout since AI response completed
+        if (turnTimeoutRef.current) {
+          clearTimeout(turnTimeoutRef.current);
+          turnTimeoutRef.current = null;
+        }
+
+        // Process any pending user message that was queued during AI response
+        if (pendingUserMessageRef.current) {
+          const pendingMessage = pendingUserMessageRef.current;
+          pendingUserMessageRef.current = "";
+
+          // Process the pending message after a short delay to ensure turn completion
+          setTimeout(() => {
+            processUserVoiceTranscript(pendingMessage);
+          }, 500);
+        }
+
         // Keep response history manageable
         if (processedResponseIds.current.size > 10) {
           const idsArray = Array.from(processedResponseIds.current);
@@ -387,6 +434,7 @@ export default function RealtimeVoiceChat({
       storeAIResponseInBackend,
       isDuplicateResponse,
       isResponseCooldown,
+      processUserVoiceTranscript,
     ]
   );
 
@@ -410,25 +458,30 @@ export default function RealtimeVoiceChat({
       pendingUserMessage.current = "";
       pendingSessionId.current = "";
 
-      // Create session through backend
-      const sessionResponse = await fetch("/api/chat/realtime-proxy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "create_session",
-          childId,
-        }),
-      });
+      // Reset turn-taking state for new session
+      aiIsRespondingRef.current = false;
+      pendingUserMessageRef.current = "";
+      currentTurnId.current = "";
+      turnStartTime.current = 0;
+      setAiIsResponding(false);
+      setIsWaitingForAIResponse(false);
 
-      if (!sessionResponse.ok) {
-        const errorData = await sessionResponse.json();
-        throw new Error(errorData.error || "Failed to create session");
+      // Clear any existing timeouts
+      if (turnTimeoutRef.current) {
+        clearTimeout(turnTimeoutRef.current);
+        turnTimeoutRef.current = null;
       }
 
-      const sessionData = await sessionResponse.json();
-      const EPHEMERAL_KEY = sessionData.client_secret.value;
+      // Create session through backend
+      const sessionResponse = await apiPost<{ response: any }>(
+        "chat/realtime-proxy",
+        {
+          event: "create_session",
+          childId,
+        }
+      );
+
+      const EPHEMERAL_KEY = sessionResponse.response.client_secret.value;
 
       // Create peer connection
       const pc = new RTCPeerConnection();
@@ -520,37 +573,27 @@ export default function RealtimeVoiceChat({
       await pc.setLocalDescription(offer);
 
       // Send SDP offer through backend
-      const sdpResponse = await fetch("/api/chat/realtime-proxy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "send_sdp_offer",
+      const answerResponse = await apiPost<{ response: string }>(
+        "chat/realtime-proxy",
+        {
+          event: "send_sdp_offer",
           childId,
           data: {
             sdp: offer.sdp,
             model: "gpt-4o-realtime-preview-2024-12-17",
             ephemeralKey: EPHEMERAL_KEY,
           },
-        }),
-      });
+        }
+      );
 
-      if (!sdpResponse.ok) {
-        const errorData = await sdpResponse.json();
-        throw new Error(
-          errorData.error || "Failed to establish connection with OpenAI"
-        );
-      }
-
-      const answerData = await sdpResponse.json();
       const answer = {
         type: "answer" as RTCSdpType,
-        sdp: answerData.sdp,
+        sdp: answerResponse.response,
       };
 
       await pc.setRemoteDescription(answer);
     } catch (err) {
+      console.error("Voice chat session error:", err);
       setError(err instanceof Error ? err.message : "Failed to start session");
       setIsConnecting(false);
       setConnectionStatus("Connection failed");
@@ -571,53 +614,29 @@ export default function RealtimeVoiceChat({
 
     try {
       // Get child's therapeutic context from the backend
-      const response = await fetch("/api/chat/realtime-proxy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "get_child_context",
+      const result = await apiPost<{ response: string }>(
+        "chat/realtime-proxy",
+        {
+          event: "get_child_context",
           childId,
-        }),
-      });
+        }
+      );
 
-      if (response.ok) {
-        const { childContext } = await response.json();
+      const contextEvent = {
+        type: "conversation.item.create",
+        item: {
+          type: "message",
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: `You are Dr. Emma, a caring child therapist. IMPORTANT: Always respond in English only. Here's the child's therapeutic profile: ${result.response}. Keep responses warm, age-appropriate, and therapeutic. Focus on emotional validation and gentle guidance. Use the child's name when appropriate and reference their specific concerns and background. Wait for the child to speak first before responding.`,
+            },
+          ],
+        },
+      };
 
-        const contextEvent = {
-          type: "conversation.item.create",
-          item: {
-            type: "message",
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: `You are Dr. Emma, a caring child therapist. IMPORTANT: Always respond in English only. Here's the child's therapeutic profile: ${childContext}. Keep responses warm, age-appropriate, and therapeutic. Focus on emotional validation and gentle guidance. Use the child's name when appropriate and reference their specific concerns and background. Wait for the child to speak first before responding.`,
-              },
-            ],
-          },
-        };
-
-        dataChannel.current.send(JSON.stringify(contextEvent));
-      } else {
-        // Fallback to generic context
-        const fallbackEvent = {
-          type: "conversation.item.create",
-          item: {
-            type: "message",
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: "You are Dr. Emma, a caring child therapist. IMPORTANT: Always respond in English only. Keep responses warm, age-appropriate, and therapeutic. Focus on emotional validation and gentle guidance. Wait for the child to speak first before responding.",
-              },
-            ],
-          },
-        };
-
-        dataChannel.current.send(JSON.stringify(fallbackEvent));
-      }
+      dataChannel.current.send(JSON.stringify(contextEvent));
     } catch (error) {
       // Fallback to generic context
       const fallbackEvent = {
@@ -686,6 +705,56 @@ export default function RealtimeVoiceChat({
           }
           break;
         }
+
+        // TURN-TAKING EVENTS
+        case "turn_start":
+          {
+            setAiIsResponding(true);
+            aiIsRespondingRef.current = true;
+            turnStartTime.current = Date.now();
+
+            // Set timeout to prevent getting stuck
+            if (turnTimeoutRef.current) {
+              clearTimeout(turnTimeoutRef.current);
+            }
+            turnTimeoutRef.current = setTimeout(() => {
+              setAiIsResponding(false);
+              aiIsRespondingRef.current = false;
+              setIsWaitingForAIResponse(false);
+
+              // Process any pending user message
+              if (pendingUserMessageRef.current) {
+                const pendingMessage = pendingUserMessageRef.current;
+                pendingUserMessageRef.current = "";
+                processUserVoiceTranscript(pendingMessage);
+              }
+            }, TURN_TIMEOUT);
+          }
+          break;
+
+        case "turn_stop":
+          {
+            setAiIsResponding(false);
+            aiIsRespondingRef.current = false;
+            setIsWaitingForAIResponse(false);
+
+            // Clear timeout since turn completed normally
+            if (turnTimeoutRef.current) {
+              clearTimeout(turnTimeoutRef.current);
+              turnTimeoutRef.current = null;
+            }
+
+            // Process any pending user message
+            if (pendingUserMessageRef.current) {
+              const pendingMessage = pendingUserMessageRef.current;
+              pendingUserMessageRef.current = "";
+
+              setTimeout(() => {
+                processUserVoiceTranscript(pendingMessage);
+              }, 300);
+            }
+          }
+          break;
 
         case "conversation.item.input_audio_transcription.delta":
           {
@@ -780,14 +849,7 @@ export default function RealtimeVoiceChat({
       cleanup();
       onSessionEnd();
     }
-  }, [
-    isActive,
-    isConnected,
-    isConnecting,
-    startSession,
-    cleanup,
-    onSessionEnd,
-  ]);
+  }, []);
 
   // Prevent any operations when session is ending
   useEffect(() => {
@@ -860,16 +922,28 @@ export default function RealtimeVoiceChat({
         </div>
       ) : isConnected ? (
         <div>
-          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <div
+            className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              aiIsResponding || isWaitingForAIResponse
+                ? "bg-yellow-500 animate-pulse"
+                : "bg-green-500"
+            }`}
+          >
             <Mic className="h-8 w-8 text-white" />
           </div>
           <h3 className="text-lg font-bold text-green-700 mb-2">
             Connected to Dr. Emma
           </h3>
           <p className="text-green-600 mb-4">
-            Speak naturally! Dr. Emma is listening and will respond in
-            real-time.
+            {aiIsResponding || isWaitingForAIResponse
+              ? "Dr. Emma is responding... Please wait."
+              : "Speak naturally! Dr. Emma is listening and will respond in real-time."}
           </p>
+          {aiIsResponding && (
+            <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded-lg">
+              ⏳ Turn-taking active - waiting for Dr. Emma to finish
+            </div>
+          )}
         </div>
       ) : (
         <div>

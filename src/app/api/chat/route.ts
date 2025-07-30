@@ -238,7 +238,7 @@ Please provide scores from 1-10 for each of these aspects:
 - Stress: How stressed or overwhelmed do they appear?
 - Confidence: How confident or self-assured do they sound?
 
-Also provide clinical insights about their emotional state and any patterns to watch for.
+Also provide caring observations about their emotional state and any patterns to watch for.
 
 Return the analysis in this exact JSON format:
 {
@@ -247,7 +247,7 @@ Return the analysis in this exact JSON format:
   "sadness": number,
   "stress": number,
   "confidence": number,
-  "insights": "string with clinical observations"
+  "insights": "string with caring observations"
 }`;
 
     const completion = await openai.chat.completions.create({
@@ -256,7 +256,7 @@ Return the analysis in this exact JSON format:
         {
           role: "system",
           content:
-            "You are an expert child psychologist analyzing emotional states.",
+            "You are a caring family coach understanding children's emotions.",
         },
         { role: "user", content: moodAnalysisPrompt },
       ],
@@ -361,7 +361,7 @@ async function getChildContext(childId: string): Promise<string> {
     const { data: child, error } = await supabase
       .from("children")
       .select(
-        "name, age, gender, current_concerns, triggers, parent_goals, reason_for_adding"
+        "name, age, gender, current_concerns, triggers, parent_goals, reason_for_adding, background, family_dynamics, social_situation, school_info, coping_strategies, previous_therapy, interests, emergency_contacts"
       )
       .eq("id", childId)
       .single();
@@ -386,6 +386,14 @@ CHILD PROFILE FOR DR. EMMA AI:
       triggers: child.triggers,
       parentGoals: child.parent_goals,
       reasonForAdding: child.reason_for_adding,
+      background: child.background,
+      familyDynamics: child.family_dynamics,
+      socialSituation: child.social_situation,
+      schoolInfo: child.school_info,
+      copingStrategies: child.coping_strategies,
+      previousTherapy: child.previous_therapy,
+      interests: child.interests,
+      emergencyContacts: child.emergency_contacts,
     });
   } catch (error) {
     console.error("Error in getChildContext:", error);
@@ -402,9 +410,19 @@ function generateChildContext(child: any): string {
   const parentGoals = child.parentGoals || "";
   const reasonForAdding = child.reasonForAdding || "";
   const gender = child.gender || "";
+  const background = child.background || "";
+  const familyDynamics = child.familyDynamics || "";
+  const socialSituation = child.socialSituation || "";
+  const schoolInfo = child.schoolInfo || "";
+  const copingStrategies = child.copingStrategies || "";
+  const previousTherapy = child.previousTherapy || "";
+  const interests = child.interests || "";
+  const emergencyContacts = child.emergencyContacts || "";
 
   return `
 COMPREHENSIVE CHILD PROFILE FOR DR. EMMA AI:
+
+🚨 CHILD NAME: ${name} - YOU MUST USE THIS NAME IN YOUR RESPONSES
 
 BASIC INFORMATION:
 - Name: ${name}
@@ -420,6 +438,30 @@ ${triggers || "No specific triggers identified yet"}
 
 PARENT/GUARDIAN THERAPEUTIC GOALS:
 ${parentGoals}
+
+PERSONAL BACKGROUND & EXPERIENCES:
+${background || "No significant background events noted"}
+
+FAMILY DYNAMICS & RECENT CHANGES:
+${familyDynamics || "No specific family dynamics noted"}
+
+SOCIAL RELATIONSHIPS & FRIENDSHIPS:
+${socialSituation || "No specific social situation noted"}
+
+SCHOOL SITUATION & ACADEMIC CONTEXT:
+${schoolInfo || "No specific school information noted"}
+
+CURRENT COPING STRATEGIES:
+${copingStrategies || "No specific coping strategies identified yet"}
+
+PREVIOUS THERAPY EXPERIENCE:
+${previousTherapy || "No previous therapy experience noted"}
+
+INTERESTS & HOBBIES:
+${interests || "No specific interests noted yet"}
+
+EMERGENCY CONTACTS:
+${emergencyContacts || "No emergency contacts provided"}
 
 THERAPEUTIC APPROACH FOR ${name}:
 ${
@@ -452,6 +494,23 @@ ${
 - Support family relationship evolution`
 }
 
+PERSONALIZATION GUIDELINES FOR ${name}:
+
+🎯 INTERESTS & STRENGTHS-BASED INTERVENTIONS:
+- When ${name} mentions interests, hobbies, or activities they enjoy, incorporate these into therapeutic suggestions
+- Use their interests as metaphors or examples in therapeutic conversations
+- Reference their strengths and positive qualities when building confidence
+- Create personalized coping strategies that align with their interests
+- If ${name} has specific interests noted (${interests}), use these to create personalized therapeutic approaches
+- Reference their hobbies, activities, pets, or favorite things when creating metaphors or examples
+
+🎨 CREATIVE PERSONALIZATION EXAMPLES:
+- If ${name} loves reading: "Since you love reading, maybe we can create a special bedtime story about your foxy protecting you"
+- If ${name} enjoys art: "What if we drew a picture of that feeling and then changed it?"
+- If ${name} likes sports: "How do you think your soccer team would handle this situation?"
+- If ${name} has pets: "What would your dog say about this if they could talk?"
+- If ${name} has siblings: "How do you think your brother would help you with this?"
+
 KEY THERAPEUTIC FOCUS AREAS FOR ${name}:
 - Primary concerns: ${currentConcerns}
 - Trigger awareness: ${
@@ -465,21 +524,21 @@ KEY THERAPEUTIC FOCUS AREAS FOR ${name}:
 - Strengthening family communication
 
 CONVERSATION GUIDELINES FOR ${name}:
-- Always use their name to create personal connection
-- Reference their specific concerns and background
+- ALWAYS use ${name}'s name in your responses to create personal connection
+- Reference their specific concerns, background, and family situation
 - Avoid or carefully approach known triggers
 - Work toward parent-identified goals
 - Adapt all interventions for ${age}-year-old developmental stage
 - Create trauma-informed, safe therapeutic space
 - Focus on strengths-based approach while addressing concerns
 - Monitor for crisis indicators and escalate appropriately
+- Use their interests, family situation, and recent changes to create personalized solutions
+- Reference their background and experiences when relevant to therapeutic discussions
+- Build on their existing coping strategies and strengths
 
-THERAPEUTIC RELATIONSHIP BUILDING:
-- Establish trust through consistency and understanding
-- Show genuine interest in ${name}'s unique perspective
-- Validate their experiences while providing gentle guidance
-- Help them feel heard and understood
-- Build therapeutic alliance before deeper therapeutic work
+🚨 FINAL REMINDER: EVERY response to ${name} must include their name. This is mandatory for therapeutic effectiveness.
+
+🎯 PERSONALIZATION COMMAND: Always reference ${name}'s specific interests, family situation, recent changes, and background when creating therapeutic solutions. Make suggestions that are truly personalized to their unique circumstances.
 `;
 }
 

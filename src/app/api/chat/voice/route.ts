@@ -236,7 +236,7 @@ Respond with a JSON object only:
   "sadness": number,
   "stress": number,
   "confidence": number,
-  "insights": "Brief clinical observation about the emotional state"
+  "insights": "Brief caring observation about the emotional state"
 }`;
 
     const completion = await openai.chat.completions.create({
@@ -411,7 +411,7 @@ async function extractTopicsFromMessage(message: string): Promise<string[]> {
 
 Message: "${message}"
 
-Please identify 2-4 most relevant therapeutic topics from this message. Focus on clinical relevance and therapeutic categorization.
+Please identify 2-4 most relevant topics from this message. Focus on understanding and emotional support.
 
 Respond with a JSON array of topic strings only. Example: ["Anxiety management", "Family conflict", "School stress"]`;
 
@@ -421,7 +421,7 @@ Respond with a JSON array of topic strings only. Example: ["Anxiety management",
         {
           role: "system",
           content:
-            "You are a child psychologist specializing in topic categorization and therapeutic assessment. Provide accurate, clinically-relevant topic categorization.",
+            "You are a caring family coach specializing in understanding children's emotional topics. Provide accurate, supportive topic categorization.",
         },
         {
           role: "user",
@@ -521,7 +521,7 @@ function generateAdvancedInsights(message: string, mood: any): string {
   // Anxiety patterns
   if (mood.anxiety >= 7) {
     insights.push(
-      "ANXIETY SYMPTOMS: Clinical-level anxiety detected - consider professional assessment"
+      "ANXIETY SUPPORT: Higher anxiety detected - extra support may be helpful"
     );
     interventionNeeds.push("Implement daily anxiety coping strategies");
   }
@@ -555,7 +555,7 @@ function generateAdvancedInsights(message: string, mood: any): string {
   let comprehensiveInsight = "";
 
   if (insights.length > 0) {
-    comprehensiveInsight += "CLINICAL OBSERVATIONS: " + insights.join(" | ");
+    comprehensiveInsight += "FAMILY OBSERVATIONS: " + insights.join(" | ");
   }
 
   if (behavioralPatterns.length > 0) {

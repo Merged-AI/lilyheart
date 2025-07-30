@@ -79,7 +79,7 @@ Respond with a JSON object only:
   "sadness": number,
   "stress": number,
   "confidence": number,
-  "insights": "Brief clinical observation about the emotional state"
+  "insights": "Brief caring observation about the emotional state"
 }`;
 
     const completion = await openai.chat.completions.create({
@@ -264,7 +264,7 @@ function generateAdvancedInsights(
   // Anxiety patterns
   if (mood.anxiety >= 7) {
     insights.push(
-      "ANXIETY SYMPTOMS: Clinical-level anxiety detected - consider professional assessment"
+      "ANXIETY SUPPORT: Higher anxiety detected - extra support may be helpful"
     );
     interventionNeeds.push("Implement daily anxiety coping strategies");
   }
@@ -298,7 +298,7 @@ function generateAdvancedInsights(
   let comprehensiveInsight = "";
 
   if (insights.length > 0) {
-    comprehensiveInsight += "CLINICAL OBSERVATIONS: " + insights.join(" | ");
+    comprehensiveInsight += "FAMILY OBSERVATIONS: " + insights.join(" | ");
   }
 
   if (behavioralPatterns.length > 0) {

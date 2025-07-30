@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Brain, User } from "lucide-react";
+import { MessageCircle, User } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { apiGet } from "@/lib/api";
 
 interface Message {
-  sender: 'child' | 'ai';
+  sender: "child" | "ai";
   content: string;
   timestamp: string;
 }
@@ -39,18 +40,24 @@ export default function ChatSessionsPage() {
         setIsLoadingMore(true);
       }
 
-      const response = await fetch(
-        `/api/chat/sessions?childId=${selectedChildId}&page=${page}&pageSize=5`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        if (isLoadMore) {
-          setSessions(prev => [...prev, ...data.sessions]);
-        } else {
-          setSessions(data.sessions);
-        }
-        setHasMore(data.hasMore);
+      const data = await apiGet<{
+        sessions: ChatSession[];
+        pagination: {
+          page: number;
+          pageSize: number;
+          total: number;
+          totalPages: number;
+        };
+        child: any;
+      }>(`chat/sessions?childId=${selectedChildId}&page=${page}&pageSize=5`);
+
+      if (isLoadMore) {
+        setSessions((prev) => [...prev, ...data.sessions]);
+      } else {
+        setSessions(data.sessions);
       }
+      // Calculate hasMore from pagination
+      setHasMore(data.pagination.page < data.pagination.totalPages);
     } catch (error) {
       console.error("Error loading chat sessions:", error);
     } finally {
@@ -72,13 +79,13 @@ export default function ChatSessionsPage() {
   };
 
   const formatDate = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true
+    return new Date(timestamp).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
     });
   };
 
@@ -158,20 +165,26 @@ export default function ChatSessionsPage() {
                         <div
                           key={index}
                           className={`flex ${
-                            message.sender === 'child' ? 'justify-end' : 'justify-start'
+                            message.sender === "child"
+                              ? "justify-end"
+                              : "justify-start"
                           }`}
                         >
                           <div
                             className={`max-w-[80%] rounded-lg p-4 ${
-                              message.sender === 'child'
-                                ? 'bg-purple-100 text-purple-900'
-                                : 'bg-gray-100 text-gray-900'
+                              message.sender === "child"
+                                ? "bg-purple-100 text-purple-900"
+                                : "bg-gray-100 text-gray-900"
                             }`}
                           >
                             <div className="text-sm font-medium mb-1">
-                              {message.sender === 'child' ? 'Child' : 'Dr. Emma'}
+                              {message.sender === "child"
+                                ? "Child"
+                                : "Dr. Emma"}
                             </div>
-                            <div className="whitespace-pre-wrap">{message.content}</div>
+                            <div className="whitespace-pre-wrap">
+                              {message.content}
+                            </div>
                             <div className="text-xs text-gray-500 mt-2">
                               {formatDate(message.timestamp)}
                             </div>
@@ -197,7 +210,7 @@ export default function ChatSessionsPage() {
                     Loading...
                   </span>
                 ) : (
-                  'Load More Sessions'
+                  "Load More Sessions"
                 )}
               </button>
             </div>

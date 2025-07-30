@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getCookieConfig } from '@/lib/utils'
 
 // Force dynamic rendering since this route uses cookies
 export const dynamic = "force-dynamic";
@@ -71,13 +72,13 @@ export async function POST(request: NextRequest) {
       message: "Authentication successful",
     });
 
+    // Get cookie configuration for production deployment
+    const cookieConfig = getCookieConfig(request)
+
     // Set the custom auth_token cookie (same as regular login)
     response.cookies.set("auth_token", sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      ...cookieConfig,
       maxAge: 30 * 24 * 60 * 60, // 30 days
-      path: "/",
     });
 
     return response;

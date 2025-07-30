@@ -306,6 +306,28 @@ export interface Database {
             description: string;
             updated_at: string;
           }[];
+          child_name: string | null;
+          weekly_insight: {
+            story: string;
+            what_happened: string;
+            good_news: string;
+          } | null;
+          action_plan: {
+            steps: {
+              timeframe: string;
+              action: string;
+              description: string;
+            }[];
+            quick_win: string;
+          } | null;
+          progress_tracking: {
+            wins: string[];
+            working_on: {
+              issue: string;
+              note: string;
+            }[];
+            when_to_worry: string;
+          } | null;
           updated_at: string;
         };
         Insert: {
@@ -379,6 +401,28 @@ export interface Database {
             description: string;
             updated_at: string;
           }[];
+          child_name?: string | null;
+          weekly_insight?: {
+            story: string;
+            what_happened: string;
+            good_news: string;
+          } | null;
+          action_plan?: {
+            steps: {
+              timeframe: string;
+              action: string;
+              description: string;
+            }[];
+            quick_win: string;
+          } | null;
+          progress_tracking?: {
+            wins: string[];
+            working_on: {
+              issue: string;
+              note: string;
+            }[];
+            when_to_worry: string;
+          } | null;
           updated_at: string;
         };
         Update: {
@@ -452,6 +496,28 @@ export interface Database {
             description: string;
             updated_at: string;
           }[];
+          child_name?: string | null;
+          weekly_insight?: {
+            story: string;
+            what_happened: string;
+            good_news: string;
+          } | null;
+          action_plan?: {
+            steps: {
+              timeframe: string;
+              action: string;
+              description: string;
+            }[];
+            quick_win: string;
+          } | null;
+          progress_tracking?: {
+            wins: string[];
+            working_on: {
+              issue: string;
+              note: string;
+            }[];
+            when_to_worry: string;
+          } | null;
           updated_at?: string;
         };
       };

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Brain } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { apiPost } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,17 +21,12 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const response = await apiPost("/auth/login", formData);
 
-      if (response.ok) {
+      if (response.success) {
         router.push("/dashboard");
       } else {
-        const data = await response.json();
-        setError(data.error || "Login failed");
+        setError(response.error || "Login failed");
       }
     } catch (error) {
       setError("Login failed. Please try again.");

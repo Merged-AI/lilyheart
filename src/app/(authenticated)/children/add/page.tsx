@@ -11,6 +11,7 @@ import {
   Loader2,
   ChevronDown,
 } from "lucide-react";
+import { apiGet, apiPost, apiPut } from "../../../../lib/api";
 
 interface ChildData {
   name: string;
@@ -24,6 +25,7 @@ interface ChildData {
   schoolInfo: string;
   familyDynamics: string;
   socialSituation: string;
+  interests: string;
   reasonForAdding: string;
   parentGoals: string;
   emergencyContacts: string;
@@ -66,6 +68,7 @@ function AddChildContent() {
     schoolInfo: "",
     familyDynamics: "",
     socialSituation: "",
+    interests: "",
     reasonForAdding: "",
     parentGoals: "",
     emergencyContacts: "",
@@ -78,27 +81,25 @@ function AddChildContent() {
 
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/children/${childId}`);
-        if (response.ok) {
-          const data = await response.json();
-          const child = data.child;
-          setChildData({
-            name: child.name || "",
-            age: child.age || 0,
-            gender: child.gender || "",
-            background: child.background || "",
-            currentConcerns: child.current_concerns || "",
-            triggers: child.triggers || "",
-            copingStrategies: child.coping_strategies || "",
-            previousTherapy: child.previous_therapy || "",
-            schoolInfo: child.school_info || "",
-            familyDynamics: child.family_dynamics || "",
-            socialSituation: child.social_situation || "",
-            reasonForAdding: child.reason_for_adding || "",
-            parentGoals: child.parent_goals || "",
-            emergencyContacts: child.emergency_contacts || "",
-          });
-        }
+        const data = await apiGet<{ child: any }>(`children/${childId}`);
+        const child = data.child;
+        setChildData({
+          name: child.name || "",
+          age: child.age || 0,
+          gender: child.gender || "",
+          background: child.background || "",
+          currentConcerns: child.current_concerns || "",
+          triggers: child.triggers || "",
+          copingStrategies: child.coping_strategies || "",
+          previousTherapy: child.previous_therapy || "",
+          schoolInfo: child.school_info || "",
+          familyDynamics: child.family_dynamics || "",
+          socialSituation: child.social_situation || "",
+          interests: child.interests || "",
+          reasonForAdding: child.reason_for_adding || "",
+          parentGoals: child.parent_goals || "",
+          emergencyContacts: child.emergency_contacts || "",
+        });
       } catch (error) {
         console.error("Error fetching child data:", error);
       } finally {
@@ -150,26 +151,21 @@ function AddChildContent() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/children", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...childData,
-          childId: childId || undefined, // Include childId if it exists
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        router.push("/children");
+      if (childId) {
+        // Update existing child
+        const result = await apiPut<{ child: any }>(
+          `children/${childId}`,
+          childData
+        );
       } else {
-        throw new Error("Failed to add child");
+        // Add new child
+        const result = await apiPost<{ child: any }>("children", childData);
       }
+
+      router.push("/children");
     } catch (error) {
-      console.error("Error adding child:", error);
-      alert("Failed to add child. Please try again.");
+      console.error("Error saving child:", error);
+      alert("Failed to save child. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -432,6 +428,21 @@ function AddChildContent() {
                 rows={3}
                 className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
                 placeholder="What does your child do now when they're upset? What helps them feel better?"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-purple-700 mb-2">
+                Interests & Hobbies
+              </label>
+              <textarea
+                value={childData.interests}
+                onChange={(e) =>
+                  handleInputChange("interests", e.target.value)
+                }
+                rows={3}
+                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                placeholder="What does your child enjoy doing? Hobbies, activities, sports, books, games, pets, etc. This helps Dr. Emma create personalized therapeutic approaches."
               />
             </div>
           </div>

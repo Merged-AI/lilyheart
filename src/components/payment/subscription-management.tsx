@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Modal from "@/components/common/Modal";
+import { apiGet, apiPost } from "@/lib/api";
 
 interface SubscriptionInfo {
   hasSubscription: boolean;
@@ -63,13 +64,7 @@ export default function SubscriptionManagement() {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch("/api/stripe/subscription-status");
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch subscription information");
-      }
-
-      const data = await response.json();
+      const data = await apiGet<SubscriptionInfo>("stripe/subscription-status");
       setSubscriptionInfo(data);
     } catch (err: any) {
       setError(err.message);
@@ -83,20 +78,8 @@ export default function SubscriptionManagement() {
     try {
       setIsCanceling(true);
 
-      const response = await fetch("/api/stripe/cancel-subscription", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to cancel subscription");
-      }
-
-      const result = await response.json();
-      toast.success("Subscription canceled successfully");
+      const result = await apiPost<{ message: string }>("stripe/cancel-subscription", {});
+      toast.success(result.message || "Subscription canceled successfully");
       setShowCancelModal(false);
 
       // Refresh subscription info
@@ -112,20 +95,8 @@ export default function SubscriptionManagement() {
     try {
       setIsReactivating(true);
 
-      const response = await fetch("/api/stripe/reactivate-subscription", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to reactivate subscription");
-      }
-
-      const result = await response.json();
-      toast.success("Subscription reactivated successfully!");
+      const result = await apiPost<{ message: string }>("stripe/reactivate-subscription", {});
+      toast.success(result.message || "Subscription reactivated successfully!");
       setShowReactivateModal(false);
 
       // Refresh subscription info

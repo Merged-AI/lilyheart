@@ -10,8 +10,9 @@ import {
   AlertTriangle,
   MessageCircle,
 } from "lucide-react";
-import { ChildMentalHealthDashboard } from "@/components/dashboard/child-mental-health-dashboard";
+import ChildMentalHealthDashboard from "@/components/dashboard/child-mental-health-dashboard";
 import { createClient } from "@/lib/supabase";
+import { apiGet } from "@/lib/api";
 
 interface DashboardStats {
   todaysMood: {
@@ -74,13 +75,17 @@ export default function ParentDashboard() {
   useEffect(() => {
     const checkPinSetup = async () => {
       try {
-        const response = await fetch("/api/auth/pin");
-        if (response.status === 404) {
-          // PIN not set up, redirect to PIN setup
+        await apiGet("auth/pin");
+      } catch (error: any) {
+        // If error message indicates PIN not found, redirect to setup
+        if (
+          error.message?.includes("404") ||
+          error.message?.includes("not found")
+        ) {
           router.push("/pin-setup");
+        } else {
+          console.error("Error checking PIN setup:", error);
         }
-      } catch (error) {
-        console.error("Error checking PIN setup:", error);
       }
     };
 
@@ -89,6 +94,9 @@ export default function ParentDashboard() {
 
   useEffect(() => {
     if (family && selectedChildId) {
+      // Clear previous child's data immediately when switching children
+      setAnalyticsData(null);
+
       // Initial fetch
       fetchDashboardStats();
 
@@ -111,53 +119,28 @@ export default function ParentDashboard() {
 
     try {
       // Fetch analytics through our API
-      const response = await fetch(
-        `/api/analysis/dashboard-analytics?childId=${selectedChildId}`
-      );
-      const { data: fetchedAnalyticsData, message } = await response.json();
+      const response = await apiGet<{
+        data: any;
+        message?: string;
+      }>(`analysis/dashboard-analytics?childId=${selectedChildId}`);
 
-      if (response.status === 400) {
-        // Reset dashboard to "no data" state when no analytics are available
-        setAnalyticsData(null);
-        setDashboardStats({
-          todaysMood: {
-            status: "No data yet",
-            trend: "Start first session",
-            color: "text-gray-600",
-            bgColor: "bg-gray-100",
-          },
-          sessionsThisWeek: {
-            count: 0,
-            change: "No sessions yet",
-          },
-          emotionalTrend: {
-            status: "No data",
-            attention: "Start your first session",
-            color: "text-gray-600",
-            bgColor: "bg-gray-100",
-          },
-          activeConcerns: {
-            count: 0,
-            level: "No data yet",
-          },
-          hasAlert: false,
-        });
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(message || "Failed to fetch dashboard analytics");
-      }
+      const { data: fetchedAnalyticsData } = response;
 
       // Use the analytics data if available
       if (fetchedAnalyticsData) {
         setAnalyticsData(fetchedAnalyticsData);
         updateDashboardUI(fetchedAnalyticsData);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching dashboard stats:", error);
-      // Reset to no data state on error
-      setAnalyticsData(null);
+
+      // Check if it's a 400 error (no data available) or other error
+      if (error.message?.includes("400")) {
+        // Reset dashboard to "no data" state when no analytics are available
+        setAnalyticsData(null);
+      }
+
+      // Reset to no data state on any error
       setDashboardStats({
         todaysMood: {
           status: "No data yet",
@@ -394,7 +377,7 @@ export default function ParentDashboard() {
   return (
     <>
       {/* Quick Stats - Now Dynamic */}
-      <section className="max-w-[1400px] mx-auto px-6 py-8">
+      <section className="px-6 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Today's Mood */}
           <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-all duration-200">
@@ -461,8 +444,8 @@ export default function ParentDashboard() {
               <div
                 className={`w-12 h-12 ${dashboardStats.emotionalTrend.bgColor} rounded-lg flex items-center justify-center`}
               >
-                {dashboardStats.emotionalTrend.status.includes("Positive") ||
-                dashboardStats.emotionalTrend.status.includes("Improving") ? (
+                {dashboardStats.emotionalTrend.status.includes("positive") ||
+                dashboardStats.emotionalTrend.status.includes("improving") ? (
                   <TrendingUp
                     className={`h-5 w-5 ${dashboardStats.emotionalTrend.color}`}
                   />

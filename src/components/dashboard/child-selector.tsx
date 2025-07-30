@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ChevronDown, User, Plus, Edit } from "lucide-react";
+import { apiGet } from "../../lib/api";
 
 interface Child {
   id: string;
@@ -34,15 +35,12 @@ export function ChildSelector({
 
   const fetchChildren = async () => {
     try {
-      const response = await fetch("/api/children");
-      if (response.ok) {
-        const data = await response.json();
-        setChildren(data.children || []);
+      const data = await apiGet<{ children: Child[] }>("children");
+      setChildren(data.children || []);
 
-        // Auto-select first child if none selected
-        if (!selectedChildId && data.children && data.children.length > 0) {
-          onChildSelect(data.children[0].id);
-        }
+      // Auto-select first child if none selected
+      if (!selectedChildId && data.children && data.children.length > 0) {
+        onChildSelect(data.children[0].id);
       }
     } catch (error) {
       console.error("Error fetching children:", error);
@@ -163,9 +161,7 @@ export function ChildSelector({
                       <p className="font-medium text-gray-900 text-sm">
                         {child.name}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {child.age} years
-                      </p>
+                      <p className="text-xs text-gray-500">{child.age} years</p>
                     </div>
                   </button>
                   {onEditChild && (

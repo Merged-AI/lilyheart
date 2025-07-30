@@ -1,7 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { apiGet, apiPost } from "./api";
 
 interface Family {
   id: string;
@@ -12,11 +19,11 @@ interface Family {
   subscription_plan?: string;
   subscription_status?: string;
   trial_ends_at?: string;
-  children?: Array<{ 
-    id: string; 
-    name: string; 
-    age: number; 
-    current_concerns?: string; 
+  children?: Array<{
+    id: string;
+    name: string;
+    age: number;
+    current_concerns?: string;
   }>;
 }
 
@@ -42,35 +49,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuthentication = async () => {
     try {
-      const response = await fetch("/api/auth/me");
-      if (response.ok) {
-        const data = await response.json();
-        // Merge children into family object
-        const familyWithChildren = {
-          ...data.family,
-          children: data.children || []
-        };
-        setFamily(familyWithChildren);
-        setIsAuthenticated(true);
+      const data = await apiGet<{
+        family: Family;
+        children: Array<{
+          id: string;
+          name: string;
+          age: number;
+          current_concerns?: string;
+        }>;
+      }>("auth/me");
+      
+      // Merge children into family object
+      const familyWithChildren = {
+        ...data.family,
+        children: data.children || [],
+      };
+      setFamily(familyWithChildren);
+      setIsAuthenticated(true);
 
-        // Auto-select first child if available and no child is selected
-        if (data.children && data.children.length > 0 && !selectedChildId) {
-          setSelectedChildId(data.children[0].id);
-        }
-      } else {
-        setIsAuthenticated(false);
-        setFamily(null);
-        // Only redirect to register if user is on a protected route
-        if (!pathname.startsWith("/auth/") && pathname !== "/" && pathname !== "/pricing" && pathname !== "/terms-of-use") {
-          router.push("/auth/register");
-        }
+      // Auto-select first child if available and no child is selected
+      if (data.children && data.children.length > 0 && !selectedChildId) {
+        setSelectedChildId(data.children[0].id);
       }
     } catch (error) {
       console.error("Auth check failed:", error);
       setIsAuthenticated(false);
       setFamily(null);
       // Only redirect to register if user is on a protected route
-      if (!pathname.startsWith("/auth/") && pathname !== "/" && pathname !== "/pricing" && pathname !== "/terms-of-use") {
+      if (
+        !pathname.startsWith("/auth/") &&
+        pathname !== "/" &&
+        pathname !== "/pricing" &&
+        pathname !== "/terms-of-use"
+      ) {
         router.push("/auth/register");
       }
     } finally {
@@ -80,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await apiPost("auth/logout");
       setIsAuthenticated(false);
       setFamily(null);
       setSelectedChildId("");
@@ -104,17 +115,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-} 
+}

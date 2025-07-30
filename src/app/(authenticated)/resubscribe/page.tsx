@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import ResubscribeForm from "@/components/payment/resubscribe-form";
 import toast from "react-hot-toast";
+import { apiGet } from "@/lib/api";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -35,15 +36,12 @@ export default function ResubscribePage() {
       }
 
       try {
-        const response = await fetch("/api/stripe/subscription-status");
-        if (response.ok) {
-          const data = await response.json();
+        const data = await apiGet<any>("stripe/subscription-status");
 
-          // If user has active subscription, redirect to dashboard
-          if (data.hasActiveSubscription || data.isTrialing) {
-            router.push("/dashboard");
-            return;
-          }
+        // If user has active subscription, redirect to dashboard
+        if (data.hasActiveSubscription || data.isTrialing) {
+          router.push("/dashboard");
+          return;
         }
       } catch (err) {
         setError("Failed to check subscription status");
