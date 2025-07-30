@@ -9,16 +9,13 @@ const BACKEND_URL =
  * Get the Node.js backend API URL
  */
 function getApiUrl(endpoint: string): string {
-  // Remove leading slash if present
   let cleanEndpoint = endpoint.startsWith("/") ? endpoint.slice(1) : endpoint;
 
-  // Remove 'api/' prefix if present
   if (cleanEndpoint.startsWith("api/")) {
     cleanEndpoint = cleanEndpoint.slice(4);
   }
 
-  // Return relative path (will go through Next.js rewrites)
-  return `/api/${cleanEndpoint}`;
+  return `/backend/${cleanEndpoint}`; // changed prefix
 }
 
 /**

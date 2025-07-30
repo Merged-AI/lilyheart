@@ -1,13 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['localhost'],
+    domains: ["localhost"],
   },
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'http://lilyheart.ai/api/:path*',
+        source: "/backend/:path*",
+        destination: "http://lilyheart.ai/api/:path*",
       },
     ];
   },
