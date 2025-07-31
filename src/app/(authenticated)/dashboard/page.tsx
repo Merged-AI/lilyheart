@@ -70,6 +70,8 @@ export default function ParentDashboard() {
     hasAlert: false,
   });
   const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState<boolean>(false);
+  const [hasAnalyticsError, setHasAnalyticsError] = useState<boolean>(false);
 
   // Check if user has set up their PIN
   useEffect(() => {
@@ -96,6 +98,8 @@ export default function ParentDashboard() {
     if (family && selectedChildId) {
       // Clear previous child's data immediately when switching children
       setAnalyticsData(null);
+      setIsLoadingAnalytics(true);
+      setHasAnalyticsError(false);
 
       // Initial fetch
       fetchDashboardStats();
@@ -117,6 +121,9 @@ export default function ParentDashboard() {
   const fetchDashboardStats = async () => {
     if (!selectedChildId) return;
 
+    setIsLoadingAnalytics(true);
+    setHasAnalyticsError(false);
+
     try {
       // Fetch analytics through our API
       const response = await apiGet<{
@@ -130,6 +137,7 @@ export default function ParentDashboard() {
       if (fetchedAnalyticsData) {
         setAnalyticsData(fetchedAnalyticsData);
         updateDashboardUI(fetchedAnalyticsData);
+        setHasAnalyticsError(false);
       }
     } catch (error: any) {
       console.error("Error fetching dashboard stats:", error);
@@ -138,6 +146,11 @@ export default function ParentDashboard() {
       if (error.message?.includes("400")) {
         // Reset dashboard to "no data" state when no analytics are available
         setAnalyticsData(null);
+        setHasAnalyticsError(false); // 400 is not an error, just no data yet
+      } else {
+        // For other errors, set error state
+        setAnalyticsData(null);
+        setHasAnalyticsError(true);
       }
 
       // Reset to no data state on any error
@@ -164,6 +177,8 @@ export default function ParentDashboard() {
         },
         hasAlert: false,
       });
+    } finally {
+      setIsLoadingAnalytics(false);
     }
   };
 
@@ -557,6 +572,8 @@ export default function ParentDashboard() {
         >
           <ChildMentalHealthDashboard
             analyticsData={analyticsData}
+            isLoading={isLoadingAnalytics}
+            hasError={hasAnalyticsError}
           />
         </Suspense>
       </section>

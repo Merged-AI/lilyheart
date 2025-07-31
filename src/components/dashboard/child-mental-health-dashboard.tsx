@@ -14,10 +14,14 @@ import {
 
 interface ChildMentalHealthDashboardProps {
   analyticsData: any;
+  isLoading?: boolean;
+  hasError?: boolean;
 }
 
 export default function ChildMentalHealthDashboard({
   analyticsData,
+  isLoading = false,
+  hasError = false,
 }: ChildMentalHealthDashboardProps) {
   // Function to get appropriate icon for action plan steps
   const getStepIcon = (index: number) => {
@@ -28,8 +32,8 @@ export default function ChildMentalHealthDashboard({
     return IconComponent;
   };
 
-  // Loading state
-  if (!analyticsData) {
+  // Loading state - only show skeleton when actually loading
+  if (isLoading) {
     return (
       <div className="bg-gradient-to-br from-slate-50 to-blue-50">
         <div className="py-4 lg:py-6">
