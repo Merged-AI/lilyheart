@@ -57,7 +57,7 @@ export class TherapeuticMemoryService {
       // Store in Pinecone with rich metadata for filtering and analysis
       await this.index.upsert([
         {
-          id: context.id,
+          id: `therapy_memory_${context.id}`,
           values: embedding,
           metadata: {
             child_id: context.child_id,
@@ -68,13 +68,14 @@ export class TherapeuticMemoryService {
               new Date(context.session_date).getTime() / 1000
             ),
             topics: context.topics,
-            mood_happiness: context.mood_analysis.happiness || 5,
-            mood_anxiety: context.mood_analysis.anxiety || 5,
-            mood_sadness: context.mood_analysis.sadness || 5,
-            mood_stress: context.mood_analysis.stress || 5,
-            mood_confidence: context.mood_analysis.confidence || 5,
+            mood_happiness: context.mood_analysis?.happiness || 5,
+            mood_anxiety: context.mood_analysis?.anxiety || 5,
+            mood_sadness: context.mood_analysis?.sadness || 5,
+            mood_stress: context.mood_analysis?.stress || 5,
+            mood_confidence: context.mood_analysis?.confidence || 5,
             therapeutic_insights: context.therapeutic_insights,
             conversation_length: childMessages.length + aiMessages.length,
+            type: "therapeutic_memory",
           },
         },
       ]);
@@ -99,6 +100,7 @@ export class TherapeuticMemoryService {
         topK: limit,
         filter: {
           child_id: { $eq: childId },
+          type: { $eq: "therapeutic_memory" },
         },
         includeMetadata: true,
       });
@@ -154,6 +156,7 @@ export class TherapeuticMemoryService {
         topK: 100,
         filter: {
           child_id: { $eq: childId },
+          type: { $eq: "therapeutic_memory" },
           session_timestamp: { $gte: cutoffTimestamp },
         },
         includeMetadata: true,

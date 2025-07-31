@@ -758,7 +758,7 @@ function calculateAverageMood(sessions: any[]): any {
   if (validMoods.length === 0) return null;
 
   const totalHappiness = validMoods.reduce(
-    (sum, session) => sum + session.mood_analysis.happiness,
+    (sum, session) => sum + (session.mood_analysis.happiness || 0),
     0
   );
   const totalAnxiety = validMoods.reduce(
