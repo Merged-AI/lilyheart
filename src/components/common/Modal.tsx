@@ -60,13 +60,13 @@ export default function Modal({
   const getTypeStyles = () => {
     switch (type) {
       case "warning":
-        return "border-yellow-500 bg-yellow-50";
+        return "border-yellow-200 bg-white";
       case "error":
-        return "border-red-500 bg-red-50";
+        return "border-red-200 bg-white";
       case "success":
-        return "border-green-500 bg-green-50";
+        return "border-green-200 bg-white";
       default:
-        return "border-purple-500 bg-purple-50";
+        return "border-purple-200 bg-white";
     }
   };
 
@@ -103,7 +103,7 @@ export default function Modal({
       }}
     >
       <div
-        className={`bg-white rounded-2xl p-4 sm:p-6 lg:p-8 ${maxWidth} w-full border-4 ${getTypeStyles()} max-h-[90vh] overflow-hidden relative`}
+        className={`bg-white rounded-2xl p-4 sm:p-6 lg:p-8 ${maxWidth} w-full border ${getTypeStyles()} max-h-[90vh] overflow-hidden relative shadow-2xl`}
       >
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center space-x-3">

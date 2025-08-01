@@ -12,6 +12,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { apiGet, apiDelete } from "../../../lib/api";
+import toast from "react-hot-toast";
+import Modal from "../../../components/common/Modal";
 
 interface Child {
   id: string;
@@ -30,8 +32,6 @@ export default function ChildrenManagementPage() {
   const router = useRouter();
   const [children, setChildren] = useState<Child[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [childToDelete, setChildToDelete] = useState<Child | null>(null);
 
@@ -51,6 +51,12 @@ export default function ChildrenManagementPage() {
   };
 
   const handleAddChild = () => {
+    if (children.length >= 3) {
+      toast.error(
+        "You have reached the maximum limit of 3 children per family."
+      );
+      return;
+    }
     router.push("/children/add");
   };
 
@@ -72,26 +78,19 @@ export default function ChildrenManagementPage() {
 
     try {
       await apiDelete(`children/${childToDelete.id}`);
-      
+
       setChildren(children.filter((child) => child.id !== childToDelete.id));
       setShowDeleteModal(false);
       setChildToDelete(null);
+      toast.success(`${childToDelete.name} has been successfully removed.`);
+
+      // Notify other components that children data has changed
+      window.dispatchEvent(new CustomEvent("refreshChildren"));
     } catch (error) {
       console.error("Error deleting child:", error);
-      alert("Failed to delete child. Please try again.");
+      toast.error("Failed to delete child. Please try again.");
     }
   };
-
-  const filteredChildren = children.filter((child) => {
-    const matchesSearch = child.name
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesFilter =
-      filterStatus === "all" ||
-      (filterStatus === "alerts" && child.has_alerts) ||
-      (filterStatus === "recent" && child.last_session_at);
-    return matchesSearch && matchesFilter;
-  });
 
   if (isLoading) {
     return (
@@ -122,7 +121,17 @@ export default function ChildrenManagementPage() {
           </div>
           <button
             onClick={handleAddChild}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center space-x-2"
+            disabled={children.length >= 3}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
+              children.length >= 3
+                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                : "bg-purple-600 text-white hover:bg-purple-700"
+            }`}
+            title={
+              children.length >= 3
+                ? "Maximum of 3 children allowed"
+                : "Add Child"
+            }
           >
             <Plus className="h-4 w-4" />
             <span>Add Child</span>
@@ -132,18 +141,16 @@ export default function ChildrenManagementPage() {
 
       {/* Children Table */}
       <div className="px-6">
-        {filteredChildren.length === 0 ? (
+        {children.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
             <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               No children found
             </h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm || filterStatus !== "all"
-                ? "Try adjusting your search or filters"
-                : "Get started by adding your first child to Lily Heart AI"}
+              Get started by adding your first child to Lily Heart AI
             </p>
-            {!searchTerm && filterStatus === "all" && (
+            {children.length < 3 && (
               <button
                 onClick={handleAddChild}
                 className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors"
@@ -176,7 +183,7 @@ export default function ChildrenManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredChildren.map((child) => (
+                  {children.map((child) => (
                     <tr key={child.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -205,7 +212,10 @@ export default function ChildrenManagementPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-gray-900">
                           <MessageCircle className="h-4 w-4 text-purple-600 mr-1" />
-                          {child.sessions_count || 0} sessions
+                          {child.sessions_count || 0}{" "}
+                          {(child.sessions_count || 0) <= 1
+                            ? "session"
+                            : "sessions"}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -248,47 +258,40 @@ export default function ChildrenManagementPage() {
       </div>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && childToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                <Trash2 className="h-5 w-5 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  Delete Child
-                </h3>
-                <p className="text-sm text-gray-500">
-                  This action cannot be undone
-                </p>
-              </div>
-            </div>
-            <p className="text-gray-700 mb-6">
-              Are you sure you want to delete{" "}
-              <strong>{childToDelete.name}</strong>? This will permanently
-              remove their profile and all associated data.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setChildToDelete(null);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setChildToDelete(null);
+        }}
+        title="Delete Child"
+        type="error"
+        icon={<Trash2 className="h-5 w-5" />}
+        primaryButton={{
+          text: "Delete",
+          onClick: confirmDelete,
+          className: "bg-red-600 text-white hover:bg-red-700",
+        }}
+        secondaryButton={{
+          text: "Cancel",
+          onClick: () => {
+            setShowDeleteModal(false);
+            setChildToDelete(null);
+          },
+          className: "border border-gray-300 text-gray-700 hover:bg-gray-50",
+        }}
+      >
+        <div>
+          <p className="text-sm text-gray-500 mb-4">
+            This action cannot be undone
+          </p>
+          <p className="text-gray-700">
+            Are you sure you want to delete{" "}
+            <strong>{childToDelete?.name}</strong>? This will permanently
+            remove their profile and all associated data.
+          </p>
         </div>
-      )}
+      </Modal>
     </>
   );
 }

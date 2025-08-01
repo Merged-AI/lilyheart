@@ -103,12 +103,6 @@ export default function HomePage() {
             >
               Pricing
             </Link>
-            <Link
-              href="/auth/login"
-              className="text-white hover:opacity-80 transition-opacity font-medium"
-            >
-              Sign In
-            </Link>
           </div>
 
           <div className="flex items-center space-x-3">
@@ -175,7 +169,7 @@ export default function HomePage() {
             </div>
 
             <p className="text-sm text-gray-500">
-              ✨ 7-day free trial • No credit card required • Cancel anytime
+              ✨ 7-day free trial • Cancel anytime
             </p>
 
             {/* Trust Badges */}
@@ -550,10 +544,6 @@ export default function HomePage() {
                   <span>Start Your Free Trial</span>
                   <ArrowRight className="h-5 w-5" />
                 </Link>
-
-                <p className="text-center text-gray-500 text-sm mt-4">
-                  No credit card required for trial
-                </p>
               </div>
             </div>
           </div>
@@ -678,9 +668,7 @@ export default function HomePage() {
               View Full Pricing
             </Link>
           </div>
-          <p className="text-sm mt-6 opacity-70">
-            No credit card required • Cancel anytime
-          </p>
+          <p className="text-sm mt-6 opacity-70">Cancel anytime</p>
         </div>
       </section>
 
@@ -717,9 +705,9 @@ export default function HomePage() {
                   className="text-gray-300 text-xs leading-relaxed"
                   style={{ fontFamily: "var(--font-inter)" }}
                 >
-                  <strong>Disclaimer:</strong> Lily Heart AI (lilyheart.ai) is an
-                  AI mental wellness tool, not a licensed therapist or medical
-                  service. It does not offer diagnosis, treatment, or
+                  <strong>Disclaimer:</strong> Lily Heart AI (lilyheart.ai) is
+                  an AI mental wellness tool, not a licensed therapist or
+                  medical service. It does not offer diagnosis, treatment, or
                   professional mental health advice. For emergencies, contact
                   local crisis services.
                 </p>

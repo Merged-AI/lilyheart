@@ -107,13 +107,9 @@ export default function ParentDashboard() {
       // Set up real-time subscription for dashboard analytics updates
       const cleanup = setupRealTimeAnalyticsSubscription();
 
-      // Set up periodic refresh every 5 minutes as fallback
-      const refreshInterval = setInterval(fetchDashboardStats, 5 * 60 * 1000);
-
-      // Cleanup both subscription and interval on unmount
+      // Cleanup subscription on unmount
       return () => {
         cleanup();
-        clearInterval(refreshInterval);
       };
     }
   }, [family, selectedChildId]);

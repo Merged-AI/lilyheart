@@ -129,11 +129,11 @@ export default function PricingPage() {
 
   const getTrialText = () => {
     if (!isAuthenticated) {
-      return "No credit card required for trial";
+      return "Credit card required for trial";
     }
 
     if (!subscriptionStatus) {
-      return "No credit card required for trial";
+      return "Credit card required for trial";
     }
 
     if (
@@ -151,7 +151,7 @@ export default function PricingPage() {
       return "Active subscription";
     }
 
-    return "No credit card required for trial";
+    return "Credit card required for trial";
   };
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">

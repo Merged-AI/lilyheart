@@ -120,7 +120,9 @@ export default function RegisterPage() {
                 <Brain className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Lily Heart AI</h1>
+                <h1 className="text-xl font-bold text-gray-900">
+                  Lily Heart AI
+                </h1>
                 <p className="text-sm text-gray-600">
                   Family Communication Coach
                 </p>
@@ -346,7 +348,7 @@ export default function RegisterPage() {
                         <h4 className="font-medium text-gray-900">
                           Children Information
                         </h4>
-                        {formData.children.length < 4 && (
+                        {formData.children.length < 3 && (
                           <button
                             onClick={addChild}
                             className="text-purple-600 hover:text-purple-700 font-medium text-sm"

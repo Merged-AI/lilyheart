@@ -12,6 +12,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "../../../../lib/api";
+import toast from "react-hot-toast";
 
 interface ChildData {
   name: string;
@@ -55,6 +56,7 @@ function AddChildContent() {
   const totalSteps = 4;
   const selectRef = useRef<HTMLSelectElement>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [hasLimitError, setHasLimitError] = useState(false);
 
   const [childData, setChildData] = useState<ChildData>({
     name: "",
@@ -149,6 +151,7 @@ function AddChildContent() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setHasLimitError(false);
 
     try {
       if (childId) {
@@ -157,15 +160,28 @@ function AddChildContent() {
           `children/${childId}`,
           childData
         );
+        toast.success(
+          `${childData.name}'s information has been updated successfully!`
+        );
       } else {
         // Add new child
         const result = await apiPost<{ child: any }>("children", childData);
+        toast.success(`${childData.name} has been added successfully!`);
       }
 
+      // Notify other components that children data has changed
+      window.dispatchEvent(new CustomEvent("refreshChildren"));
+
       router.push("/children");
-    } catch (error) {
-      console.error("Error saving child:", error);
-      alert("Failed to save child. Please try again.");
+    } catch (error: any) {
+      // Check if it's a limit error (400 status)
+      if (error.response?.status === 400) {
+        setHasLimitError(true);
+      } else {
+        const errorMessage =
+          error.message || "Failed to save child. Please try again.";
+        toast.error(errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -437,9 +453,7 @@ function AddChildContent() {
               </label>
               <textarea
                 value={childData.interests}
-                onChange={(e) =>
-                  handleInputChange("interests", e.target.value)
-                }
+                onChange={(e) => handleInputChange("interests", e.target.value)}
                 rows={3}
                 className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
                 placeholder="What does your child enjoy doing? Hobbies, activities, sports, books, games, pets, etc. This helps Dr. Emma create personalized therapeutic approaches."
@@ -616,6 +630,32 @@ function AddChildContent() {
         <div className="bg-white rounded-xl shadow-lg p-8">
           {renderStepContent()}
 
+          {/* Child Limit Error */}
+          {hasLimitError && (
+            <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mt-1">
+                  <span className="text-red-600 text-sm font-bold">!</span>
+                </div>
+                <div>
+                  <h3 className="font-medium text-red-800 mb-1">
+                    Children Limit Reached
+                  </h3>
+                  <p className="text-red-700 text-sm">
+                    You have reached the maximum limit of 3 children per family.
+                    Please contact support if you need to increase this limit.
+                  </p>
+                  <button
+                    onClick={() => router.push("/children")}
+                    className="mt-3 text-red-600 hover:text-red-800 text-sm font-medium underline"
+                  >
+                    Return to Children List
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Navigation Buttons */}
           <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
             <button
@@ -640,7 +680,7 @@ function AddChildContent() {
               ) : (
                 <button
                   onClick={handleSubmit}
-                  disabled={!canProceed() || isSubmitting}
+                  disabled={!canProceed() || isSubmitting || hasLimitError}
                   className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   {isSubmitting ? (

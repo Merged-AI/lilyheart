@@ -21,14 +21,6 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
       description: "Overview & Analytics",
     },
     {
-      name: "Chat Sessions",
-      href: selectedChildId
-        ? `/chat-sessions?childId=${selectedChildId}`
-        : "/chat-sessions",
-      icon: MessageCircle,
-      description: "View session history",
-    },
-    {
       name: "Child Management",
       href: "/children",
       icon: User,

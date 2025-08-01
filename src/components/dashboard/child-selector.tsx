@@ -31,6 +31,17 @@ export function ChildSelector({
 
   useEffect(() => {
     fetchChildren();
+
+    // Listen for child data refresh events
+    const handleRefreshChildren = () => {
+      fetchChildren();
+    };
+
+    window.addEventListener("refreshChildren", handleRefreshChildren);
+
+    return () => {
+      window.removeEventListener("refreshChildren", handleRefreshChildren);
+    };
   }, []);
 
   const fetchChildren = async () => {
@@ -177,7 +188,7 @@ export function ChildSelector({
               </div>
             ))}
 
-            {/* {onAddChild && children.length < 4 && (
+            {onAddChild && children.length < 3 && (
               <div className="border-t border-gray-100 mt-1 pt-1">
                 <button
                   onClick={() => {
@@ -195,13 +206,13 @@ export function ChildSelector({
                         Add another child
                       </p>
                       <p className="text-xs text-gray-500">
-                        Up to 4 children per family
+                        Up to 3 children per family
                       </p>
                     </div>
                   </div>
                 </button>
               </div>
-            )} */}
+            )}
           </div>
         </div>
       )}
