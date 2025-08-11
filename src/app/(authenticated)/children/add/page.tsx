@@ -136,6 +136,14 @@ function AddChildContent() {
         }));
       }
     }
+
+    // Show character limit error for text fields
+    if (typeof value === "string" && value.length > 150) {
+      setErrors((prev) => ({
+        ...prev,
+        [field]: "Maximum 150 characters allowed",
+      }));
+    }
   };
 
   const validateAge = () => {
@@ -298,10 +306,23 @@ function AddChildContent() {
                   handleInputChange("reasonForAdding", e.target.value)
                 }
                 rows={4}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.reasonForAdding ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="Help us understand what brought you here - anxiety, social issues, behavioral concerns, school stress, etc."
                 required
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.reasonForAdding && (
+                  <p className="text-red-600 text-sm">{errors.reasonForAdding}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.reasonForAdding.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.reasonForAdding.length}/150
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -326,10 +347,23 @@ function AddChildContent() {
                   handleInputChange("currentConcerns", e.target.value)
                 }
                 rows={4}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.currentConcerns ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="Describe any anxiety, depression, mood swings, behavioral issues, or other concerns you've noticed"
                 required
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.currentConcerns && (
+                  <p className="text-red-600 text-sm">{errors.currentConcerns}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.currentConcerns.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.currentConcerns.length}/150
+                </p>
+              </div>
             </div>
 
             <div>
@@ -340,9 +374,22 @@ function AddChildContent() {
                 value={childData.triggers}
                 onChange={(e) => handleInputChange("triggers", e.target.value)}
                 rows={3}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.triggers ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="What situations, events, or topics tend to upset or stress your child?"
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.triggers && (
+                  <p className="text-red-600 text-sm">{errors.triggers}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.triggers.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.triggers.length}/150
+                </p>
+              </div>
             </div>
 
             <div>
@@ -355,9 +402,22 @@ function AddChildContent() {
                   handleInputChange("background", e.target.value)
                 }
                 rows={4}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.background ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="Any significant events, trauma, changes, or experiences that might be relevant to your child's mental health"
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.background && (
+                  <p className="text-red-600 text-sm">{errors.background}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.background.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.background.length}/150
+                </p>
+              </div>
             </div>
 
             <div>
@@ -370,9 +430,22 @@ function AddChildContent() {
                   handleInputChange("previousTherapy", e.target.value)
                 }
                 rows={3}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.previousTherapy ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="Has your child seen a therapist, counselor, or taken medication? What worked or didn't work?"
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.previousTherapy && (
+                  <p className="text-red-600 text-sm">{errors.previousTherapy}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.previousTherapy.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.previousTherapy.length}/150
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -397,9 +470,22 @@ function AddChildContent() {
                   handleInputChange("schoolInfo", e.target.value)
                 }
                 rows={3}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.schoolInfo ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="How is school going? Any issues with grades, teachers, bullying, or academic pressure?"
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.schoolInfo && (
+                  <p className="text-red-600 text-sm">{errors.schoolInfo}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.schoolInfo.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.schoolInfo.length}/150
+                </p>
+              </div>
             </div>
 
             <div>
@@ -412,9 +498,22 @@ function AddChildContent() {
                   handleInputChange("socialSituation", e.target.value)
                 }
                 rows={3}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.socialSituation ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="How are your child's friendships? Any social anxiety, conflicts, or isolation issues?"
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.socialSituation && (
+                  <p className="text-red-600 text-sm">{errors.socialSituation}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.socialSituation.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.socialSituation.length}/150
+                </p>
+              </div>
             </div>
 
             <div>
@@ -427,9 +526,22 @@ function AddChildContent() {
                   handleInputChange("familyDynamics", e.target.value)
                 }
                 rows={3}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.familyDynamics ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="Family structure, relationships, any recent changes like divorce, moves, new siblings, etc."
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.familyDynamics && (
+                  <p className="text-red-600 text-sm">{errors.familyDynamics}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.familyDynamics.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.familyDynamics.length}/150
+                </p>
+              </div>
             </div>
 
             <div>
@@ -442,9 +554,22 @@ function AddChildContent() {
                   handleInputChange("copingStrategies", e.target.value)
                 }
                 rows={3}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.copingStrategies ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="What does your child do now when they're upset? What helps them feel better?"
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.copingStrategies && (
+                  <p className="text-red-600 text-sm">{errors.copingStrategies}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.copingStrategies.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.copingStrategies.length}/150
+                </p>
+              </div>
             </div>
 
             <div>
@@ -455,9 +580,22 @@ function AddChildContent() {
                 value={childData.interests}
                 onChange={(e) => handleInputChange("interests", e.target.value)}
                 rows={3}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                placeholder="What does your child enjoy doing? Hobbies, activities, sports, books, games, pets, etc. This helps Dr. Emma create personalized therapeutic approaches."
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.interests ? "border-red-300" : "border-purple-200"
+                }`}
+                placeholder="What does your child enjoy doing? Hobbies, activities, sports, books, games, pets, etc."
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.interests && (
+                  <p className="text-red-600 text-sm">{errors.interests}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.interests.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.interests.length}/150
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -482,10 +620,23 @@ function AddChildContent() {
                   handleInputChange("parentGoals", e.target.value)
                 }
                 rows={4}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.parentGoals ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="What do you hope Dr. Emma can help your child with? What would success look like?"
                 required
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.parentGoals && (
+                  <p className="text-red-600 text-sm">{errors.parentGoals}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.parentGoals.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.parentGoals.length}/150
+                </p>
+              </div>
             </div>
 
             <div>
@@ -498,9 +649,22 @@ function AddChildContent() {
                   handleInputChange("emergencyContacts", e.target.value)
                 }
                 rows={3}
-                className="w-full p-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                maxLength={150}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent ${
+                  errors.emergencyContacts ? "border-red-300" : "border-purple-200"
+                }`}
                 placeholder="Who should be contacted in an emergency? Include names, relationships, and phone numbers."
               />
+              <div className="flex justify-between items-center mt-1">
+                {errors.emergencyContacts && (
+                  <p className="text-red-600 text-sm">{errors.emergencyContacts}</p>
+                )}
+                <p className={`text-sm ml-auto ${
+                  childData.emergencyContacts.length > 140 ? "text-red-500" : "text-gray-500"
+                }`}>
+                  {childData.emergencyContacts.length}/150
+                </p>
+              </div>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
@@ -529,6 +693,15 @@ function AddChildContent() {
   };
 
   const canProceed = () => {
+    // Check if there are any character limit errors
+    const hasCharacterLimitErrors = Object.values(errors).some(error => 
+      error === "Maximum 150 characters allowed"
+    );
+    
+    if (hasCharacterLimitErrors) {
+      return false;
+    }
+
     switch (currentStep) {
       case 1:
         // Check age validation without calling validateAge to avoid infinite re-renders

@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import {
-  Heart,
-  Shield,
   AlertTriangle,
   CheckCircle,
   ExternalLink,
+  ArrowLeft,
 } from "lucide-react";
 import Modal from "./Modal";
 
@@ -14,12 +13,14 @@ interface ChildOnboardingModalProps {
   isOpen: boolean;
   onContinue: () => void;
   onClose: () => void;
+  onBack?: () => void;
 }
 
 export default function ChildOnboardingModal({
   isOpen,
   onContinue,
   onClose,
+  onBack,
 }: ChildOnboardingModalProps) {
   const [hasAgreed, setHasAgreed] = useState(false);
 
@@ -139,27 +140,41 @@ export default function ChildOnboardingModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <button
-            onClick={handleContinue}
-            disabled={!hasAgreed}
-            className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center space-x-2 text-sm ${
-              hasAgreed
-                ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 transform hover:-translate-y-0.5 hover:shadow-lg"
-                : "bg-gray-200 text-gray-500 cursor-not-allowed"
-            }`}
-          >
-            <CheckCircle className="h-4 w-4" />
-            <span>Continue to Chat</span>
-          </button>
+        <div className="flex flex-col gap-2">
+          {/* Primary Actions Row */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={handleContinue}
+              disabled={!hasAgreed}
+              className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center space-x-2 text-sm ${
+                hasAgreed
+                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 transform hover:-translate-y-0.5 hover:shadow-lg"
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              <CheckCircle className="h-4 w-4" />
+              <span>Continue to Chat</span>
+            </button>
 
-          <button
-            onClick={openTermsOfUse}
-            className="flex-1 px-4 py-2.5 border-2 border-purple-600 text-purple-600 rounded-lg font-semibold hover:bg-purple-50 transition-all duration-200 flex items-center justify-center space-x-2 text-sm"
-          >
-            <ExternalLink className="h-4 w-4" />
-            <span>View Terms of Use</span>
-          </button>
+            <button
+              onClick={openTermsOfUse}
+              className="flex-1 px-4 py-2.5 border-2 border-purple-600 text-purple-600 rounded-lg font-semibold hover:bg-purple-50 transition-all duration-200 flex items-center justify-center space-x-2 text-sm"
+            >
+              <ExternalLink className="h-4 w-4" />
+              <span>View Terms of Use</span>
+            </button>
+          </div>
+
+          {/* Back Button Row */}
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="w-full px-4 py-2.5 border border-gray-300 text-gray-600 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-200 flex items-center justify-center space-x-2 text-sm"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Go Back</span>
+            </button>
+          )}
         </div>
       </div>
     </Modal>

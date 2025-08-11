@@ -16,6 +16,121 @@ function getStartOfWeek(date: Date = new Date()): Date {
   return startOfWeek;
 }
 
+// Calculate check-in streak for a child
+async function calculateStreakData(childId: string, supabase: any) {
+  try {
+    // Get all sessions for this child, grouped by date
+    const { data: sessions, error } = await supabase
+      .from("therapy_sessions")
+      .select("created_at")
+      .eq("child_id", childId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    if (!sessions || sessions.length === 0) {
+      return {
+        current_streak: 0,
+        longest_streak: 0,
+        last_check_in_date: null,
+        streak_message: "Start your first session to begin your streak!",
+      };
+    }
+
+    // Group sessions by date (remove time component)
+    const sessionDates = new Set();
+    sessions.forEach((session: any) => {
+      const date = session.created_at.split("T")[0]; // Get YYYY-MM-DD part
+      sessionDates.add(date);
+    });
+
+    // Convert to sorted array of dates (most recent first)
+    const sortedDates = Array.from(sessionDates).sort().reverse();
+
+    // Calculate current streak
+    let currentStreak = 0;
+    const today = new Date().toISOString().split("T")[0];
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
+
+    // Check if there's activity today or yesterday to maintain streak
+    if (sortedDates.includes(today) || sortedDates.includes(yesterday)) {
+      let checkDate = new Date();
+      for (let i = 0; i < sortedDates.length; i++) {
+        const sessionDate = sortedDates[i];
+        const expectedDate = checkDate.toISOString().split("T")[0];
+
+        if (sessionDate === expectedDate) {
+          currentStreak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else if (
+          sessionDate ===
+          new Date(checkDate.getTime() - 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0]
+        ) {
+          // Allow for previous day if we haven't checked today yet
+          currentStreak++;
+          checkDate.setDate(checkDate.getDate() - 2);
+        } else {
+          break;
+        }
+      }
+    }
+
+    // Calculate longest streak
+    let longestStreak = 0;
+    let tempStreak = 1;
+
+    for (let i = 0; i < sortedDates.length - 1; i++) {
+      const currentDate = new Date(sortedDates[i] as string);
+      const nextDate = new Date(sortedDates[i + 1] as string);
+      const dayDifference =
+        (currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (dayDifference === 1) {
+        tempStreak++;
+      } else {
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 1;
+      }
+    }
+    longestStreak = Math.max(longestStreak, tempStreak);
+
+    // Generate streak message
+    let streakMessage = "";
+    if (currentStreak === 0) {
+      streakMessage = "Start a session today to begin your streak!";
+    } else if (currentStreak >= 30) {
+      streakMessage = "One month streak! Your consistency is incredible! 🏆";
+    } else if (currentStreak >= 14) {
+      streakMessage = "Two weeks strong! Amazing dedication! ⭐";
+    } else if (currentStreak >= 7) {
+      streakMessage = "7-day check-in streak! Keep going! 🔥";
+    } else {
+      streakMessage = `${currentStreak} day${
+        currentStreak > 1 ? "s" : ""
+      } - Keep building the habit!`;
+    }
+
+    return {
+      current_streak: currentStreak,
+      longest_streak: longestStreak,
+      last_check_in_date: sortedDates[0] || null,
+      streak_message: streakMessage,
+    };
+  } catch (error) {
+    console.error("Error calculating streak data:", error);
+    return {
+      current_streak: 0,
+      longest_streak: 0,
+      last_check_in_date: null,
+      streak_message: "Unable to calculate streak",
+    };
+  }
+}
+
 export async function calculateAndStoreDashboardAnalytics(
   childId: string,
   latestSession: TherapySession,
@@ -37,6 +152,180 @@ export async function calculateAndStoreDashboardAnalytics(
         .gte("created_at", startOfWeek.toISOString());
 
     if (weeklyCountError) throw weeklyCountError;
+
+    // If no sessions this week, clear analytics or create empty record
+    if (!weeklySessionCount || weeklySessionCount === 0) {
+      // Create/update analytics record with zero current week data but preserve basic info
+      const { data: child } = await supabase
+        .from("children")
+        .select("name")
+        .eq("id", childId)
+        .single();
+
+      const childName = child?.name || null;
+
+      // Calculate streak data (this works regardless of current week sessions)
+      const streakData = await calculateStreakData(childId, supabase);
+
+      // Get total sessions count (historical)
+      const { count: totalSessionCount, error: totalCountError } =
+        await supabase
+          .from("therapy_sessions")
+          .select("*", { count: "exact", head: true })
+          .eq("child_id", childId);
+
+      if (totalCountError) throw totalCountError;
+
+      // Get latest session for reference
+      const { data: latestSessionData, error: latestSessionError } =
+        await supabase
+          .from("therapy_sessions")
+          .select("*")
+          .eq("child_id", childId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+      // Create empty analytics record for current week
+      const emptyWeekAnalytics = {
+        child_id: childId,
+        family_id: familyId,
+        child_name: childName,
+        latest_mood: {
+          status: "stable",
+          trend: "stable",
+          recorded_at: new Date().toISOString(),
+        },
+        sessions_analytics: {
+          sessions_this_week: 0,
+          total_sessions: totalSessionCount || 0,
+          average_duration: 0,
+          last_session_at: latestSessionData?.created_at || null,
+          streak_analytics: streakData,
+        },
+        emotional_trend: {
+          status: "stable",
+          attention_needed: false,
+          analysis_period: "no_current_data",
+          key_factors: ["No sessions completed this week"],
+        },
+        active_concerns: {
+          count: 0,
+          level: "stable",
+          identified_concerns: [],
+          priority_concerns: [],
+        },
+        weekly_insight: {
+          story: "hasn't had any therapy sessions this week yet",
+          what_happened: "No sessions completed this week",
+          good_news:
+            "Previous sessions show engagement with the therapeutic process",
+        },
+        action_plan: {
+          steps: [
+            {
+              timeframe: "Tonight",
+              action: "Encourage your child to check in when they're ready",
+              description:
+                "Let them know the therapy chat is available whenever they want to talk",
+            },
+            {
+              timeframe: "This Week",
+              action: "Schedule regular check-in times",
+              description: "Having consistent times can help build the habit",
+            },
+            {
+              timeframe: "Next Week",
+              action: "Review what works best for your child",
+              description:
+                "Some children prefer morning check-ins, others prefer evening",
+            },
+          ],
+          quick_win:
+            "Simply asking 'How are you feeling today?' can open up conversation",
+        },
+        progress_tracking: {
+          wins: ["Maintains engagement with therapeutic support"],
+          working_on: [
+            {
+              issue: "Regular check-in consistency",
+              note: "Building a routine takes time",
+            },
+          ],
+          when_to_worry:
+            "If child avoids therapy conversations for more than two weeks consecutively",
+        },
+        alerts: {
+          has_alert: false,
+          alert_type: undefined,
+          alert_title: undefined,
+          alert_description: undefined,
+          created_at: undefined,
+        },
+        communication_insights: [],
+        growth_development_insights: [],
+        family_communication_summary: {
+          strengths: ["Provides therapeutic support structure"],
+          growth_areas: ["Encourage regular check-ins"],
+          recommendations: [
+            "Consider gentle reminders about available support",
+          ],
+          updated_at: new Date().toISOString(),
+        },
+        conversation_organization: {
+          key_topics: [],
+          questions_to_consider: [
+            "How can we make therapy sessions feel more accessible?",
+            "What time of day works best for your child to check in?",
+          ],
+          updated_at: new Date().toISOString(),
+        },
+        family_wellness_tips: [
+          {
+            title: "Gentle Encouragement",
+            description:
+              "Sometimes children need time to process before sharing. Let them know you're available when they're ready.",
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        family_communication_goals: [
+          {
+            goal_type: "This Week",
+            description:
+              "Create a welcoming environment for your child to share when ready",
+            updated_at: new Date().toISOString(),
+          },
+          {
+            goal_type: "Ongoing",
+            description:
+              "Maintain consistent availability for therapeutic conversations",
+            updated_at: new Date().toISOString(),
+          },
+          {
+            goal_type: "If Needed",
+            description: "Gently encourage engagement if avoidance continues",
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        updated_at: new Date().toISOString(),
+      };
+
+      // Upsert the empty analytics record
+      const { data: upsertData, error: upsertError } = await supabase
+        .from("dashboard_analytics")
+        .upsert(emptyWeekAnalytics)
+        .select()
+        .single();
+
+      if (upsertError) {
+        console.error(
+          `Debug: Error upserting empty analytics for child ${childId}:`,
+          upsertError
+        );
+        throw upsertError;
+      }
+      return;
+    }
 
     // Fetch last 10 sessions for trend analysis
     const { data: recentSessions, error: sessionsError } = await supabase
@@ -61,6 +350,9 @@ export async function calculateAndStoreDashboardAnalytics(
       recentSessions?.reduce((acc, s) => acc + (s.session_duration || 0), 0) /
       (recentSessions?.length || 1);
 
+    // Calculate streak data
+    const streakData = await calculateStreakData(childId, supabase);
+
     // Calculate analytics from recent sessions using OpenAI
     const analytics = await calculateAnalytics(
       childId,
@@ -71,7 +363,7 @@ export async function calculateAndStoreDashboardAnalytics(
     // Remove any fields that might cause conflicts
     const { id, created_at, ...analyticsData } = analytics as any;
 
-    // Update the sessions_analytics with accurate counts
+    // Update the sessions_analytics with accurate counts and streak data
     const updatedAnalytics = {
       ...analyticsData,
       sessions_analytics: {
@@ -81,6 +373,7 @@ export async function calculateAndStoreDashboardAnalytics(
         average_duration: Math.round(averageDuration),
         last_session_at: latestSession.created_at,
       },
+      streak_analytics: streakData,
     };
 
     const { data: upsertData, error: upsertError } = await supabase
@@ -112,17 +405,17 @@ async function calculateAnalytics(
   const now = new Date();
   // Use consistent week calculation logic
   const startOfWeek = getStartOfWeek(now);
-  
+
   // Get supabase client to fetch child name
   const supabase = createServerSupabase();
-  
+
   // Fetch child name
   const { data: child } = await supabase
     .from("children")
     .select("name")
     .eq("id", childId)
     .single();
-  
+
   const childName = child?.name || null;
 
   // Basic session statistics using the consistent week logic
@@ -148,7 +441,7 @@ async function calculateAnalytics(
   const aiAnalysisPrompt = `Analyze these therapy sessions (up to last 10 sessions) for a child and provide comprehensive insights focusing on recent trends and patterns. Focus on emotional trends, communication patterns, and therapeutic progress. Sessions data:
 ${JSON.stringify(sessionData, null, 2)}
 
-Create a compassionate, non-clinical analysis in this exact JSON format, ensuring confidence_score is a percentage between 0-100:
+Create a compassionate, non-clinical analysis for PARENTS in this exact JSON format. Use natural, warm language that parents can easily understand. Avoid technical jargon, numerical scores, or clinical terminology in parent-facing content. Write as if speaking to a caring parent about their child's emotional growth:
 {
   "emotional_trend": {
     "status": "improving" | "declining" | "stable",
@@ -188,21 +481,23 @@ Create a compassionate, non-clinical analysis in this exact JSON format, ensurin
     "quick_win": "One simple thing parents can do right now for immediate positive impact"
   },
   "progress_tracking": {
-    "wins": ["Positive developments or breakthroughs"],
+    "wins": [
+      "Write 2-3 meaningful wins this week in natural parent language. Focus on: emotional moments, social interactions, communication breakthroughs, coping strategies used, or personal growth. Avoid technical scores or clinical language. Examples: 'Shared excitement about a school project', 'Asked for help when feeling overwhelmed', 'Used breathing exercises during a difficult moment'"
+    ],
     "working_on": [
       {
-        "issue": "Area of focus",
-        "note": "Context about progress"
+        "issue": "Area needing continued support (in simple parent terms)",
+        "note": "What progress looks like and realistic expectations"
       }
     ],
-    "when_to_worry": "Clear indicator for when to seek additional support"
+    "when_to_worry": "Clear, specific indicators that would suggest parents should seek additional professional support"
   },
   "communication_insights": [{
     "topic": string,
-    "confidence_score": number, // Must be between 0-100 representing percentage confidence
+    "confidence_score": number, // Must be between 0-100 representing percentage confidence - this is for internal analytics only, NOT shown to parents
     "observations": string[],
-    "parent_insights": string[],
-    "communication_tips": string[],
+    "parent_insights": string[], // Write in natural parent language, no scores or numbers
+    "communication_tips": string[], // Practical, actionable advice for parents
     "recommended_next_step": string,
     "updated_at": "${new Date().toISOString()}"
   }],

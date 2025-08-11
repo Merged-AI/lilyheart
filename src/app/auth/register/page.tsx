@@ -6,13 +6,13 @@ import {
   ArrowRight,
   Check,
   Users,
-  MessageCircle,
   Clock,
   CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 import PaymentForm from "@/components/payment/payment-form";
 import { useRouter } from "next/navigation";
+import { apiPost } from "@/lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -92,9 +92,31 @@ export default function RegisterPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (validateStep(step)) {
-      setStep(step + 1);
+      // Check if user already exists before proceeding to payment
+      try {
+        setIsLoading(true);
+        const data = await apiPost("/auth/check-user", {
+          email: formData.email,
+        });
+
+        if (data.exists) {
+          // User already exists, show error
+          setErrors({
+            submit:
+              "An account with this email already exists. Please log in instead.",
+          });
+          return;
+        }
+
+        // User doesn't exist, proceed to payment
+        setStep(step + 1);
+      } catch (error) {
+        setStep(step + 1);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -450,12 +472,30 @@ export default function RegisterPage() {
                     </p>
                   </div>
 
+                  {errors.submit && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-red-600 text-sm text-center">
+                        {errors.submit}
+                      </p>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleNext}
-                    className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2"
+                    disabled={isLoading}
+                    className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span>Continue to Payment</span>
-                    <ArrowRight className="h-4 w-4" />
+                    {isLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        <span>Checking...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Continue to Payment</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

@@ -9,6 +9,7 @@ import {
   Heart,
   AlertTriangle,
   MessageCircle,
+  Calendar,
 } from "lucide-react";
 import ChildMentalHealthDashboard from "@/components/dashboard/child-mental-health-dashboard";
 import { createClient } from "@/lib/supabase";
@@ -24,6 +25,10 @@ interface DashboardStats {
   sessionsThisWeek: {
     count: number;
     change: string;
+  };
+  checkInStreak: {
+    currentStreak: number;
+    longestStreak: number;
   };
   emotionalTrend: {
     status: string;
@@ -56,6 +61,10 @@ export default function ParentDashboard() {
     sessionsThisWeek: {
       count: 0,
       change: "No sessions yet",
+    },
+    checkInStreak: {
+      currentStreak: 0,
+      longestStreak: 0,
     },
     emotionalTrend: {
       status: "No data",
@@ -161,6 +170,10 @@ export default function ParentDashboard() {
           count: 0,
           change: "No sessions yet",
         },
+        checkInStreak: {
+          currentStreak: 0,
+          longestStreak: 0,
+        },
         emotionalTrend: {
           status: "No data",
           attention: "Start your first session",
@@ -253,6 +266,10 @@ export default function ParentDashboard() {
                 count: 0,
                 change: "No sessions yet",
               },
+              checkInStreak: {
+                currentStreak: 0,
+                longestStreak: 0,
+              },
               emotionalTrend: {
                 status: "No data",
                 attention: "Start your first session",
@@ -277,6 +294,12 @@ export default function ParentDashboard() {
   };
 
   const updateDashboardUI = (analyticsData: any) => {
+    // Streak data is now stored inside sessions_analytics
+    const streakData = analyticsData.sessions_analytics?.streak_analytics || {
+      current_streak: 0,
+      longest_streak: 0,
+    };
+
     setDashboardStats({
       todaysMood: {
         status: analyticsData.latest_mood?.status || "No data yet",
@@ -289,6 +312,10 @@ export default function ParentDashboard() {
         change: `${
           analyticsData.sessions_analytics?.sessions_this_week || 0
         } sessions this week`,
+      },
+      checkInStreak: {
+        currentStreak: streakData.current_streak || 0,
+        longestStreak: streakData.longest_streak || 0,
       },
       emotionalTrend: {
         status: analyticsData.emotional_trend?.status || "Baseline",
@@ -489,6 +516,19 @@ export default function ParentDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Simple Streak Display */}
+        {dashboardStats.checkInStreak.currentStreak > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+            <div className="flex items-center space-x-3">
+              <Calendar className="h-5 w-5 text-green-600" />
+              <span className="text-sm font-medium text-gray-900">
+                {dashboardStats.checkInStreak.currentStreak}-day check-in
+                streak! Keep going! 🔥
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* AI Alert Banner - Dynamic */}
         {dashboardStats.hasAlert && dashboardStats.alertInfo && (

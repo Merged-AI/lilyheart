@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/email/schedule-weekly",
+      "schedule": "0 9 * * 0"
+    }
+  ]
+}

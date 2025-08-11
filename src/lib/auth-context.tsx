@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           current_concerns?: string;
         }>;
       }>("auth/me");
-      
+
       // Merge children into family object
       const familyWithChildren = {
         ...data.family,
@@ -72,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSelectedChildId(data.children[0].id);
       }
     } catch (error) {
-      console.error("Auth check failed:", error);
       setIsAuthenticated(false);
       setFamily(null);
       // Only redirect to register if user is on a protected route

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiCall } from "@/lib/api";
 import {
   ArrowRight,
   MessageCircle,
@@ -24,7 +25,7 @@ export default function HomePage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/auth/me");
+        const response = await apiCall("/auth/me");
         if (response.ok) {
           // User is authenticated, redirect to dashboard
           setIsAuthenticated(true);
@@ -129,9 +130,9 @@ export default function HomePage() {
           <div className="absolute -top-1/2 -right-1/4 w-full h-[200%] bg-gradient-to-br from-purple-100/30 to-blue-100/30 rounded-full animate-pulse-slow transform rotate-12"></div>
         </div>
 
-        <div className="max-w-[1400px] mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
+        <div className="max-w-[1400px] mx-auto px-12 py-16 grid grid-cols-1 lg:grid-cols-3 gap-12 items-center relative z-10">
           {/* Hero Content */}
-          <div className="space-y-8">
+          <div className="space-y-8 col-span-2">
             <h1
               className="text-5xl lg:text-6xl font-bold leading-tight"
               style={{ fontFamily: "var(--font-poppins)" }}
@@ -143,7 +144,7 @@ export default function HomePage() {
             </h1>
 
             <p
-              className="text-xl text-gray-600 max-w-lg"
+              className="text-xl text-gray-600 max-w-2xl"
               style={{ fontFamily: "var(--font-inter)" }}
             >
               AI-powered emotional support that helps your family build better
@@ -190,7 +191,7 @@ export default function HomePage() {
           </div>
 
           {/* AI Chat Mockup */}
-          <div className="flex justify-center items-center">
+          <div className="flex justify-end items-center">
             <div className="relative">
               <div className="w-80 h-[600px] bg-gradient-to-b from-purple-600 to-indigo-700 rounded-3xl p-5 shadow-2xl animate-bounce-slow">
                 <div className="w-full h-full bg-white rounded-2xl p-6 flex flex-direction-column justify-start">

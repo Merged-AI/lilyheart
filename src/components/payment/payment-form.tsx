@@ -9,6 +9,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { CreditCard, Lock, AlertCircle, CheckCircle } from "lucide-react";
+import { apiPost } from "@/lib/api";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -76,22 +77,10 @@ function PaymentFormContent({
     setError(null);
 
     try {
-      const subscriptionResponse = await fetch(
-        "/api/stripe/create-subscription-first",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(familyData),
-        }
+      const data = await apiPost(
+        "/stripe/create-subscription-first",
+        familyData
       );
-
-      if (!subscriptionResponse.ok) {
-        const errorData = await subscriptionResponse.json();
-        console.error("Stripe subscription creation failed:", errorData);
-        throw new Error(errorData.error || "Failed to create subscription");
-      }
-
-      const data = await subscriptionResponse.json();
 
       // Clear any previous errors since subscription creation succeeded
       setError(null);
@@ -109,8 +98,16 @@ function PaymentFormContent({
       }
     } catch (err: any) {
       console.error("Subscription creation error:", err);
-      setError(err.message);
-      onError(err.message);
+      
+      // Handle specific error for existing user
+      if (err.message && err.message.includes('already exists')) {
+        const errorMessage = 'An account with this email already exists. Please log in instead.';
+        setError(errorMessage);
+        onError(errorMessage);
+      } else {
+        setError(err.message);
+        onError(err.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -122,54 +119,42 @@ function PaymentFormContent({
 
     while (attempts < maxAttempts) {
       try {
-        const response = await fetch("/api/auth/check-user", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email,
-            password: familyData.password,
-            familyData: {
-              parentName: familyData.parentName,
-              familyName: familyData.familyName,
-              children: familyData.children,
-            },
-          }),
+        const userData = await apiPost("/auth/check-user", {
+          email,
+          password: familyData.password,
+          familyData: {
+            parentName: familyData.parentName,
+            familyName: familyData.familyName,
+            children: familyData.children,
+          },
         });
 
-        if (response.ok) {
-          const userData = await response.json();
+        // Auto-login the user
+        const loginResult = await apiPost("/auth/auto-login", {
+          email: email,
+          password: familyData.password,
+        });
 
-          // Auto-login the user
-          const loginResponse = await fetch("/api/auth/auto-login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: email,
-              password: familyData.password,
-            }),
+        if (loginResult) {
+          onSuccess({
+            subscriptionId: subscriptionId,
+            email: email,
+            status: "trialing",
+            userId: userData.userId,
+            familyId: userData.familyId,
           });
-
-          if (loginResponse.ok) {
-            onSuccess({
-              subscriptionId: subscriptionId,
-              email: email,
-              status: "trialing",
-              userId: userData.userId,
-              familyId: userData.familyId,
-            });
-          } else {
-            console.error("Auto-login failed, but user was created");
-            onSuccess({
-              subscriptionId: subscriptionId,
-              email: email,
-              status: "trialing",
-              userId: userData.userId,
-              familyId: userData.familyId,
-              requiresManualLogin: true,
-            });
-          }
-          return;
+        } else {
+          console.error("Auto-login failed, but user was created");
+          onSuccess({
+            subscriptionId: subscriptionId,
+            email: email,
+            status: "trialing",
+            userId: userData.userId,
+            familyId: userData.familyId,
+            requiresManualLogin: true,
+          });
         }
+        return;
       } catch (error) {
         console.log("User not ready yet, retrying in 1 second...");
       }
@@ -291,6 +276,16 @@ function PaymentFormContent({
             <div>
               <p className="text-red-700 text-sm font-medium">Payment Error</p>
               <p className="text-red-600 text-sm">{error}</p>
+              {error.includes('already exists') && (
+                <div className="mt-2">
+                  <a 
+                    href="/auth/login" 
+                    className="text-purple-600 hover:text-purple-700 font-medium text-sm underline"
+                  >
+                    Go to Login Page
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import {
   CreditCard,
@@ -9,70 +9,34 @@ import {
   CheckCircle,
   Loader2,
 } from "lucide-react";
+import { apiPost } from "@/lib/api";
 
 interface ResubscribeFormProps {
   onSuccess: (result: any) => void;
   onError: (error: string) => void;
+  userDetails?: {
+    name: string;
+    email: string;
+  };
 }
 
 export default function ResubscribeForm({
   onSuccess,
   onError,
+  userDetails,
 }: ResubscribeFormProps) {
   const stripe = useStripe();
   const elements = useElements();
-  const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    createResubscription();
-  }, []);
-
-  const createResubscription = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/stripe/resubscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Resubscription creation failed:", errorData);
-        throw new Error(errorData.error || "Failed to create resubscription");
-      }
-
-      const data = await response.json();
-
-      setClientSecret(data.clientSecret);
-      setSubscriptionId(data.subscriptionId);
-
-      // If no client secret, the trial started successfully without payment
-      if (!data.clientSecret) {
-        onSuccess({
-          subscriptionId: data.subscriptionId,
-          status: data.status,
-          message: data.message,
-        });
-      }
-    } catch (err: any) {
-      console.error("Resubscription creation error:", err);
-      setError(err.message);
-      onError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Remove the useEffect that automatically creates resubscription
+  // The subscription will only be created when the form is submitted
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!stripe || !elements || !clientSecret) {
+    if (!stripe || !elements) {
       setError("Payment system not ready. Please try again.");
       return;
     }
@@ -88,11 +52,26 @@ export default function ResubscribeForm({
     }
 
     try {
-      // Confirm the payment method
+      // First, get the setup intent for payment method collection
+      const resubscribeData = await apiPost("/stripe/resubscribe");
+
+      if (!resubscribeData.clientSecret) {
+        setError("Failed to initialize payment setup. Please try again.");
+        onError("Failed to initialize payment setup");
+        return;
+      }
+
+      // Confirm the payment method setup
       const { error: confirmError, setupIntent } =
-        await stripe.confirmCardSetup(clientSecret, {
+        await stripe.confirmCardSetup(resubscribeData.clientSecret, {
           payment_method: {
             card: cardElement,
+            billing_details: userDetails
+              ? {
+                  name: userDetails.name,
+                  email: userDetails.email,
+                }
+              : undefined,
           },
         });
 
@@ -100,13 +79,28 @@ export default function ResubscribeForm({
         setError(confirmError.message || "Payment setup failed");
         onError(confirmError.message || "Payment setup failed");
       } else if (setupIntent && setupIntent.status === "succeeded") {
-        // Payment method saved successfully
-        onSuccess({
-          subscriptionId,
-          setupIntentId: setupIntent.id,
-          status: "trialing",
-          message: "Subscription reactivated successfully!",
-        });
+        // Payment method saved successfully, now create the subscription
+        const subscriptionData = await apiPost(
+          "/stripe/create-subscription-from-setup",
+          {
+            setupIntentId: setupIntent.id,
+            customerId: resubscribeData.customerId,
+          }
+        );
+
+        if (subscriptionData.success) {
+          onSuccess({
+            subscriptionId: subscriptionData.subscriptionId,
+            customerId: resubscribeData.customerId,
+            setupIntentId: setupIntent.id,
+            status: subscriptionData.status,
+            trialEnd: subscriptionData.trialEnd,
+            message: "Subscription reactivated successfully!",
+          });
+        } else {
+          setError(subscriptionData.error || "Failed to create subscription");
+          onError(subscriptionData.error || "Failed to create subscription");
+        }
       }
     } catch (err: any) {
       setError(err.message || "Payment processing failed");
@@ -134,15 +128,6 @@ export default function ResubscribeForm({
     },
     hidePostalCode: true,
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mr-3" />
-        <span className="text-gray-600">Reactivating your subscription...</span>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-md mx-auto">

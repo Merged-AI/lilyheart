@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   ArrowRight,
 } from "lucide-react";
+import { apiGet } from "@/lib/api";
 
 interface SubscriptionGuardProps {
   children: React.ReactNode;
@@ -44,41 +45,30 @@ export default function SubscriptionGuard({
   const checkSubscriptionStatus = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/stripe/subscription-status");
+      const data = await apiGet("stripe/subscription-status");
+      
+      const hasAccess =
+        data.hasSubscription &&
+        (data.family.subscription_status === "active" ||
+          data.family.subscription_status === "trialing" ||
+          (data.family.subscription_status === "canceled" &&
+            data.subscription?.current_period_end &&
+            new Date(data.subscription.current_period_end * 1000) >
+              new Date()) ||
+          (data.family.subscription_canceled_at &&
+            data.subscription?.current_period_end &&
+            new Date(data.subscription.current_period_end * 1000) >
+              new Date()));
 
-      if (response.ok) {
-        const data = await response.json();
-        const hasAccess =
-          data.hasSubscription &&
-          (data.family.subscription_status === "active" ||
-            data.family.subscription_status === "trialing" ||
-            (data.family.subscription_status === "canceled" &&
-              data.subscription?.current_period_end &&
-              new Date(data.subscription.current_period_end * 1000) >
-                new Date()) ||
-            (data.family.subscription_canceled_at &&
-              data.subscription?.current_period_end &&
-              new Date(data.subscription.current_period_end * 1000) >
-                new Date()));
-
-        setSubscriptionStatus({
-          hasAccess,
-          isTrialing: data.family.subscription_status === "trialing",
-          isPaidSubscription: data.family.subscription_status === "active",
-          trialEnded:
-            data.family.trial_ends_at &&
-            new Date(data.family.trial_ends_at) <= new Date(),
-          subscriptionStatus: data.family.subscription_status || "inactive",
-        });
-      } else {
-        setSubscriptionStatus({
-          hasAccess: false,
-          isTrialing: false,
-          isPaidSubscription: false,
-          trialEnded: true,
-          subscriptionStatus: "error",
-        });
-      }
+      setSubscriptionStatus({
+        hasAccess,
+        isTrialing: data.family.subscription_status === "trialing",
+        isPaidSubscription: data.family.subscription_status === "active",
+        trialEnded:
+          data.family.trial_ends_at &&
+          new Date(data.family.trial_ends_at) <= new Date(),
+        subscriptionStatus: data.family.subscription_status || "inactive",
+      });
     } catch (error) {
       console.error("Error checking subscription status:", error);
       setSubscriptionStatus({

@@ -54,7 +54,7 @@ export async function createOrRetrieveCustomer(email: string, name: string) {
     email,
     name,
     metadata: {
-      platform: "heart-harbor",
+      platform: "lily-heart-ai",
     },
   });
 
@@ -94,7 +94,7 @@ export async function ensureProductAndPrice() {
       description: PRICING_PLANS.family_coach.description,
       metadata: {
         plan_id: "family_coach",
-        platform: "heart-harbor",
+        platform: "lily-heart-ai",
       },
     });
   }

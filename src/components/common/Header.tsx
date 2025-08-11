@@ -14,6 +14,7 @@ import {
   Plus,
   ChevronDown,
   Settings,
+  CreditCard,
 } from "lucide-react";
 import { ChildSelector } from "@/components/dashboard/child-selector";
 import Modal from "@/components/common/Modal";
@@ -24,20 +25,12 @@ interface HeaderProps {
   variant?: "default" | "dashboard" | "auth";
   selectedChildId?: string;
   onChildSelect?: (childId: string) => void;
-  onEditChild?: (childId: string) => void;
-}
-
-interface Family {
-  parent_name: string;
-  family_name: string;
-  children?: Array<{ id: string; name: string }>;
 }
 
 export default function Header({
   variant = "default",
   selectedChildId,
   onChildSelect,
-  onEditChild,
 }: HeaderProps) {
   const router = useRouter();
   const { family, logout } = useAuth();
@@ -280,6 +273,17 @@ export default function Header({
 
                     <button
                       onClick={() => {
+                        router.push("/account");
+                        setIsProfileDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      <span>Account & Billing</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
                         setShowLogoutModal(true);
                         setIsProfileDropdownOpen(false);
                       }}
@@ -358,6 +362,14 @@ export default function Header({
                 >
                   <Settings className="h-4 w-4" />
                   <span>Profile Settings</span>
+                </button>
+
+                <button
+                  onClick={() => router.push("/account")}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  <span>Account & Billing</span>
                 </button>
                 <button
                   onClick={() => setShowLogoutModal(true)}

@@ -28,29 +28,14 @@ export default function ResubscribePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Verify user is authenticated and needs resubscription
-    const checkEligibility = async () => {
-      if (!family) {
-        router.push("/auth/login");
-        return;
-      }
-
-      try {
-        const data = await apiGet<any>("stripe/subscription-status");
-
-        // If user has active subscription, redirect to dashboard
-        if (data.hasActiveSubscription || data.isTrialing) {
-          router.push("/dashboard");
-          return;
-        }
-      } catch (err) {
-        setError("Failed to check subscription status");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkEligibility();
+    // Redirect to dedicated account page where subscription management is now handled
+    if (family) {
+      router.push("/account?tab=subscription");
+      return;
+    } else {
+      router.push("/auth/login");
+      return;
+    }
   }, [family, router]);
 
   const handlePaymentSuccess = (result: any) => {
@@ -164,6 +149,10 @@ export default function ResubscribePage() {
 
           <Elements stripe={stripePromise}>
             <ResubscribeForm
+              userDetails={family ? {
+                name: family.parent_name,
+                email: family.parent_email,
+              } : undefined}
               onSuccess={handlePaymentSuccess}
               onError={handlePaymentError}
             />

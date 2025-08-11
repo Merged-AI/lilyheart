@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Eye, EyeOff, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { apiCall } from "@/lib/api";
 
 export default function PinSetupPage() {
   const [pin, setPin] = useState("");
@@ -31,12 +32,9 @@ export default function PinSetupPage() {
     }
 
     try {
-      // TODO: Save PIN to database
-      const response = await fetch("/api/auth/pin", {
+      // Save PIN to database via Node.js backend
+      const response = await apiCall("/auth/pin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ pin }),
       });
 
