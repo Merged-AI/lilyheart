@@ -25,12 +25,14 @@ interface HeaderProps {
   variant?: "default" | "dashboard" | "auth";
   selectedChildId?: string;
   onChildSelect?: (childId: string) => void;
+  onEditChild?: (childId: string) => void;
 }
 
 export default function Header({
   variant = "default",
   selectedChildId,
   onChildSelect,
+  onEditChild,
 }: HeaderProps) {
   const router = useRouter();
   const { family, logout } = useAuth();
@@ -69,7 +71,11 @@ export default function Header({
   };
 
   const handleEditChild = (childId: string) => {
-    router.push(`/children/add?childId=${childId}`);
+    if (onEditChild) {
+      onEditChild(childId);
+    } else {
+      router.push(`/children/add?childId=${childId}`);
+    }
   };
 
   const handleAddChild = () => {
