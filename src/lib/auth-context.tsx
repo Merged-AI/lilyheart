@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { apiGet, apiPost } from "./api";
+import { setAuthToken, removeAuthToken, isAuthenticated as checkTokenExists } from "./auth-storage";
 
 interface Family {
   id: string;
@@ -34,6 +35,7 @@ interface AuthContextType {
   selectedChildId: string;
   setSelectedChildId: (childId: string) => void;
   checkAuthentication: () => Promise<void>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -49,6 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuthentication = async () => {
     try {
+      // First check if we have a token in localStorage
+      if (!checkTokenExists()) {
+        throw new Error("No auth token found");
+      }
+
       const data = await apiGet<{
         family: Family;
         children: Array<{
@@ -72,6 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSelectedChildId(data.children[0].id);
       }
     } catch (error) {
+      // Clear invalid token
+      removeAuthToken();
       setIsAuthenticated(false);
       setFamily(null);
       // Only redirect to register if user is on a protected route
@@ -88,15 +97,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await apiPost<{
+        success: boolean;
+        family: Family;
+        token: string;
+        error?: string;
+      }>("auth/login", { email, password });
+
+      if (response.success && response.token) {
+        // Store token in localStorage
+        setAuthToken(response.token);
+        
+        // Update auth state
+        setFamily(response.family);
+        setIsAuthenticated(true);
+        
+        return { success: true };
+      } else {
+        return { success: false, error: response.error || "Login failed" };
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Login failed" 
+      };
+    }
+  };
+
   const logout = async () => {
     try {
       await apiPost("auth/logout");
+    } catch (error) {
+      console.error("Logout API call failed:", error);
+    } finally {
+      // Always clear local state and token, even if API call fails
+      removeAuthToken();
       setIsAuthenticated(false);
       setFamily(null);
       setSelectedChildId("");
       router.push("/");
-    } catch (error) {
-      console.error("Logout failed:", error);
     }
   };
 
@@ -111,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     selectedChildId,
     setSelectedChildId,
     checkAuthentication,
+    login,
     logout,
   };
 

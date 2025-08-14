@@ -4,10 +4,11 @@ import { useState } from "react";
 import { Brain } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiPost } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -21,12 +22,12 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const response = await apiPost("/auth/login", formData);
+      const result = await login(formData.email, formData.password);
 
-      if (response.success) {
+      if (result.success) {
         router.push("/dashboard");
       } else {
-        setError(response.error || "Login failed");
+        setError(result.error || "Login failed");
       }
     } catch (error) {
       setError("Login failed. Please try again.");

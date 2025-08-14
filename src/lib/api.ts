@@ -2,6 +2,8 @@
  * API utility for Node.js backend communication
  */
 
+import { getAuthToken } from './auth-storage';
+
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 
@@ -27,13 +29,22 @@ export async function apiCall(
 ): Promise<Response> {
   const url = getApiUrl(endpoint);
 
+  // Get auth token for Authorization header
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   // Default options for API calls
   const defaultOptions: RequestInit = {
     headers: {
-      "Content-Type": "application/json",
+      ...headers,
       ...options?.headers,
     },
-    credentials: "include", // Important for cookies
     ...options,
   };
 
@@ -50,10 +61,21 @@ export async function apiUpload<T = any>(
 ): Promise<T> {
   const url = getApiUrl(endpoint);
 
+  // Get auth token for Authorization header
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     method: "POST",
     body: formData,
-    credentials: "include", // Important for cookies
+    headers: {
+      ...headers,
+      ...options?.headers,
+    },
     ...options,
   });
 
