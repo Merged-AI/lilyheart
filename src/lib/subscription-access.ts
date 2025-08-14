@@ -1,4 +1,4 @@
-import { getAuthenticatedFamilyFromToken } from './supabase-auth';
+import { apiGet } from './api';
 
 export interface SubscriptionAccess {
   hasActiveSubscription: boolean;
@@ -33,7 +33,8 @@ export type FeatureLevel = typeof FEATURE_LEVELS[keyof typeof FEATURE_LEVELS];
  */
 export async function checkSubscriptionAccess(): Promise<SubscriptionAccess> {
   try {
-    const family = await getAuthenticatedFamilyFromToken();
+    const data = await apiGet<{ family: any }>('auth/me');
+    const family = data.family;
     
     if (!family) {
       return {
