@@ -15,7 +15,7 @@ function getApiUrl(endpoint: string): string {
     cleanEndpoint = cleanEndpoint.slice(4);
   }
 
-  return `/backend/${cleanEndpoint}`; // changed prefix
+  return `${BACKEND_URL}/api/${cleanEndpoint}`;
 }
 
 /**
