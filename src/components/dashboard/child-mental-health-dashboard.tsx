@@ -143,9 +143,9 @@ export default function ChildMentalHealthDashboard({
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 rounded-xl p-8 border border-gray-200 text-center">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Brain className="w-8 h-8 text-gray-400" />
+                <div className="bg-white rounded-xl p-8 text-center">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Brain className="w-10 h-10 text-gray-400" />
                   </div>
                   <p className="text-gray-600 mb-4 text-lg font-medium">
                     Building your weekly insight...
@@ -269,7 +269,7 @@ export default function ChildMentalHealthDashboard({
                             key={index}
                             className="flex items-center space-x-3 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 shadow-sm"
                           >
-                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                               <span className="text-white text-sm">✓</span>
                             </div>
                             <p className="text-green-800 font-medium leading-relaxed">

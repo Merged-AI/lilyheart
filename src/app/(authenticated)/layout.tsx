@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Header from "@/components/common/Header";
 import Sidebar from "@/components/common/Sidebar";
 import SessionLockGuard from "@/components/common/SessionLockGuard";
@@ -13,6 +13,7 @@ interface AuthenticatedLayoutProps {
 
 function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { isAuthenticated, isLoading, selectedChildId, setSelectedChildId } = useAuth();
 
   // Check if current path is chat page, chat sessions page, or session lock page
@@ -26,7 +27,8 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
   };
 
   const handleEditChild = (childId: string) => {
-    // This will be handled by the router in the components
+    // Navigate to the child edit page using Next.js router
+    router.push(`/children/add?childId=${childId}`);
   };
 
   // Loading state

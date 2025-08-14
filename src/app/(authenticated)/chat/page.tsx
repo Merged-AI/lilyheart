@@ -139,61 +139,67 @@ function ChatContent() {
 
   // Lock session and prevent navigation when chat page loads
   useEffect(() => {
-    // Lock the session immediately when chat page loads
-    lockSession();
+    // Only lock the session if onboarding is already complete
+    // If onboarding is not complete, session will be locked after onboarding
+    if (onboardingComplete) {
+      lockSession();
+    }
 
-    // Prevent browser back/forward navigation
-    const handlePopState = (event: PopStateEvent) => {
-      event.preventDefault();
-      // Push the current state back to prevent navigation
-      window.history.pushState(null, "", window.location.href);
-    };
+    // Only prevent navigation if onboarding is complete (session is active)
+    if (onboardingComplete) {
+      // Prevent browser back/forward navigation
+      const handlePopState = (event: PopStateEvent) => {
+        event.preventDefault();
+        // Push the current state back to prevent navigation
+        window.history.pushState(null, "", window.location.href);
+      };
 
-    // Prevent page refresh and other navigation attempts
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue =
-        "Session is active. Please use the 'End Session' button to exit safely.";
-      return e.returnValue;
-    };
-
-    // Prevent keyboard shortcuts for navigation
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent F5, Ctrl+R, Ctrl+Shift+R, Alt+Left, Alt+Right
-      if (
-        e.key === "F5" ||
-        (e.ctrlKey && e.key === "r") ||
-        (e.ctrlKey && e.shiftKey && e.key === "R") ||
-        (e.altKey && e.key === "ArrowLeft") ||
-        (e.altKey && e.key === "ArrowRight")
-      ) {
+      // Prevent page refresh and other navigation attempts
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
         e.preventDefault();
-        return false;
-      }
-    };
+        e.returnValue =
+          "Session is active. Please use the 'End Session' button to exit safely.";
+        return e.returnValue;
+      };
 
-    // Prevent right-click context menu
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-    };
+      // Prevent keyboard shortcuts for navigation
+      const handleKeyDown = (e: KeyboardEvent) => {
+        // Prevent F5, Ctrl+R, Ctrl+Shift+R, Alt+Left, Alt+Right
+        if (
+          e.key === "F5" ||
+          (e.ctrlKey && e.key === "r") ||
+          (e.ctrlKey && e.shiftKey && e.key === "R") ||
+          (e.altKey && e.key === "ArrowLeft") ||
+          (e.altKey && e.key === "ArrowRight")
+        ) {
+          e.preventDefault();
+          return false;
+        }
+      };
 
-    // Push current state to prevent back navigation
-    window.history.pushState(null, "", window.location.href);
+      // Prevent right-click context menu
+      const handleContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+      };
 
-    // Add event listeners
-    window.addEventListener("popstate", handlePopState);
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("contextmenu", handleContextMenu);
+      // Push current state to prevent back navigation
+      window.history.pushState(null, "", window.location.href);
 
-    // Cleanup function
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("contextmenu", handleContextMenu);
-    };
-  }, [lockSession]);
+      // Add event listeners
+      window.addEventListener("popstate", handlePopState);
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("contextmenu", handleContextMenu);
+
+      // Cleanup function
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+        window.removeEventListener("keydown", handleKeyDown);
+        window.removeEventListener("contextmenu", handleContextMenu);
+      };
+    }
+  }, [lockSession, onboardingComplete]);
 
   // Cleanup real-time voice chat on component unmount
   useEffect(() => {
@@ -253,6 +259,9 @@ function ChatContent() {
     setShowOnboarding(false);
     setOnboardingComplete(true);
 
+    // Lock the session now that onboarding is complete
+    lockSession();
+
     // Start the session timer when user is ready to chat
     startTime.current = new Date();
     setSessionStarted(true);
@@ -262,12 +271,18 @@ function ChatContent() {
       // Use OpenAI Realtime API for better performance
       setUseOpenAIRealtime(true);
     }
-  }, [chatMode]);
+  }, [chatMode, lockSession]);
 
   const handleOnboardingClose = useCallback(() => {
     // Don't allow closing without completing onboarding
     // This ensures children must acknowledge the disclaimer
   }, []);
+
+  const handleOnboardingBack = useCallback(() => {
+    // During onboarding, the session is not locked yet, so we can safely navigate back
+    // Use router.back() to go to the previous page (likely dashboard or children selection)
+    router.back();
+  }, [router]);
 
   // Handle messages from OpenAI Realtime API
   const handleRealtimeMessage = useCallback((message: Message) => {
@@ -1527,6 +1542,7 @@ function ChatContent() {
         isOpen={showOnboarding}
         onContinue={handleOnboardingComplete}
         onClose={handleOnboardingClose}
+        onBack={handleOnboardingBack}
       />
 
       {/* Modal for child selection and other alerts */}

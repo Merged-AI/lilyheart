@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import toast from "react-hot-toast";
-import SubscriptionManagement from "@/components/payment/subscription-management";
+// Removed SubscriptionManagement - now handled in separate /account page
 import { apiPost, apiGet } from "@/lib/api";
 import {
   User,
@@ -40,6 +41,7 @@ interface Child {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { family, checkAuthentication } = useAuth();
   const [children, setChildren] = useState<Child[]>([]);
   const [childrenLoading, setChildrenLoading] = useState(true);
@@ -201,15 +203,14 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-[calc(100vh-100px)] bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-8">
           {/* Profile Information Section */}
-          <div className="xl:col-span-2 space-y-8">
+          <div className="space-y-8">
             {/* Children Profile Progress */}
-            {!childrenLoading && children.length > 0 && (
+            {childrenLoading && (
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-b border-gray-200 px-8 py-6">
+                <div className="bg-white border-b border-gray-200 px-8 py-6">
                   <div className="flex items-center space-x-3">
                     <Brain className="h-6 w-6 text-purple-600" />
                     <h2 className="text-xl font-semibold text-gray-900">
@@ -221,130 +222,164 @@ export default function ProfilePage() {
                   </p>
                 </div>
 
-                <div className="p-8 space-y-6">
-                  {children.map((child) => {
-                    const completeness = calculateCompleteness(child);
-                    const suggestions = getImprovementSuggestions(child);
-                    const isComplete = completeness >= 80;
-
-                    return (
-                      <div
-                        key={child.id}
-                        className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              {child.name}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              {child.age} years old • {child.gender}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            {isComplete ? (
-                              <CheckCircle className="h-5 w-5 text-green-500" />
-                            ) : (
-                              <AlertCircle className="h-5 w-5 text-amber-500" />
-                            )}
-                            <span
-                              className={`text-sm font-medium ${
-                                isComplete ? "text-green-600" : "text-amber-600"
-                              }`}
-                            >
-                              {completeness}% complete
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="mb-4">
-                          <div className="bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full transition-all duration-500 ${
-                                isComplete
-                                  ? "bg-gradient-to-r from-green-500 to-emerald-500"
-                                  : "bg-gradient-to-r from-purple-500 to-blue-500"
-                              }`}
-                              style={{ width: `${completeness}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* AI Benefits */}
-                        {completeness >= 60 && (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                            <div className="flex items-start space-x-2">
-                              <TrendingUp className="h-4 w-4 text-green-600 mt-0.5" />
-                              <div className="text-sm text-green-800">
-                                <span className="font-medium">
-                                  AI is learning well!
-                                </span>
-                                {child.interests && (
-                                  <span className="block mt-1">
-                                    ✓ Will mention{" "}
-                                    {child.interests
-                                      .split(",")[0]
-                                      .trim()
-                                      .toLowerCase()}{" "}
-                                    to engage {child.name}
-                                  </span>
-                                )}
-                                {child.coping_strategies && (
-                                  <span className="block">
-                                    ✓ Knows {child.name}'s calming techniques
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Improvement Suggestions */}
-                        {suggestions.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium text-gray-700">
-                              Quick improvements for better sessions:
-                            </p>
-                            {suggestions.map((suggestion, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center space-x-2 text-sm text-gray-600"
-                              >
-                                <ArrowRight className="h-3 w-3 text-purple-500" />
-                                <span>{suggestion}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Action Button */}
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                          <button
-                            onClick={() =>
-                              (window.location.href = `/children/add?childId=${child.id}`)
-                            }
-                            className="text-purple-600 hover:text-purple-700 text-sm font-medium flex items-center space-x-1 hover:underline"
-                          >
-                            <span>Update {child.name}'s profile</span>
-                            <ArrowRight className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="p-8">
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mr-3"></div>
+                    <span className="text-gray-600 text-sm">
+                      Loading children profiles...
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Account Information Card */}
+            {!childrenLoading && children.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                <div className="bg-white border-b border-gray-200 px-8 py-6">
+                  <div className="flex items-center space-x-3">
+                    <Brain className="h-6 w-6 text-purple-600" />
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Children Profile Progress
+                    </h2>
+                  </div>
+                  <p className="text-purple-700 mt-2">
+                    Complete profiles lead to better therapeutic outcomes
+                  </p>
+                </div>
+                <div className="p-8">
+                  <div
+                    className={`space-y-6 ${
+                      children.length >= 2
+                        ? "lg:space-y-0 lg:grid lg:gap-6 lg:grid-cols-2 lg:auto-rows-fr"
+                        : ""
+                    }`}
+                  >
+                    {children.map((child) => {
+                      const completeness = calculateCompleteness(child);
+                      const suggestions = getImprovementSuggestions(child);
+                      const isComplete = completeness >= 80;
+
+                      return (
+                        <div
+                          key={child.id}
+                          className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between mb-4">
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900">
+                                {child.name}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {child.age} years old • {child.gender}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                              {isComplete ? (
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <AlertCircle className="h-5 w-5 text-amber-500" />
+                              )}
+                              <span
+                                className={`text-sm font-medium ${
+                                  isComplete
+                                    ? "text-green-600"
+                                    : "text-amber-600"
+                                }`}
+                              >
+                                {completeness}% complete
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="mb-4">
+                            <div className="bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full transition-all duration-500 ${
+                                  isComplete
+                                    ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                                    : "bg-gradient-to-r from-purple-500 to-blue-500"
+                                }`}
+                                style={{ width: `${completeness}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* AI Benefits */}
+                          {completeness >= 60 && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                              <div className="flex items-start space-x-2">
+                                <TrendingUp className="h-4 w-4 text-green-600 mt-0.5" />
+                                <div className="text-sm text-green-800">
+                                  <span className="font-medium">
+                                    AI is learning well!
+                                  </span>
+                                  {child.interests && (
+                                    <span className="block mt-1">
+                                      ✓ Will mention{" "}
+                                      {child.interests
+                                        .split(",")[0]
+                                        .trim()
+                                        .toLowerCase()}{" "}
+                                      to engage {child.name}
+                                    </span>
+                                  )}
+                                  {child.coping_strategies && (
+                                    <span className="block">
+                                      ✓ Knows {child.name}'s calming techniques
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Improvement Suggestions */}
+                          {suggestions.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium text-gray-700">
+                                Quick improvements for better sessions:
+                              </p>
+                              {suggestions.map((suggestion, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center space-x-2 text-sm text-gray-600"
+                                >
+                                  <ArrowRight className="h-3 w-3 text-purple-500" />
+                                  <span>{suggestion}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Action Button */}
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <button
+                              onClick={() =>
+                                router.push(`/children/add?childId=${child.id}`)
+                              }
+                              className="text-purple-600 hover:text-purple-700 text-sm font-medium flex items-center space-x-1 hover:underline"
+                            >
+                              <span>Update {child.name}'s profile</span>
+                              <ArrowRight className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Profile Information Card */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gray-50 border-b border-gray-200 px-8 py-6">
+              <div className="bg-white border-b border-gray-200 px-8 py-6">
                 <div className="flex items-center space-x-3">
                   <Settings className="h-6 w-6 text-gray-600" />
                   <h2 className="text-xl font-semibold text-gray-900">
-                    Account Information
+                    Profile Information
                   </h2>
                 </div>
                 <p className="text-gray-600 mt-2">
@@ -433,12 +468,12 @@ export default function ProfilePage() {
                       <span>Account Summary</span>
                     </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                       <div className="bg-white rounded-lg p-4 border border-gray-200">
                         <p className="text-sm text-gray-500 mb-1">
                           Email Address
                         </p>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-gray-900 text-sm">
                           {family.parent_email}
                         </p>
                       </div>
@@ -449,7 +484,7 @@ export default function ProfilePage() {
                         </p>
                         <p className="font-medium text-gray-900 flex items-center space-x-2">
                           <Calendar className="h-4 w-4 text-gray-400" />
-                          <span>
+                          <span className="text-sm">
                             {family.created_at
                               ? new Date(family.created_at).toLocaleDateString(
                                   "en-US",
@@ -457,6 +492,15 @@ export default function ProfilePage() {
                                 )
                               : "N/A"}
                           </span>
+                        </p>
+                      </div>
+
+                      <div className="bg-white rounded-lg p-4 border border-gray-200">
+                        <p className="text-sm text-gray-500 mb-1">
+                          Account Type
+                        </p>
+                        <p className="font-medium text-gray-900 text-sm">
+                          Family Plan
                         </p>
                       </div>
                     </div>
@@ -488,13 +532,6 @@ export default function ProfilePage() {
                   </div>
                 </form>
               </div>
-            </div>
-          </div>
-
-          {/* Subscription Management Section */}
-          <div className="xl:col-span-1">
-            <div className="sticky top-8">
-              <SubscriptionManagement />
             </div>
           </div>
         </div>

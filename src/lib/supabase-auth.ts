@@ -35,42 +35,8 @@ export const createServerSupabaseClient = (request: NextRequest, response: NextR
   )
 }
 
-// Custom authentication function that works with auth_token cookie
-export async function getAuthenticatedFamilyFromToken() {
-  const cookieStore = cookies()
-  const authToken = cookieStore.get('auth_token')?.value
-
-  if (!authToken) {
-    return null
-  }
-
-  try {
-    // Decode the token to get family ID
-    const decoded = Buffer.from(authToken, 'base64').toString('utf-8')
-    const [familyId] = decoded.split(':')
-    
-    if (!familyId) {
-      return null
-    }
-
-    // Fetch family data from database
-    const supabase = createServerSupabase()
-    const { data: family, error } = await supabase
-      .from('families')
-      .select('*')
-      .eq('id', familyId)
-      .single()
-
-    if (error || !family) {
-      return null
-    }
-
-    return family
-  } catch (error) {
-    console.error('Error decoding auth token:', error)
-    return null
-  }
-}
+// Note: Custom token authentication has been moved to localStorage-based system
+// This function is kept for backward compatibility but should not be used in new code
 
 // Get authenticated user from cookies (for API routes) - Supabase auth
 export async function getAuthenticatedUser() {

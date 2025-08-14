@@ -243,6 +243,7 @@ export default function RealtimeVoiceChat({
 
   // Helper function to process user voice transcript
   const processUserVoiceTranscript = (transcript: string) => {
+    console.log("transcript :", transcript);
     if (!transcript || transcript.trim() === "" || isInputCooldown) {
       return;
     }
@@ -250,14 +251,75 @@ export default function RealtimeVoiceChat({
     // Normalize and clean the transcript
     const normalizedTranscript = transcript.toLowerCase().trim();
 
+    // Enhanced filtering for meaningful speech
     // Ignore very short or meaningless transcripts
-    if (
-      normalizedTranscript.length < 3 ||
-      normalizedTranscript === "mm" ||
-      normalizedTranscript === "hmm" ||
-      normalizedTranscript === "um" ||
-      normalizedTranscript === "uh"
-    ) {
+    if (normalizedTranscript.length < 5) {
+      return;
+    }
+
+    // Filter out common non-speech sounds and filler words
+    const fillerWords = [
+      "mm",
+      "hmm",
+      "um",
+      "uh",
+      "ah",
+      "oh",
+      "eh",
+      "er",
+      "erm",
+      "mmm",
+      "uhm",
+      "uhh",
+      "hm",
+      "mhm",
+      "yeah",
+      "ya",
+      "yep",
+      "ok",
+      "okay",
+      "alright",
+      "sure",
+      "right",
+      "well",
+      "like",
+      "so",
+      "and",
+      "but",
+      "the",
+      "a",
+      "an",
+      "is",
+      "was",
+    ];
+
+    // Check if transcript is only filler words
+    const words = normalizedTranscript
+      .split(/\s+/)
+      .filter((word) => word.length > 0);
+    if (words.length === 0) {
+      return;
+    }
+
+    // If transcript contains only filler words, ignore it
+    const meaningfulWords = words.filter((word) => !fillerWords.includes(word));
+    if (meaningfulWords.length === 0) {
+      return;
+    }
+
+    // Require at least 2 meaningful words for a valid input
+    if (meaningfulWords.length < 2 && !normalizedTranscript.includes("?")) {
+      return;
+    }
+
+    // Check for repetitive patterns (like "hello hello hello")
+    const uniqueWords = Array.from(new Set(words));
+    if (words.length > 2 && uniqueWords.length === 1) {
+      return;
+    }
+
+    // Filter out transcripts that are just punctuation or single characters
+    if (/^[^\w\s]*$/.test(normalizedTranscript)) {
       return;
     }
 
@@ -296,8 +358,23 @@ export default function RealtimeVoiceChat({
       }
     }
 
-    // Only process if it looks like a real message
-    if (transcript.split(" ").length < 2 && !transcript.endsWith("?")) {
+    // Additional validation for meaningful speech
+    // Check if the transcript contains at least one verb or noun-like word
+    const meaningfulPatterns = [
+      /\b(feel|feeling|felt|think|thought|want|need|like|love|hate|scared|happy|sad|angry|worried|help|play|talk|tell|ask|said|say|go|going|went|come|coming|came|do|doing|did|have|had|am|are|was|were|will|would|could|should|can|may|might)\b/i,
+      /\b(mom|dad|school|friend|teacher|home|family|child|kid|today|yesterday|tomorrow|now|here|there|why|what|when|where|how|who)\b/i,
+    ];
+
+    const hasNaturalSpeech = meaningfulPatterns.some((pattern) =>
+      pattern.test(transcript)
+    );
+
+    // If no meaningful patterns and not a question, require longer transcript
+    if (
+      !hasNaturalSpeech &&
+      !transcript.includes("?") &&
+      meaningfulWords.length < 3
+    ) {
       return;
     }
 
@@ -521,16 +598,32 @@ export default function RealtimeVoiceChat({
         }
       };
 
-      // Get user's microphone with optimized settings for earbuds
+      // Get user's microphone with optimized settings for better voice detection
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 24000, // Reduced sample rate for better compatibility
+        channelCount: 1,
+        sampleSize: 16,
+      };
+
+      // Add Google-specific constraints if available (for Chrome)
+      try {
+        const constraints = navigator.mediaDevices.getSupportedConstraints();
+        if ("googEchoCancellation" in constraints) {
+          (audioConstraints as any).googEchoCancellation = true;
+          (audioConstraints as any).googNoiseSuppression = true;
+          (audioConstraints as any).googAutoGainControl = true;
+          (audioConstraints as any).googHighpassFilter = true;
+          (audioConstraints as any).googTypingNoiseDetection = true;
+        }
+      } catch (e) {
+        // Ignore if not supported
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 24000, // Reduced sample rate for better compatibility
-          channelCount: 1,
-          sampleSize: 16,
-        },
+        audio: audioConstraints,
       });
 
       // Add local audio track
@@ -778,8 +871,19 @@ export default function RealtimeVoiceChat({
                 transcriptBuffer.current.get(event.item_id) || "";
             }
 
+            // Enhanced validation before processing transcript
             if (finalTranscript && finalTranscript.trim() !== "") {
-              processUserVoiceTranscript(finalTranscript);
+              // Additional check for meaningful content
+              const cleanTranscript = finalTranscript.trim();
+
+              // Skip if transcript appears to be just noise or background sound
+              if (
+                cleanTranscript.length >= 5 &&
+                !/^[^\w]*$/.test(cleanTranscript)
+              ) {
+                processUserVoiceTranscript(finalTranscript);
+              }
+
               // Clean up the buffer
               if (event.item_id) {
                 transcriptBuffer.current.delete(event.item_id);
@@ -789,8 +893,12 @@ export default function RealtimeVoiceChat({
           break;
 
         case "input_audio_buffer.committed":
-          if (event.transcript) {
-            processUserVoiceTranscript(event.transcript);
+          if (event.transcript && event.transcript.trim().length >= 5) {
+            // Only process if transcript has meaningful content
+            const cleanTranscript = event.transcript.trim();
+            if (!/^[^\w]*$/.test(cleanTranscript)) {
+              processUserVoiceTranscript(event.transcript);
+            }
           }
           break;
 

@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 import {
   CreditCard,
   AlertTriangle,
@@ -14,7 +17,12 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Modal from "@/components/common/Modal";
+import ResubscribeForm from "@/components/payment/resubscribe-form";
 import { apiGet, apiPost } from "@/lib/api";
+
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+);
 
 interface SubscriptionInfo {
   hasSubscription: boolean;
@@ -46,13 +54,19 @@ interface SubscriptionInfo {
 }
 
 export default function SubscriptionManagement() {
+  const router = useRouter();
   const [subscriptionInfo, setSubscriptionInfo] =
     useState<SubscriptionInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCanceling, setIsCanceling] = useState(false);
   const [isReactivating, setIsReactivating] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showInterventionModal, setShowInterventionModal] = useState(false);
   const [showReactivateModal, setShowReactivateModal] = useState(false);
+  const [showInlineReactivate, setShowInlineReactivate] = useState(false);
+  const [selectedCancellationReason, setSelectedCancellationReason] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,9 +92,22 @@ export default function SubscriptionManagement() {
     try {
       setIsCanceling(true);
 
-      const result = await apiPost<{ message: string }>("stripe/cancel-subscription", {});
+      const result = await apiPost<{ message: string }>(
+        "stripe/cancel-subscription",
+        {
+          cancellation_feedback: selectedCancellationReason
+            ? {
+                challenge: selectedCancellationReason,
+                selected_at: new Date().toISOString(),
+                intervention_shown: true,
+                proceeded_to_cancel: true,
+              }
+            : null,
+        }
+      );
       toast.success(result.message || "Subscription canceled successfully");
       setShowCancelModal(false);
+      setSelectedCancellationReason(null); // Reset the selected reason
 
       // Refresh subscription info
       await fetchSubscriptionInfo();
@@ -95,7 +122,10 @@ export default function SubscriptionManagement() {
     try {
       setIsReactivating(true);
 
-      const result = await apiPost<{ message: string }>("stripe/reactivate-subscription", {});
+      const result = await apiPost<{ message: string }>(
+        "stripe/reactivate-subscription",
+        {}
+      );
       toast.success(result.message || "Subscription reactivated successfully!");
       setShowReactivateModal(false);
 
@@ -118,7 +148,7 @@ export default function SubscriptionManagement() {
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString("en-US", {
       year: "numeric",
-      month: "long",
+      month: "short",
       day: "numeric",
     });
   };
@@ -155,7 +185,7 @@ export default function SubscriptionManagement() {
       };
     }
 
-    if (family.subscription_canceled_at || subscription?.cancel_at_period_end) {
+    if (subscription?.cancel_at_period_end) {
       return {
         status: "Canceling",
         description: "Subscription will end at period end",
@@ -222,12 +252,23 @@ export default function SubscriptionManagement() {
 
   return (
     <div className="space-y-6">
+      {/* Subscription & Billing Header */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center space-x-2">
+          <CreditCard className="h-5 w-5 text-gray-500" />
+          <span>Subscription & Billing</span>
+        </h3>
+        <p className="text-sm text-gray-600">
+          Manage your subscription, billing, and payment information
+        </p>
+      </div>
+
       {/* Subscription Status */}
-      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Subscription Status
-          </h3>
+          <h4 className="text-base font-medium text-gray-900">
+            Current Status
+          </h4>
           <div
             className={`flex items-center space-x-2 px-3 py-1 rounded-full ${statusInfo?.bgColor}`}
           >
@@ -242,45 +283,60 @@ export default function SubscriptionManagement() {
 
         {/* Billing Information */}
         {subscriptionInfo.hasSubscription && subscriptionInfo.billing && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="flex items-center space-x-3">
-              <DollarSign className="h-5 w-5 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-500">Billing Amount</p>
-                <p className="font-medium">
-                  {formatCurrency(
-                    subscriptionInfo.billing.amount,
-                    subscriptionInfo.billing.currency
-                  )}
-                  /{subscriptionInfo.billing.interval}
-                </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center space-x-3">
+                <DollarSign className="h-5 w-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-500">Monthly Cost</p>
+                  <p className="font-semibold text-lg">
+                    {formatCurrency(
+                      subscriptionInfo.billing.amount,
+                      subscriptionInfo.billing.currency
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
 
             {subscriptionInfo.subscription && (
-              <div className="flex items-center space-x-3">
-                <Calendar className="h-5 w-5 text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-500">
-                    {subscriptionInfo.family.subscription_status === "canceled"
-                      ? "Canceled On"
-                      : subscriptionInfo.subscription.cancel_at_period_end
-                      ? "Ends On"
-                      : "Next Billing"}
-                  </p>
-                  <p className="font-medium">
-                    {subscriptionInfo.family.subscription_status === "canceled"
-                      ? formatDate(
-                          subscriptionInfo.subscription.canceled_at ||
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <Calendar className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">
+                      {subscriptionInfo.family.subscription_status ===
+                      "canceled"
+                        ? "Canceled On"
+                        : subscriptionInfo.subscription.cancel_at_period_end
+                        ? "Ends On"
+                        : "Next Billing"}
+                    </p>
+                    <p className="font-semibold">
+                      {subscriptionInfo.family.subscription_status ===
+                      "canceled"
+                        ? formatDate(
+                            subscriptionInfo.subscription.canceled_at ||
+                              subscriptionInfo.subscription.current_period_end
+                          )
+                        : formatDate(
                             subscriptionInfo.subscription.current_period_end
-                        )
-                      : formatDate(
-                          subscriptionInfo.subscription.current_period_end
-                        )}
-                  </p>
+                          )}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
+
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center space-x-3">
+                <Shield className="h-5 w-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-500">Plan</p>
+                  <p className="font-semibold">Family Coach</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -359,13 +415,13 @@ export default function SubscriptionManagement() {
         )}
 
         {/* Action Buttons */}
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-3">
           {subscriptionInfo.hasSubscription &&
             !subscriptionInfo.family.subscription_canceled_at &&
             !subscriptionInfo.subscription?.cancel_at_period_end &&
             subscriptionInfo.family.subscription_status !== "canceled" && (
               <button
-                onClick={() => setShowCancelModal(true)}
+                onClick={() => setShowInterventionModal(true)}
                 className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
               >
                 <X className="h-4 w-4" />
@@ -373,31 +429,155 @@ export default function SubscriptionManagement() {
               </button>
             )}
 
-          {/* Reactivate button for canceled subscriptions that haven't ended yet */}
+          {/* Undo Cancellation button for canceled subscriptions that haven't ended yet */}
           {subscriptionInfo.hasSubscription &&
             (subscriptionInfo.family.subscription_canceled_at ||
               subscriptionInfo.subscription?.cancel_at_period_end) &&
-            subscriptionInfo.family.subscription_status !== "active" && (
+            subscriptionInfo.family.subscription_status !== "canceled" && (
               <button
                 onClick={() => setShowReactivateModal(true)}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
               >
                 <CheckCircle className="h-4 w-4" />
-                <span>Reactivate Subscription</span>
+                <span>Undo Cancellation</span>
               </button>
             )}
 
-          {!subscriptionInfo.hasSubscription && (
+          {/* Subscribe button for new users or those with canceled subscriptions */}
+          {(!subscriptionInfo.hasSubscription ||
+            subscriptionInfo.family.subscription_status === "canceled") && (
             <button
-              onClick={() => (window.location.href = "/auth/register")}
+              onClick={() =>
+                subscriptionInfo.family.subscription_status === "canceled"
+                  ? setShowInlineReactivate(true)
+                  : router.push("/pricing")
+              }
               className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
             >
               <CreditCard className="h-4 w-4" />
-              <span>Subscribe Now</span>
+              <span>
+                {subscriptionInfo.family.subscription_status === "canceled"
+                  ? "Resubscribe with Payment"
+                  : "Subscribe Now"}
+              </span>
             </button>
           )}
         </div>
       </div>
+
+      {/* Inline Reactivation Section */}
+      {showInlineReactivate && (
+        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-lg font-medium text-gray-900">
+              Reactivate Your Subscription
+            </h4>
+            <button
+              onClick={() => setShowInlineReactivate(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <Elements stripe={stripePromise}>
+            <ResubscribeForm
+              userDetails={subscriptionInfo?.customer ? {
+                name: subscriptionInfo.customer.name,
+                email: subscriptionInfo.customer.email,
+              } : undefined}
+              onSuccess={(result) => {
+                setShowInlineReactivate(false);
+                toast.success("Subscription reactivated successfully!");
+                fetchSubscriptionInfo(); // Refresh subscription info
+              }}
+              onError={(error) => {
+                toast.error(error);
+              }}
+            />
+          </Elements>
+        </div>
+      )}
+
+      {/* Before-Cancel Intervention Modal */}
+      <Modal
+        isOpen={showInterventionModal}
+        onClose={() => setShowInterventionModal(false)}
+        title="What would make this more helpful?"
+        type="info"
+        maxWidth="max-w-2xl"
+        icon={<AlertTriangle className="h-6 w-6" />}
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700 text-center mb-6">
+            As a parent, what's been your biggest challenge with Lily Heart AI?
+          </p>
+
+          <div className="space-y-3">
+            {/* Parent Issue 1: Child engagement */}
+            <button
+              onClick={() => {
+                setSelectedCancellationReason("child_not_engaged");
+                setShowInterventionModal(false);
+                setShowCancelModal(true);
+              }}
+              className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50 transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center min-w-8">
+                  <span className="text-sm font-semibold text-red-600">🎯</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">
+                    My child isn't staying engaged or interested
+                  </h4>
+                </div>
+              </div>
+            </button>
+
+            {/* Parent Issue 2: Understanding progress */}
+            <button
+              onClick={() => {
+                setSelectedCancellationReason("unsure_if_helping");
+                setShowInterventionModal(false);
+                setShowCancelModal(true);
+              }}
+              className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50 transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center min-w-8">
+                  <span className="text-sm font-semibold text-red-600">📈</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">
+                    I'm not sure if it's actually helping
+                  </h4>
+                </div>
+              </div>
+            </button>
+
+            {/* Parent Issue 3: App complexity/usability */}
+            <button
+              onClick={() => {
+                setSelectedCancellationReason("app_confusing");
+                setShowInterventionModal(false);
+                setShowCancelModal(true);
+              }}
+              className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50 transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center min-w-8">
+                  <span className="text-sm font-semibold text-red-600">🤷</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">
+                    The app feels confusing or hard to use
+                  </h4>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Cancel Confirmation Modal */}
       <Modal
@@ -429,22 +609,22 @@ export default function SubscriptionManagement() {
         </div>
       </Modal>
 
-      {/* Reactivate Confirmation Modal */}
+      {/* Undo Cancellation Confirmation Modal */}
       <Modal
         isOpen={showReactivateModal}
         onClose={() => setShowReactivateModal(false)}
-        title="Reactivate Subscription?"
+        title="Undo Cancellation?"
         type="success"
         icon={<CheckCircle className="h-6 w-6" />}
         primaryButton={{
-          text: isReactivating ? "Reactivating..." : "Yes, Reactivate",
+          text: isReactivating ? "Undoing..." : "Undo Cancellation",
           onClick: handleReactivateSubscription,
           disabled: isReactivating,
           className:
             "bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2",
         }}
         secondaryButton={{
-          text: "Cancel",
+          text: "Keep Cancellation",
           onClick: () => setShowReactivateModal(false),
           disabled: isReactivating,
           className:
@@ -453,9 +633,9 @@ export default function SubscriptionManagement() {
       >
         <div>
           <p className="text-gray-700 leading-relaxed">
-            This will reactivate your subscription and continue billing
+            This will undo your cancellation and continue your subscription
             according to your current plan. Your subscription will no longer be
-            scheduled for cancellation.
+            scheduled to end.
           </p>
         </div>
       </Modal>

@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { apiGet, apiCall } from "@/lib/api";
 
 interface SubscriptionStatus {
   hasActiveSubscription: boolean;
@@ -35,7 +36,7 @@ export default function PricingPage() {
   const checkSubscriptionStatus = async () => {
     try {
       // First check if user is authenticated
-      const authResponse = await fetch("/api/auth/me");
+      const authResponse = await apiCall("/auth/me");
       if (!authResponse.ok) {
         setIsAuthenticated(false);
         setIsLoading(false);
@@ -45,30 +46,25 @@ export default function PricingPage() {
       setIsAuthenticated(true);
 
       // Check subscription status
-      const response = await fetch("/api/stripe/subscription-status");
-      if (response.ok) {
-        const data = await response.json();
+      const data = await apiGet("stripe/subscription-status");
 
-        // Map the response to our interface
-        const status: SubscriptionStatus = {
-          hasActiveSubscription:
-            data.hasSubscription &&
-            data.family.subscription_status === "active",
-          isTrialing: data.family.subscription_status === "trialing",
-          isPaidSubscription:
-            data.hasSubscription &&
-            data.family.subscription_status === "active",
-          trialEnded: data.family.trial_ends_at
-            ? new Date(data.family.trial_ends_at) < new Date()
-            : false,
-          subscriptionStatus: data.family.subscription_status || "inactive",
-          currentPeriodEnd: data.subscription?.current_period_end
-            ? new Date(data.subscription.current_period_end * 1000)
-            : undefined,
-        };
+      // Map the response to our interface
+      const status: SubscriptionStatus = {
+        hasActiveSubscription:
+          data.hasSubscription && data.family.subscription_status === "active",
+        isTrialing: data.family.subscription_status === "trialing",
+        isPaidSubscription:
+          data.hasSubscription && data.family.subscription_status === "active",
+        trialEnded: data.family.trial_ends_at
+          ? new Date(data.family.trial_ends_at) < new Date()
+          : false,
+        subscriptionStatus: data.family.subscription_status || "inactive",
+        currentPeriodEnd: data.subscription?.current_period_end
+          ? new Date(data.subscription.current_period_end * 1000)
+          : undefined,
+      };
 
-        setSubscriptionStatus(status);
-      }
+      setSubscriptionStatus(status);
     } catch (error) {
       console.error("Error checking subscription status:", error);
     } finally {
@@ -129,11 +125,11 @@ export default function PricingPage() {
 
   const getTrialText = () => {
     if (!isAuthenticated) {
-      return "No credit card required for trial";
+      return "Credit card required for trial";
     }
 
     if (!subscriptionStatus) {
-      return "No credit card required for trial";
+      return "Credit card required for trial";
     }
 
     if (
@@ -151,7 +147,7 @@ export default function PricingPage() {
       return "Active subscription";
     }
 
-    return "No credit card required for trial";
+    return "Credit card required for trial";
   };
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">

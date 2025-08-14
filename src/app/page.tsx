@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiCall } from "@/lib/api";
 import {
   ArrowRight,
   MessageCircle,
@@ -24,7 +25,7 @@ export default function HomePage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/auth/me");
+        const response = await apiCall("/auth/me");
         if (response.ok) {
           // User is authenticated, redirect to dashboard
           setIsAuthenticated(true);
@@ -103,12 +104,6 @@ export default function HomePage() {
             >
               Pricing
             </Link>
-            <Link
-              href="/auth/login"
-              className="text-white hover:opacity-80 transition-opacity font-medium"
-            >
-              Sign In
-            </Link>
           </div>
 
           <div className="flex items-center space-x-3">
@@ -135,9 +130,9 @@ export default function HomePage() {
           <div className="absolute -top-1/2 -right-1/4 w-full h-[200%] bg-gradient-to-br from-purple-100/30 to-blue-100/30 rounded-full animate-pulse-slow transform rotate-12"></div>
         </div>
 
-        <div className="max-w-[1400px] mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
+        <div className="max-w-[1400px] mx-auto px-12 py-16 grid grid-cols-1 lg:grid-cols-3 gap-12 items-center relative z-10">
           {/* Hero Content */}
-          <div className="space-y-8">
+          <div className="space-y-8 col-span-2">
             <h1
               className="text-5xl lg:text-6xl font-bold leading-tight"
               style={{ fontFamily: "var(--font-poppins)" }}
@@ -149,7 +144,7 @@ export default function HomePage() {
             </h1>
 
             <p
-              className="text-xl text-gray-600 max-w-lg"
+              className="text-xl text-gray-600 max-w-2xl"
               style={{ fontFamily: "var(--font-inter)" }}
             >
               AI-powered emotional support that helps your family build better
@@ -175,7 +170,7 @@ export default function HomePage() {
             </div>
 
             <p className="text-sm text-gray-500">
-              ✨ 7-day free trial • No credit card required • Cancel anytime
+              ✨ 7-day free trial • Cancel anytime
             </p>
 
             {/* Trust Badges */}
@@ -196,7 +191,7 @@ export default function HomePage() {
           </div>
 
           {/* AI Chat Mockup */}
-          <div className="flex justify-center items-center">
+          <div className="flex justify-end items-center">
             <div className="relative">
               <div className="w-80 h-[600px] bg-gradient-to-b from-purple-600 to-indigo-700 rounded-3xl p-5 shadow-2xl animate-bounce-slow">
                 <div className="w-full h-full bg-white rounded-2xl p-6 flex flex-direction-column justify-start">
@@ -550,10 +545,6 @@ export default function HomePage() {
                   <span>Start Your Free Trial</span>
                   <ArrowRight className="h-5 w-5" />
                 </Link>
-
-                <p className="text-center text-gray-500 text-sm mt-4">
-                  No credit card required for trial
-                </p>
               </div>
             </div>
           </div>
@@ -678,9 +669,7 @@ export default function HomePage() {
               View Full Pricing
             </Link>
           </div>
-          <p className="text-sm mt-6 opacity-70">
-            No credit card required • Cancel anytime
-          </p>
+          <p className="text-sm mt-6 opacity-70">Cancel anytime</p>
         </div>
       </section>
 
@@ -717,9 +706,9 @@ export default function HomePage() {
                   className="text-gray-300 text-xs leading-relaxed"
                   style={{ fontFamily: "var(--font-inter)" }}
                 >
-                  <strong>Disclaimer:</strong> Lily Heart AI (lilyheart.ai) is an
-                  AI mental wellness tool, not a licensed therapist or medical
-                  service. It does not offer diagnosis, treatment, or
+                  <strong>Disclaimer:</strong> Lily Heart AI (lilyheart.ai) is
+                  an AI mental wellness tool, not a licensed therapist or
+                  medical service. It does not offer diagnosis, treatment, or
                   professional mental health advice. For emergencies, contact
                   local crisis services.
                 </p>

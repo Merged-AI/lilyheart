@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, UserPlus, AlertCircle, Loader2 } from "lucide-react";
 import Modal from "./Modal";
+import { apiCall } from "@/lib/api";
 
 interface ChatModeModalProps {
   isOpen: boolean;
@@ -59,9 +60,7 @@ export default function ChatModeModal({
 
     try {
       // First check subscription status
-      const subscriptionResponse = await fetch(
-        "/api/stripe/subscription-status"
-      );
+      const subscriptionResponse = await apiCall("/stripe/subscription-status");
 
       if (subscriptionResponse.ok) {
         const subscriptionData = await subscriptionResponse.json();
@@ -69,12 +68,12 @@ export default function ChatModeModal({
         // Calculate subscription status from the response data
         const hasActiveSubscription =
           // subscriptionData.hasSubscription &&
-          (subscriptionData.subscription?.status === "active" ||
-            subscriptionData.family?.subscription_status === "active");
+          subscriptionData.subscription?.status === "active" ||
+          subscriptionData.family?.subscription_status === "active";
         const isTrialing =
           // subscriptionData.hasSubscription &&
-          (subscriptionData.subscription?.status === "trialing" ||
-            subscriptionData.family?.subscription_status === "trialing");
+          subscriptionData.subscription?.status === "trialing" ||
+          subscriptionData.family?.subscription_status === "trialing";
         const trialEnded = subscriptionData.family?.trial_ends_at
           ? new Date(subscriptionData.family.trial_ends_at) < new Date() &&
             !hasActiveSubscription
@@ -83,7 +82,9 @@ export default function ChatModeModal({
         // Check if subscription is required
         if (
           // !hasActiveSubscription &&
-           !isTrialing) {
+          subscriptionData.subscription?.status !== "active" &&
+          !isTrialing
+        ) {
           setProfileModalConfig({
             title: "Subscription Required",
             message:
@@ -95,7 +96,7 @@ export default function ChatModeModal({
               onClick: () => {
                 setShowProfileModal(false);
                 onClose();
-                router.push("/profile");
+                router.push("/account");
               },
             },
           });
@@ -107,11 +108,8 @@ export default function ChatModeModal({
       }
 
       // Then check profile
-      const response = await fetch(
-        `/api/profile-check${childId ? `?childId=${childId}` : ""}`,
-        {
-          method: "GET",
-        }
+      const response = await apiCall(
+        `/profile-check${childId ? `?childId=${childId}` : ""}`
       );
 
       if (response.status === 422) {

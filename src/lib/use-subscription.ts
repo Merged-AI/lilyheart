@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { apiCall } from './api';
 
 interface SubscriptionInfo {
   hasSubscription: boolean;
@@ -47,7 +48,7 @@ export function useSubscription(): UseSubscriptionReturn {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch("/api/stripe/subscription-status");
+      const response = await apiCall("/stripe/subscription-status");
 
       if (!response.ok) {
         throw new Error("Failed to fetch subscription information");
