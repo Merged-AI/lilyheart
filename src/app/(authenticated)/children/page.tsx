@@ -107,22 +107,22 @@ export default function ChildrenManagementPage() {
     <>
       {/* Header */}
       <div className="px-6 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1
-              className="text-2xl font-bold text-gray-900"
+              className="text-xl sm:text-2xl font-bold text-gray-900"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
               Child Management
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
               Manage your children's profiles and view their progress
             </p>
           </div>
           <button
             onClick={handleAddChild}
             disabled={children.length >= 3}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 text-base flex-shrink-0 w-fit ml-auto ${
               children.length >= 3
                 ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                 : "bg-purple-600 text-white hover:bg-purple-700"
@@ -133,7 +133,7 @@ export default function ChildrenManagementPage() {
                 : "Add Child"
             }
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
             <span>Add Child</span>
           </button>
         </div>
@@ -287,8 +287,8 @@ export default function ChildrenManagementPage() {
           </p>
           <p className="text-gray-700">
             Are you sure you want to delete{" "}
-            <strong>{childToDelete?.name}</strong>? This will permanently
-            remove their profile and all associated data.
+            <strong>{childToDelete?.name}</strong>? This will permanently remove
+            their profile and all associated data.
           </p>
         </div>
       </Modal>

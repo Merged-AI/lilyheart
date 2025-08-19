@@ -107,7 +107,7 @@ export default function ChildMentalHealthDashboard({
                   <Brain className="w-6 h-6 text-white" />
                 </div>
                 <h2
-                  className="text-2xl font-semibold text-gray-900"
+                  className="text-xl lg:text-2xl font-semibold text-gray-900"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 >
                   This Week's Key Insight
@@ -165,7 +165,7 @@ export default function ChildMentalHealthDashboard({
                   <TrendingUp className="w-6 h-6 text-white" />
                 </div>
                 <h2
-                  className="text-2xl font-semibold text-gray-900"
+                  className="text-xl lg:text-2xl font-semibold text-gray-900"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 >
                   Your Action Plan This Week
@@ -245,7 +245,7 @@ export default function ChildMentalHealthDashboard({
                 <Heart className="w-6 h-6 text-white" />
               </div>
               <h2
-                className="text-2xl font-semibold text-gray-900"
+                className="text-xl lg:text-2xl font-semibold text-gray-900"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
                 Progress This Week

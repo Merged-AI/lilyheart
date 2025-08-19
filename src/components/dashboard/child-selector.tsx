@@ -101,7 +101,7 @@ export function ChildSelector({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-white rounded-lg p-2 border border-gray-200 hover:border-purple-300 transition-colors w-full min-w-48"
+        className="bg-white rounded-lg p-2 border border-gray-200 hover:border-purple-300 transition-colors w-full min-w-40"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">

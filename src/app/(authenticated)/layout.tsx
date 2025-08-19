@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Header from "@/components/common/Header";
 import Sidebar from "@/components/common/Sidebar";
@@ -14,7 +15,9 @@ interface AuthenticatedLayoutProps {
 function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, selectedChildId, setSelectedChildId } = useAuth();
+  const { isAuthenticated, isLoading, selectedChildId, setSelectedChildId } =
+    useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Check if current path is chat page, chat sessions page, or session lock page
   const isChatPage = pathname === "/chat";
@@ -29,6 +32,14 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
   const handleEditChild = (childId: string) => {
     // Navigate to the child edit page using Next.js router
     router.push(`/children/add?childId=${childId}`);
+  };
+
+  const handleSidebarToggle = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const handleSidebarClose = () => {
+    setIsSidebarOpen(false);
   };
 
   // Loading state
@@ -63,22 +74,21 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
   // For chat sessions page, include header and sidebar but no session lock guard (parents can access)
   if (isChatSessionsPage) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-        <Sidebar selectedChildId={selectedChildId} />
+      <div className="block min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+        <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} />
 
         {/* Main content with sidebar offset */}
-        <div className="lg:pl-64">
+        <div>
           <Header
             variant="dashboard"
             selectedChildId={selectedChildId}
             onChildSelect={handleChildSelect}
             onEditChild={handleEditChild}
+            onSidebarToggle={handleSidebarToggle}
           />
 
           {/* Page content */}
-          <main>
-            {children}
-          </main>
+          <main>{children}</main>
         </div>
       </div>
     );
@@ -86,9 +96,9 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
 
   // For other pages, include header and sidebar
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="block min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <SessionLockGuard />
-      <Sidebar selectedChildId={selectedChildId} />
+      <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} />
 
       {/* Main content with sidebar offset */}
       <div className="lg:pl-64">
@@ -97,18 +107,19 @@ function AuthenticatedLayoutContent({ children }: AuthenticatedLayoutProps) {
           selectedChildId={selectedChildId}
           onChildSelect={handleChildSelect}
           onEditChild={handleEditChild}
+          onSidebarToggle={handleSidebarToggle}
         />
 
         {/* Page content */}
-        <main>
-          {children}
-        </main>
+        <main>{children}</main>
       </div>
     </div>
   );
 }
 
-export default function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
+export default function AuthenticatedLayout({
+  children,
+}: AuthenticatedLayoutProps) {
   return (
     <AuthProvider>
       <SessionLockProvider>
@@ -116,4 +127,4 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
       </SessionLockProvider>
     </AuthProvider>
   );
-} 
+}

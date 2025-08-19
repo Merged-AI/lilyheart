@@ -1131,29 +1131,33 @@ function ChatContent() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-lg shadow-sm border-b border-purple-200">
         <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center animate-mental-health-pulse">
-                <Brain className="h-7 w-7 text-white" />
+          <div className="flex items-center justify-between gap-3">
+            {/* Left side - AI Info */}
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center animate-mental-health-pulse flex-shrink-0">
+                <Brain className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h1
-                  className="text-xl font-bold text-purple-800"
+                  className="text-base sm:text-lg lg:text-xl font-bold text-purple-800 truncate"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 >
                   Dr. Emma AI
                 </h1>
-                <p className="text-sm text-purple-600">
+                <p className="text-xs sm:text-sm text-purple-600 truncate">
                   Your Safe Space to Talk
                 </p>
               </div>
+            </div>
+
+            {/* Status indicators - desktop only */}
+            <div className="hidden lg:flex items-center space-x-3">
               <div className="flex items-center space-x-2 bg-green-100 px-3 py-1 rounded-full">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-xs font-medium text-green-700">
                   Online & Listening
                 </span>
               </div>
-              {/* Mode Indicator */}
               <div className="flex items-center space-x-2 bg-blue-100 px-3 py-1 rounded-full">
                 {chatMode === "voice" ? (
                   <svg
@@ -1185,52 +1189,67 @@ function ChatContent() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-purple-700">
-                    Session Time
-                  </p>
-                  <p className="text-lg font-bold text-purple-900">
-                    {formatTime(sessionDuration)}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={endSession}
-                    disabled={isEndingSession}
-                    className={`${
-                      isEndingSession
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-red-500 hover:bg-red-600"
-                    } text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2`}
-                  >
-                    {isEndingSession ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <LogOut className="h-4 w-4" />
-                    )}
-                    <span>{isEndingSession ? "Ending..." : "End Session"}</span>
-                  </button>
-                </div>
+            {/* Right side - Session Info and End Button */}
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-medium text-purple-700">
+                  Session Time
+                </p>
+                <p className="text-sm lg:text-base font-bold text-purple-900">
+                  {formatTime(sessionDuration)}
+                </p>
               </div>
+              <button
+                onClick={endSession}
+                disabled={isEndingSession}
+                className={`${
+                  isEndingSession
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-red-500 hover:bg-red-600"
+                } text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center space-x-1 sm:space-x-2 text-sm flex-shrink-0`}
+              >
+                {isEndingSession ? (
+                  <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                ) : (
+                  <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {isEndingSession ? "Ending..." : "End Session"}
+                </span>
+                <span className="sm:hidden">End</span>
+              </button>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Mobile Session Time - Below Header */}
+      <div className="sm:hidden bg-purple-50/50 border-b border-purple-100">
+        <div className="max-w-4xl mx-auto px-6 py-3">
+          <div className="text-center">
+            <p className="text-xs font-medium text-purple-700">Session Time</p>
+            <p className="text-lg font-bold text-purple-900">
+              {formatTime(sessionDuration)}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Chat Area */}
       <div className="max-w-4xl mx-auto px-6 py-6">
         <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-xl border border-purple-200 overflow-hidden">
           {/* Safety Notice */}
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 px-6 py-3 border-b border-purple-100">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center space-x-2">
-                <Shield className="h-4 w-4 text-purple-600" />
-                <span className="text-purple-700 font-medium">Safe Space:</span>
-                <span className="text-purple-600">
-                  Everything you share is private and secure. Dr. Emma is here
-                  to help! 💜
-                </span>
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 px-4 sm:px-6 py-3 border-b border-purple-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 text-sm">
+              <div className="flex items-start sm:items-center space-x-2">
+                <Shield className="h-4 w-4 text-purple-600 flex-shrink-0 mt-0.5 sm:mt-0" />
+                <div className="min-w-0">
+                  <span className="text-purple-700 font-medium">Safe Space:</span>
+                  <span className="text-purple-600 ml-1">
+                    Everything you share is private and secure. Dr. Emma is here
+                    to help! 💜
+                  </span>
+                </div>
               </div>
               <div className="flex items-center space-x-2 text-xs">
                 <Lock className="h-3 w-3 text-purple-600" />
@@ -1481,7 +1500,7 @@ function ChatContent() {
                     💜 Dr. Emma listens without judgment and keeps everything
                     private
                   </p>
-                  <p>Press Enter to send</p>
+                  <p className="hidden sm:block">Press Enter to send</p>
                 </div>
               </>
             )}

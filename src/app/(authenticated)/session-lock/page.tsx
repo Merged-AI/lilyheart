@@ -133,7 +133,7 @@ export default function SessionLockPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl">
+      <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="bg-purple-100 rounded-full p-4 w-20 h-20 mx-auto mb-4 flex items-center justify-center">
@@ -151,7 +151,7 @@ export default function SessionLockPage() {
         {/* AI-Generated Session Summary */}
         <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-5 mb-6">
           <div className="flex items-center space-x-2 mb-4">
-            <Star className="h-5 w-5 text-green-600" />
+            <Star className="h-5 w-5 text-green-600 min-w-5" />
             <h3 className="font-semibold text-green-800">
               Great session! Here's what we learned about{" "}
               {selectedChild?.name || "your child"}
@@ -192,7 +192,7 @@ export default function SessionLockPage() {
                               key={index}
                               className="flex items-start space-x-1"
                             >
-                              <span className="text-blue-600 mt-0.5">•</span>
+                              <span className="text-blue-600">•</span>
                               <span>{insight}</span>
                             </li>
                           )
@@ -218,7 +218,7 @@ export default function SessionLockPage() {
                               key={index}
                               className="flex items-start space-x-1"
                             >
-                              <span className="text-purple-600 mt-0.5">•</span>
+                              <span className="text-purple-600">•</span>
                               <span>{strategy}</span>
                             </li>
                           )

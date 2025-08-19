@@ -1,17 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, Home, MessageCircle, User, Menu, X, Lock } from "lucide-react";
+import { Brain, Home, User, Lock } from "lucide-react";
 
 interface SidebarProps {
-  selectedChildId?: string;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function Sidebar({ selectedChildId }: SidebarProps) {
+export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const navigationItems = [
     {
@@ -56,37 +55,24 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={() => setIsMobileOpen(!isMobileOpen)}
-          className="p-2 rounded-lg bg-white shadow-lg border border-gray-200"
-        >
-          {isMobileOpen ? (
-            <X className="h-6 w-6 text-gray-600" />
-          ) : (
-            <Menu className="h-6 w-6 text-gray-600" />
-          )}
-        </button>
-      </div>
-
       {/* Mobile sidebar overlay */}
-      {isMobileOpen && (
+      {isOpen && (
         <div className="lg:hidden fixed inset-0 z-40">
           <div
             className="fixed inset-0 bg-gray-600 bg-opacity-75"
-            onClick={() => setIsMobileOpen(false)}
+            onClick={onClose}
           />
         </div>
       )}
 
       {/* Sidebar */}
       <div
-        className={`lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:z-50 lg:bg-white lg:border-r lg:border-gray-200 transform transition-transform duration-300 ease-in-out ${
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0`}
+        className={`fixed top-0 left-0 h-screen w-64 z-50 bg-white border-r border-gray-200 h-full
+          transform transition-transform duration-300 ease-in-out
+          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0 lg:block`}
       >
-        <div className="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto">
+        <div className="flex flex-col flex-grow pt-6 pb-4">
           {/* Logo and brand */}
           <div className="flex items-center flex-shrink-0 px-4">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
@@ -109,7 +95,7 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="mt-8 flex-1 px-4 space-y-2">
+          <nav className="mt-8 flex-1 px-4 space-y-2 overflow-y-auto">
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = isActiveRoute(item.href);
@@ -123,7 +109,7 @@ export default function Sidebar({ selectedChildId }: SidebarProps) {
                       ? "bg-purple-100 text-purple-700 border border-purple-200"
                       : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                   }`}
-                  onClick={() => setIsMobileOpen(false)}
+                  onClick={onClose}
                 >
                   <Icon
                     className={`mr-3 h-5 w-5 flex-shrink-0 ${
