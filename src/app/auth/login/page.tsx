@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Brain } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -42,8 +42,14 @@ export default function LoginPage() {
         <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Brain className="h-8 w-8 text-white" />
+            <div className="flex items-center justify-center mx-auto mb-2">
+              <Image
+                src="/images/LilyHeart-Logo-FullColor-01.svg"
+                alt="Lily Heart AI Logo"
+                width={160}
+                height={40}
+                className="h-16"
+              />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               Welcome Back

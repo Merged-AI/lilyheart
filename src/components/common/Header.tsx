@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Brain,
   MessageCircle,
   LogOut,
   Menu,
@@ -15,6 +14,7 @@ import {
   Settings,
   CreditCard,
 } from "lucide-react";
+import Image from "next/image";
 import { ChildSelector } from "@/components/dashboard/child-selector";
 import Modal from "@/components/common/Modal";
 import ChatModeModal from "@/components/common/ChatModeModal";
@@ -96,22 +96,14 @@ export default function Header({
         <div className="px-4 sm:px-6 py-2 sm:py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center space-x-3 sm:space-x-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                <Brain className="h-6 w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1
-                  className="text-xl sm:text-2xl font-bold text-gray-900 truncate"
-                  style={{ fontFamily: "var(--font-poppins)" }}
-                >
-                  Lily Heart AI
-                </h1>
-                <p
-                  className="text-xs sm:text-sm text-gray-600 truncate"
-                  style={{ fontFamily: "var(--font-inter)" }}
-                >
-                  Family Communication Coach
-                </p>
+              <div className="flex items-center justify-center flex-shrink-0">
+                <Image
+                  src="/images/LilyHeart-Logo-FullColor-01.svg"
+                  alt="Lily Heart AI Logo"
+                  width={160}
+                  height={40}
+                  className="h-12"
+                />
               </div>
             </Link>
             <Link
@@ -136,12 +128,15 @@ export default function Header({
               href="/"
               className="flex items-center space-x-3 text-white text-xl font-semibold"
             >
-              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-                <Brain className="h-6 w-6 text-purple-600" />
+              <div className="flex items-center justify-center">
+                <Image
+                  src="/images/LilyHeart-Logo-FullColor-01.svg"
+                  alt="Lily Heart AI Logo"
+                  width={140}
+                  height={35}
+                  className="h-12"
+                />
               </div>
-              <span style={{ fontFamily: "var(--font-poppins)" }}>
-                Lily Heart AI
-              </span>
             </Link>
 
             <div className="hidden md:flex items-center space-x-4">
@@ -208,16 +203,14 @@ export default function Header({
             <div className="flex items-center space-x-3">
               {/* Mobile Logo */}
               <div className="lg:hidden flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-                  <Brain className="h-5 w-5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <h1
-                    className="text-base font-bold text-gray-900 truncate"
-                    style={{ fontFamily: "var(--font-poppins)" }}
-                  >
-                    Lily Heart AI
-                  </h1>
+                <div className="flex items-center justify-center">
+                  <Image
+                    src="/images/LilyHeart-Logo-FullColor-01.svg"
+                    alt="Lily Heart AI Logo"
+                    width={120}
+                    height={30}
+                    className="h-12"
+                  />
                 </div>
               </div>
 

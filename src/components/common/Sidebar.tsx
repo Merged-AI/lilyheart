@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, Home, User, Lock } from "lucide-react";
+import { Home, User, Lock } from "lucide-react";
+import Image from "next/image";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -72,30 +73,21 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0 lg:block`}
       >
-        <div className="flex flex-col flex-grow pt-6 pb-4">
+        <div className="flex flex-col flex-grow pt-4 pb-4">
           {/* Logo and brand */}
           <div className="flex items-center flex-shrink-0 px-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-              <Brain className="h-6 w-6 text-white" />
-            </div>
-            <div className="ml-3 min-w-0">
-              <h1
-                className="text-xl font-bold text-gray-900 truncate"
-                style={{ fontFamily: "var(--font-poppins)" }}
-              >
-                Lily Heart AI
-              </h1>
-              <p
-                className="text-xs text-gray-600 truncate"
-                style={{ fontFamily: "var(--font-inter)" }}
-              >
-                Family Communication Coach
-              </p>
+            <div className="flex items-center justify-center">
+              <Image
+                src="/images/LilyHeart-Logo-FullColor-01.svg"
+                alt="Lily Heart AI Logo"
+                width={150}
+                height={50}
+              />
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="mt-8 flex-1 px-4 space-y-2 overflow-y-auto">
+          <nav className="mt-2 flex-1 px-4 space-y-2 overflow-y-auto">
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = isActiveRoute(item.href);
