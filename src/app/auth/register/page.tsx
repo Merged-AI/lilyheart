@@ -1,15 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Brain,
-  ArrowRight,
-  Check,
-  Users,
-  Clock,
-  CheckCircle,
-} from "lucide-react";
+import { ArrowRight, Check, Users, Clock, CheckCircle } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import PaymentForm from "@/components/payment/payment-form";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/api";
@@ -135,19 +129,17 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                <Brain className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
-                  Lily Heart AI
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                  Family Communication Coach
-                </p>
+              <div className="flex items-center justify-center flex-shrink-0">
+                <Image
+                  src="/images/LilyHeart-Logo-FullColor-01.svg"
+                  alt="Lily Heart AI Logo"
+                  width={120}
+                  height={40}
+                  className="h-8 sm:h-12"
+                />
               </div>
             </div>
             <Link

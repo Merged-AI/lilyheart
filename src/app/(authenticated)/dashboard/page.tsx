@@ -518,7 +518,7 @@ export default function ParentDashboard() {
         </div>
 
         {/* Simple Streak Display */}
-        {dashboardStats.checkInStreak.currentStreak > 0 && (
+        {dashboardStats.checkInStreak.currentStreak > 1 && (
           <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
             <div className="flex items-center space-x-3">
               <Calendar className="h-5 w-5 text-green-600" />
