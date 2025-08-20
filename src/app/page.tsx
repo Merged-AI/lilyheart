@@ -78,44 +78,33 @@ export default function HomePage() {
     <div className="min-h-screen bg-white overflow-hidden">
       {/* Header */}
       <header className="bg-gradient-to-r from-purple-600 to-blue-600 sticky top-0 z-50 backdrop-blur-lg">
-        <nav className="max-w-[1400px] mx-auto flex justify-between items-center py-4 px-6">
+        <nav className="max-w-[1400px] mx-auto flex justify-between items-center py-3 sm:py-4 px-4 sm:px-6">
           <Link
             href="/"
-            className="flex items-center space-x-3 text-white text-xl font-semibold"
+            className="flex items-center space-x-2 sm:space-x-3 text-white text-lg sm:text-xl font-semibold min-w-0 flex-shrink-0"
           >
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <Brain className="h-6 w-6 text-purple-600" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center">
+              <Brain className="h-4 w-4 sm:h-6 sm:w-6 text-purple-600" />
             </div>
-            <span style={{ fontFamily: "var(--font-poppins)" }}>
+            <span 
+              className="truncate" 
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
               Lily Heart AI
             </span>
           </Link>
 
-          <div className="hidden md:flex items-center space-x-8">
-            <Link
-              href="#how-it-works"
-              className="text-white hover:opacity-80 transition-opacity font-medium"
-            >
-              How It Works
-            </Link>
-            <Link
-              href="#pricing"
-              className="text-white hover:opacity-80 transition-opacity font-medium"
-            >
-              Pricing
-            </Link>
-          </div>
-
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
             <Link
               href="/auth/register"
-              className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-full font-semibold hover:transform hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300"
+              className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 sm:px-6 py-2 rounded-full font-semibold hover:transform hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 text-sm sm:text-base whitespace-nowrap"
             >
-              Start Free Trial
+              <span className="hidden sm:inline">Start Free Trial</span>
+              <span className="sm:hidden">Try Free</span>
             </Link>
             <Link
               href="/auth/login"
-              className="bg-white text-purple-600 px-6 py-2 rounded-full font-semibold hover:transform hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300"
+              className="bg-white text-purple-600 px-3 sm:px-6 py-2 rounded-full font-semibold hover:transform hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 text-sm sm:text-base whitespace-nowrap"
             >
               Sign In
             </Link>
@@ -130,11 +119,11 @@ export default function HomePage() {
           <div className="absolute -top-1/2 -right-1/4 w-full h-[200%] bg-gradient-to-br from-purple-100/30 to-blue-100/30 rounded-full animate-pulse-slow transform rotate-12"></div>
         </div>
 
-        <div className="max-w-[1400px] mx-auto px-12 py-16 grid grid-cols-1 lg:grid-cols-3 gap-12 items-center relative z-10">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 py-8 sm:py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-center relative z-10">
           {/* Hero Content */}
-          <div className="space-y-8 col-span-2">
+          <div className="space-y-6 lg:space-y-8 col-span-1 lg:col-span-2 text-center lg:text-left">
             <h1
-              className="text-5xl lg:text-6xl font-bold leading-tight"
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
               Family Communication{" "}
@@ -144,7 +133,7 @@ export default function HomePage() {
             </h1>
 
             <p
-              className="text-xl text-gray-600 max-w-2xl"
+              className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto lg:mx-0"
               style={{ fontFamily: "var(--font-inter)" }}
             >
               AI-powered emotional support that helps your family build better
@@ -152,57 +141,60 @@ export default function HomePage() {
               emotional growth.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
               <Link
                 href="/auth/register"
-                className="group bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-2xl flex items-center justify-center gap-2"
+                className="group bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-2xl flex items-center justify-center gap-2"
               >
                 Start Free Trial
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
                 href="#pricing"
-                className="group bg-white border-2 border-purple-600 text-purple-600 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-2xl flex items-center justify-center gap-2"
+                className="group bg-white border-2 border-purple-600 text-purple-600 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-2xl flex items-center justify-center gap-2"
               >
                 View Pricing
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
 
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 text-center lg:text-left">
               ✨ 7-day free trial • Cancel anytime
             </p>
 
             {/* Trust Badges */}
-            <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+            <div className="flex flex-wrap gap-3 sm:gap-4 text-sm text-gray-500 justify-center lg:justify-start">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                HIPAA Compliant
+                <span className="hidden sm:inline">HIPAA Compliant</span>
+                <span className="sm:hidden">HIPAA</span>
               </div>
               <div className="flex items-center gap-2">
                 <Lock className="h-4 w-4" />
-                End-to-End Encrypted
+                <span className="hidden sm:inline">End-to-End Encrypted</span>
+                <span className="sm:hidden">Encrypted</span>
               </div>
               <div className="flex items-center gap-2">
                 <Heart className="h-4 w-4" />
-                Child Safety First
+                <span className="hidden sm:inline">Child Safety First</span>
+                <span className="sm:hidden">Safe</span>
               </div>
             </div>
           </div>
 
           {/* AI Chat Mockup */}
-          <div className="flex justify-end items-center">
+          <div className="flex justify-center lg:justify-end items-center order-first lg:order-last">
             <div className="relative">
-              <div className="w-80 h-[600px] bg-gradient-to-b from-purple-600 to-indigo-700 rounded-3xl p-5 shadow-2xl animate-bounce-slow">
-                <div className="w-full h-full bg-white rounded-2xl p-6 flex flex-direction-column justify-start">
-                  <div className="space-y-4">
+              <div className="w-64 h-[450px] sm:w-72 sm:h-[500px] lg:w-80 lg:h-[600px] bg-gradient-to-b from-purple-600 to-indigo-700 rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-5 shadow-xl lg:shadow-2xl animate-bounce-slow">
+                <div className="w-full h-full bg-white rounded-xl lg:rounded-2xl p-4 lg:p-6 flex flex-direction-column justify-start">
+                  <div className="space-y-3 lg:space-y-4">
                     {/* AI Therapist Header */}
-                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                        <Brain className="h-6 w-6 text-white" />
+                    <div className="flex items-center gap-2 lg:gap-3 pb-3 lg:pb-4 border-b border-gray-100">
+                      <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                        <Brain className="h-4 w-4 lg:h-6 lg:w-6 text-white" />
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-800">
+                        <p className="font-semibold text-gray-800 text-sm lg:text-base">
                           Dr. Emma AI
                         </p>
                         <p className="text-xs text-green-500">● Online</p>
@@ -211,48 +203,52 @@ export default function HomePage() {
 
                     {/* Chat Messages */}
                     <div className="flex justify-start">
-                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white p-3 rounded-2xl rounded-tl-md max-w-[80%] text-sm">
+                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white p-2 lg:p-3 rounded-xl lg:rounded-2xl rounded-tl-sm lg:rounded-tl-md max-w-[80%] text-xs lg:text-sm">
                         "Hi there! I'm Dr. Emma. How are you feeling today?"
                       </div>
                     </div>
 
                     <div className="flex justify-end">
-                      <div className="bg-gray-100 text-gray-800 p-3 rounded-2xl rounded-tr-md max-w-[80%] text-sm">
+                      <div className="bg-gray-100 text-gray-800 p-2 lg:p-3 rounded-xl lg:rounded-2xl rounded-tr-sm lg:rounded-tr-md max-w-[80%] text-xs lg:text-sm">
                         "I had a tough day at school..."
                       </div>
                     </div>
 
                     <div className="flex justify-start">
-                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white p-3 rounded-2xl rounded-tl-md max-w-[80%] text-sm">
+                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white p-2 lg:p-3 rounded-xl lg:rounded-2xl rounded-tl-sm lg:rounded-tl-md max-w-[80%] text-xs lg:text-sm">
                         "I'm sorry to hear that. Would you like to tell me what
                         happened?"
                       </div>
                     </div>
 
                     <div className="flex justify-end">
-                      <div className="bg-gray-100 text-gray-800 p-3 rounded-2xl rounded-tr-md max-w-[80%] text-sm">
+                      <div className="bg-gray-100 text-gray-800 p-2 lg:p-3 rounded-xl lg:rounded-2xl rounded-tr-sm lg:rounded-tr-md max-w-[80%] text-xs lg:text-sm">
                         "Some kids were being mean to me 😢"
                       </div>
                     </div>
 
                     {/* Mood Analysis Indicator */}
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-xs">
-                      <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp className="h-4 w-4 text-orange-500" />
-                        <span className="font-medium text-orange-700">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 lg:p-3 text-xs">
+                      <div className="flex items-center gap-2 mb-1 lg:mb-2">
+                        <TrendingUp className="h-3 w-3 lg:h-4 lg:w-4 text-orange-500" />
+                        <span className="font-medium text-orange-700 text-xs">
                           Mood Analysis
                         </span>
                       </div>
                       <div className="space-y-1">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Sadness:</span>
-                          <span className="text-orange-600 font-medium">
+                          <span className="text-gray-600 text-xs">
+                            Sadness:
+                          </span>
+                          <span className="text-orange-600 font-medium text-xs">
                             75%
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Stress:</span>
-                          <span className="text-red-600 font-medium">60%</span>
+                          <span className="text-gray-600 text-xs">Stress:</span>
+                          <span className="text-red-600 font-medium text-xs">
+                            60%
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -355,7 +351,7 @@ export default function HomePage() {
           >
             How Lily Heart AI Works
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
                 step: "1",

@@ -135,26 +135,27 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-                <Brain className="h-6 w-6 text-white" />
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <Brain className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
                   Lily Heart AI
                 </h1>
-                <p className="text-sm text-gray-600">
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
                   Family Communication Coach
                 </p>
               </div>
             </div>
             <Link
               href="/"
-              className="text-purple-600 hover:text-purple-700 font-medium"
+              className="text-purple-600 hover:text-purple-700 font-medium text-sm sm:text-base whitespace-nowrap flex-shrink-0 ml-2 sm:ml-4"
             >
-              ← Back to Home
+              <span className="hidden sm:inline">← Back to Home</span>
+              <span className="sm:hidden">← Home</span>
             </Link>
           </div>
         </div>
@@ -162,7 +163,29 @@ export default function RegisterPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <div className="flex items-center justify-center space-x-4 md:space-x-8">
+          {/* Mobile Progress Bar */}
+          <div className="sm:hidden mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">
+                Step {step} of 4
+              </span>
+              <span className="text-sm text-gray-500">
+                {step === 1 && "Account Setup"}
+                {step === 2 && "Payment"}
+                {step === 3 && "Success"}
+                {step === 4 && "PIN Setup"}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(step / 4) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Desktop Step Indicator */}
+          <div className="hidden sm:flex items-center justify-center space-x-2 md:space-x-4 lg:space-x-8">
             <div
               className={`flex items-center space-x-2 ${
                 step >= 1 ? "text-purple-600" : "text-gray-400"
@@ -175,7 +198,7 @@ export default function RegisterPage() {
               >
                 1
               </div>
-              <span className="font-medium text-sm md:text-base">
+              <span className="font-medium text-sm md:text-base whitespace-nowrap">
                 Account & Family
               </span>
             </div>
@@ -192,7 +215,7 @@ export default function RegisterPage() {
               >
                 2
               </div>
-              <span className="font-medium text-sm md:text-base">
+              <span className="font-medium text-sm md:text-base whitespace-nowrap">
                 Payment & Trial
               </span>
             </div>
@@ -209,7 +232,9 @@ export default function RegisterPage() {
               >
                 3
               </div>
-              <span className="font-medium text-sm md:text-base">Success</span>
+              <span className="font-medium text-sm md:text-base whitespace-nowrap">
+                Success
+              </span>
             </div>
             <ArrowRight className="h-4 w-4 text-gray-400" />
             <div
@@ -224,7 +249,7 @@ export default function RegisterPage() {
               >
                 4
               </div>
-              <span className="font-medium text-sm md:text-base">
+              <span className="font-medium text-sm md:text-base whitespace-nowrap">
                 PIN Setup
               </span>
             </div>

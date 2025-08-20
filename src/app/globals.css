@@ -193,7 +193,8 @@ html {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 8px;   /* Vertical scrollbar */
+  height: 8px;  /* Horizontal scrollbar */
 }
 
 ::-webkit-scrollbar-track {
