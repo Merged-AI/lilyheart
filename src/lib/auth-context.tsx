@@ -32,6 +32,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   family: Family | null;
+  hasPinSetup: boolean;
   selectedChildId: string;
   setSelectedChildId: (childId: string) => void;
   checkAuthentication: () => Promise<void>;
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [family, setFamily] = useState<Family | null>(null);
+  const [hasPinSetup, setHasPinSetup] = useState(false);
   const [selectedChildId, setSelectedChildId] = useState<string>("");
 
   const checkAuthentication = async () => {
@@ -64,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           age: number;
           current_concerns?: string;
         }>;
+        hasPinSetup: boolean;
       }>("auth/me");
 
       // Merge children into family object
@@ -72,7 +75,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         children: data.children || [],
       };
       setFamily(familyWithChildren);
+      setHasPinSetup(data.hasPinSetup);
       setIsAuthenticated(true);
+
+      // Check if PIN setup is required and redirect if needed
+      if (!data.hasPinSetup && pathname !== "/pin-setup") {
+        router.push("/pin-setup");
+        return;
+      }
 
       // Auto-select first child if available and no child is selected
       if (data.children && data.children.length > 0 && !selectedChildId) {
@@ -83,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       removeAuthToken();
       setIsAuthenticated(false);
       setFamily(null);
+      setHasPinSetup(false);
       // Only redirect to register if user is on a protected route
       if (
         !pathname.startsWith("/auth/") &&
@@ -136,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       removeAuthToken();
       setIsAuthenticated(false);
       setFamily(null);
+      setHasPinSetup(false);
       setSelectedChildId("");
       router.push("/");
     }
@@ -149,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated,
     isLoading,
     family,
+    hasPinSetup,
     selectedChildId,
     setSelectedChildId,
     checkAuthentication,

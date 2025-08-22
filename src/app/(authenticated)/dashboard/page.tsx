@@ -82,27 +82,6 @@ export default function ParentDashboard() {
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState<boolean>(false);
   const [hasAnalyticsError, setHasAnalyticsError] = useState<boolean>(false);
 
-  // Check if user has set up their PIN
-  useEffect(() => {
-    const checkPinSetup = async () => {
-      try {
-        await apiGet("auth/pin");
-      } catch (error: any) {
-        // If error message indicates PIN not found, redirect to setup
-        if (
-          error.message?.includes("404") ||
-          error.message?.includes("not found")
-        ) {
-          router.push("/pin-setup");
-        } else {
-          console.error("Error checking PIN setup:", error);
-        }
-      }
-    };
-
-    checkPinSetup();
-  }, [router]);
-
   useEffect(() => {
     if (family && selectedChildId) {
       // Clear previous child's data immediately when switching children
