@@ -10,6 +10,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { CreditCard, Lock, AlertCircle, CheckCircle } from "lucide-react";
 import { apiPost } from "@/lib/api";
+import { setAuthToken } from "@/lib/auth-storage";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -98,10 +99,11 @@ function PaymentFormContent({
       }
     } catch (err: any) {
       console.error("Subscription creation error:", err);
-      
+
       // Handle specific error for existing user
-      if (err.message && err.message.includes('already exists')) {
-        const errorMessage = 'An account with this email already exists. Please log in instead.';
+      if (err.message && err.message.includes("already exists")) {
+        const errorMessage =
+          "An account with this email already exists. Please log in instead.";
         setError(errorMessage);
         onError(errorMessage);
       } else {
@@ -135,13 +137,17 @@ function PaymentFormContent({
           password: familyData.password,
         });
 
-        if (loginResult) {
+        if (loginResult && loginResult.success && loginResult.token) {
+          // Store the authentication token
+          setAuthToken(loginResult.token);
+
           onSuccess({
             subscriptionId: subscriptionId,
             email: email,
             status: "trialing",
             userId: userData.userId,
             familyId: userData.familyId,
+            token: loginResult.token,
           });
         } else {
           console.error("Auto-login failed, but user was created");
@@ -276,10 +282,10 @@ function PaymentFormContent({
             <div>
               <p className="text-red-700 text-sm font-medium">Payment Error</p>
               <p className="text-red-600 text-sm">{error}</p>
-              {error.includes('already exists') && (
+              {error.includes("already exists") && (
                 <div className="mt-2">
-                  <a 
-                    href="/auth/login" 
+                  <a
+                    href="/auth/login"
                     className="text-purple-600 hover:text-purple-700 font-medium text-sm underline"
                   >
                     Go to Login Page

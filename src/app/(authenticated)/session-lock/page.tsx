@@ -34,28 +34,10 @@ export default function SessionLockPage() {
           childId: selectedChildId,
         });
         setSessionInsights(response.insights);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching session insights:", error);
-        // Use fallback insights if API fails
-        setSessionInsights({
-          main_achievement: `${
-            selectedChild?.name || "Your child"
-          } engaged meaningfully in today's session and worked on emotional awareness.`,
-          key_insights: [
-            "Showed openness to discussing feelings and emotions",
-            "Demonstrated willingness to learn new coping strategies",
-          ],
-          coping_strategies: [
-            "Deep breathing techniques for managing stress",
-            "Positive self-talk strategies",
-          ],
-          parent_note:
-            "Continue encouraging open emotional expression at home.",
-          emotional_highlights: [
-            "Expressed feelings clearly and thoughtfully",
-            "Showed curiosity about emotional management tools",
-          ],
-        });
+        // No fallback insights - just set to null for any error
+        setSessionInsights(null);
       } finally {
         setIsLoadingInsights(false);
       }
@@ -242,8 +224,15 @@ export default function SessionLockPage() {
               )}
             </div>
           ) : (
-            <div className="text-gray-600 text-sm">
-              Session insights are being generated...
+            <div className="flex items-start space-x-3">
+              <Brain className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <div className="text-gray-600 text-sm">
+                <p className="font-medium mb-1">No session insights available</p>
+                <p className="text-xs">
+                  The latest session didn't contain enough conversation data to generate meaningful insights. 
+                  Insights will be available after your child has a more interactive session.
+                </p>
+              </div>
             </div>
           )}
         </div>

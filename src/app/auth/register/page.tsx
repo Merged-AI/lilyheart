@@ -7,9 +7,11 @@ import Image from "next/image";
 import PaymentForm from "@/components/payment/payment-form";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { checkAuthentication } = useAuth();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     parentName: "",
@@ -114,12 +116,26 @@ export default function RegisterPage() {
     }
   };
 
-  const handlePaymentSuccess = (result: any) => {
+  const handlePaymentSuccess = async (result: any) => {
     // Payment setup successful, show success page then redirect to PIN setup
     setStep(3);
-    setTimeout(() => {
+
+    // If token is provided, user is already authenticated
+    if (result.token) {
+      try {
+        // Trigger auth context to recognize the new authentication state
+        await checkAuthentication();
+      } catch (error) {
+        console.error("Auth check failed after payment success:", error);
+      }
+
       router.push("/pin-setup");
-    }, 3000); // 3 second delay to show success message
+    } else {
+      // Longer delay for manual login cases
+      setTimeout(() => {
+        router.push("/pin-setup");
+      }, 3000); // 3 second delay to show success message
+    }
   };
 
   const handlePaymentError = (error: string) => {

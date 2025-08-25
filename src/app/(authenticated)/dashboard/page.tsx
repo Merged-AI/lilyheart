@@ -398,101 +398,133 @@ export default function ParentDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           {/* Today's Mood */}
           <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Latest Mood
-                </p>
-                <p
-                  className={`text-xl font-semibold mt-1 capitalize ${dashboardStats.todaysMood.color}`}
+            {isLoadingAnalytics ? (
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-16 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-24"></div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">
+                    Latest Mood
+                  </p>
+                  <p
+                    className={`text-xl font-semibold mt-1 capitalize ${dashboardStats.todaysMood.color}`}
+                  >
+                    {dashboardStats.todaysMood.status}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {dashboardStats.todaysMood.trend}
+                  </p>
+                </div>
+                <div
+                  className={`w-12 h-12 ${dashboardStats.todaysMood.bgColor} rounded-lg flex items-center justify-center`}
                 >
-                  {dashboardStats.todaysMood.status}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {dashboardStats.todaysMood.trend}
-                </p>
+                  <Heart
+                    className={`h-5 w-5 ${dashboardStats.todaysMood.color}`}
+                  />
+                </div>
               </div>
-              <div
-                className={`w-12 h-12 ${dashboardStats.todaysMood.bgColor} rounded-lg flex items-center justify-center`}
-              >
-                <Heart
-                  className={`h-5 w-5 ${dashboardStats.todaysMood.color}`}
-                />
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Session Count */}
           <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Sessions This Week
-                </p>
-                <p className="text-xl font-semibold text-blue-600 mt-1">
-                  {dashboardStats.sessionsThisWeek.count}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {dashboardStats.sessionsThisWeek.change}
-                </p>
+            {isLoadingAnalytics ? (
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-28 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-8 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-20"></div>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <MessageCircle className="h-5 w-5 text-blue-600" />
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">
+                    Sessions This Week
+                  </p>
+                  <p className="text-xl font-semibold text-blue-600 mt-1">
+                    {dashboardStats.sessionsThisWeek.count}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {dashboardStats.sessionsThisWeek.change}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <MessageCircle className="h-5 w-5 text-blue-600" />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Emotional Trend */}
           <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Emotional Trend
-                </p>
-                <p
-                  className={`text-xl font-semibold mt-1 capitalize ${dashboardStats.emotionalTrend.color}`}
+            {isLoadingAnalytics ? (
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-20 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-28"></div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">
+                    Emotional Trend
+                  </p>
+                  <p
+                    className={`text-xl font-semibold mt-1 capitalize ${dashboardStats.emotionalTrend.color}`}
+                  >
+                    {dashboardStats.emotionalTrend.status}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {dashboardStats.emotionalTrend.attention}
+                  </p>
+                </div>
+                <div
+                  className={`w-12 h-12 ${dashboardStats.emotionalTrend.bgColor} rounded-lg flex items-center justify-center`}
                 >
-                  {dashboardStats.emotionalTrend.status}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {dashboardStats.emotionalTrend.attention}
-                </p>
+                  {dashboardStats.emotionalTrend.status.includes("positive") ||
+                  dashboardStats.emotionalTrend.status.includes("improving") ? (
+                    <TrendingUp
+                      className={`h-5 w-5 ${dashboardStats.emotionalTrend.color}`}
+                    />
+                  ) : (
+                    <TrendingDown
+                      className={`h-5 w-5 ${dashboardStats.emotionalTrend.color}`}
+                    />
+                  )}
+                </div>
               </div>
-              <div
-                className={`w-12 h-12 ${dashboardStats.emotionalTrend.bgColor} rounded-lg flex items-center justify-center`}
-              >
-                {dashboardStats.emotionalTrend.status.includes("positive") ||
-                dashboardStats.emotionalTrend.status.includes("improving") ? (
-                  <TrendingUp
-                    className={`h-5 w-5 ${dashboardStats.emotionalTrend.color}`}
-                  />
-                ) : (
-                  <TrendingDown
-                    className={`h-5 w-5 ${dashboardStats.emotionalTrend.color}`}
-                  />
-                )}
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Active Concerns */}
           <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Active Concerns
-                </p>
-                <p className="text-xl font-semibold text-purple-600 mt-1">
-                  {dashboardStats.activeConcerns.count}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {dashboardStats.activeConcerns.level}
-                </p>
+            {isLoadingAnalytics ? (
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-6 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-16"></div>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-purple-600" />
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">
+                    Active Concerns
+                  </p>
+                  <p className="text-xl font-semibold text-purple-600 mt-1">
+                    {dashboardStats.activeConcerns.count}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {dashboardStats.activeConcerns.level}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-purple-600" />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

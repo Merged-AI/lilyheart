@@ -36,59 +36,57 @@ export default function ChildMentalHealthDashboard({
   if (isLoading) {
     return (
       <div className="bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="py-4 lg:py-6">
-          <div className="space-y-4 lg:space-y-6">
-            {/* Loading skeleton for main sections */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 lg:p-6">
+        <div className="space-y-4 lg:space-y-6">
+          {/* Loading skeleton for main sections */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 lg:p-6">
+            <div className="animate-pulse">
+              <div className="flex items-center mb-4 lg:mb-6">
+                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-6">
+                <div className="h-6 bg-gray-200 rounded w-full mb-4"></div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                    <div className="h-16 bg-gray-200 rounded"></div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                    <div className="h-16 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 lg:p-6"
+            >
               <div className="animate-pulse">
                 <div className="flex items-center mb-4 lg:mb-6">
                   <div className="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
                   <div className="h-8 bg-gray-200 rounded w-1/3"></div>
                 </div>
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <div className="h-6 bg-gray-200 rounded w-full mb-4"></div>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                      <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
-                      <div className="h-16 bg-gray-200 rounded"></div>
+                <div className="space-y-4">
+                  {Array.from({ length: 3 }).map((_, j) => (
+                    <div
+                      key={j}
+                      className="flex items-start space-x-4 p-5 bg-gray-50 rounded-xl"
+                    >
+                      <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-full"></div>
+                      </div>
                     </div>
-                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                      <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
-                      <div className="h-16 bg-gray-200 rounded"></div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
-
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 lg:p-6"
-              >
-                <div className="animate-pulse">
-                  <div className="flex items-center mb-4 lg:mb-6">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
-                    <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-                  </div>
-                  <div className="space-y-4">
-                    {Array.from({ length: 3 }).map((_, j) => (
-                      <div
-                        key={j}
-                        className="flex items-start space-x-4 p-5 bg-gray-50 rounded-xl"
-                      >
-                        <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-                        <div className="flex-1">
-                          <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                          <div className="h-3 bg-gray-200 rounded w-full"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
     );
@@ -236,6 +234,98 @@ export default function ChildMentalHealthDashboard({
                 </div>
               )}
             </div>
+
+            {/* Areas of Focus - Active Concerns */}
+            {analyticsData?.active_concerns?.identified_concerns?.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 lg:p-6">
+                <div className="flex items-center mb-4 lg:mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center mr-4">
+                    <Target className="w-6 h-6 text-white" />
+                  </div>
+                  <h2
+                    className="text-xl lg:text-2xl font-semibold text-gray-900"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  >
+                    Areas of Focus
+                  </h2>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-gray-600 mb-6">
+                    Based on recent conversations, here are some areas that may benefit from gentle attention and support.
+                  </p>
+
+                  <div className="grid gap-4">
+                    {analyticsData.active_concerns.identified_concerns.map(
+                      (concern: string, index: number) => {
+                        const isPriority = analyticsData.active_concerns.priority_concerns?.includes(concern);
+                        return (
+                          <div
+                            key={index}
+                            className={`p-4 rounded-xl border ${
+                              isPriority 
+                                ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200' 
+                                : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
+                            }`}
+                          >
+                            <div className="flex items-start space-x-3">
+                              <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${
+                                isPriority ? 'bg-red-100' : 'bg-yellow-100'
+                              }`}>
+                                <span className={`text-xs font-bold ${
+                                  isPriority ? 'text-red-600' : 'text-yellow-600'
+                                }`}>
+                                  {isPriority ? '!' : '•'}
+                                </span>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className={`font-medium ${
+                                    isPriority ? 'text-red-800' : 'text-yellow-800'
+                                  }`}>
+                                    {concern}
+                                  </p>
+                                  {isPriority && (
+                                    <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
+                                      Priority
+                                    </span>
+                                  )}
+                                </div>
+                                <p className={`text-sm ${
+                                  isPriority ? 'text-red-700' : 'text-yellow-700'
+                                }`}>
+                                  {isPriority 
+                                    ? "This area may benefit from focused attention and possibly professional guidance."
+                                    : "Keep an eye on this area and continue providing supportive conversations."
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+
+                  {analyticsData.active_concerns.priority_concerns?.length > 0 && (
+                    <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-xs font-bold text-blue-600">💡</span>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-blue-800 mb-2">Gentle Reminder</h4>
+                          <p className="text-sm text-blue-700">
+                            These observations are based on recent conversations and are meant to guide supportive discussions. 
+                            Trust your parental instincts, and consider reaching out to a professional if you have ongoing concerns.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Bottom Section - Progress Tracking */}
